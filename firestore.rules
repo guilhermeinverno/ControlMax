@@ -1,0 +1,308 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Global safety net catch-all - matches everything, defaults to deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSuperAdmin() {
+      return request.auth != null && (
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         'role' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superadmin') ||
+        (request.auth.token != null && 
+         'email' in request.auth.token && 
+         (request.auth.token.email == 'maildojg@gmail.com' || 
+          request.auth.token.email.matches('(?i)^maildojg@gmail\\.com$')))
+      );
+    }
+
+    function isBrasilOficina() {
+      return request.auth != null && 
+             request.auth.token != null && 
+             'email' in request.auth.token && 
+             (request.auth.token.email == 'brasiloficina40@gmail.com' || 
+              request.auth.token.email.matches('(?i)^brasiloficina40@gmail\\.com$'));
+    }
+
+    function isLegNotebooks() {
+      return request.auth != null && 
+             request.auth.token != null && 
+             'email' in request.auth.token && 
+             (request.auth.token.email == 'legnotebooks@gmail.com' || 
+              request.auth.token.email.matches('(?i)^legnotebooks@gmail\\.com$'));
+    }
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function userExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userTenantId() {
+      return (request.auth != null && request.auth.token != null && 'email' in request.auth.token) ? (
+        isSuperAdmin() ? 'super_admin_tenant' :
+        isLegNotebooks() ? 'leg_notebooks' :
+        isBrasilOficina() ? 'brasil_oficina' :
+        (userExists() && 'tenantId' in userDoc().data ? userDoc().data.tenantId : '')
+      ) : '';
+    }
+    
+    function userRole() {
+      return (request.auth != null && request.auth.token != null && 'email' in request.auth.token) ? (
+        (isSuperAdmin() || isLegNotebooks() || isBrasilOficina()) ? 'admin' : 
+        (userExists() && 'role' in userDoc().data ? userDoc().data.role : 'collector')
+      ) : 'collector';
+    }
+
+    match /tenants/{tenantId} {
+      allow read: if isAuthenticated();
+      allow write: if isSuperAdmin() 
+        || (tenantId == 'super_admin_tenant' && isSuperAdmin())
+        || (tenantId == 'brasil_oficina' && isBrasilOficina())
+        || (tenantId == 'leg_notebooks' && isLegNotebooks());
+    }
+
+    match /users/{userId} {
+      allow get: if (isAuthenticated() && (isSuperAdmin() || request.auth.uid == userId || resource.data.tenantId == userTenantId() || (request.auth.token != null && 'email' in request.auth.token && (resource.data.email == request.auth.token.email || resource.data.email.lower() == request.auth.token.email.lower() || resource.data.email.matches('(?i)^' + request.auth.token.email + '$')))));
+      allow list: if (isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId() || (request.auth.token != null && 'email' in request.auth.token && (resource.data.email == request.auth.token.email || resource.data.email.lower() == request.auth.token.email.lower() || resource.data.email.matches('(?i)^' + request.auth.token.email + '$')))));
+      allow write: if (isAuthenticated() && (isSuperAdmin() || (userRole() == 'admin' && request.resource.data.tenantId == userTenantId()) || request.auth.uid == userId));
+    }
+    
+    match /clients/{clientId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /customers/{customerId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /sales/{saleId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /expenses/{expenseId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (resource.data.tenantId == userTenantId() && request.resource.data.tenantId == userTenantId() && (userRole() == 'admin' || userRole() == 'supervisor')));
+      allow delete: if isAuthenticated() && isSuperAdmin();
+    }
+
+    match /incomes/{incomeId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /business_centers/{centerId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /routes/{routeId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /devices/{deviceId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /form_responses/{responseId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if false;
+    }
+
+    match /forms/{formId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor')
+      ));
+    }
+
+    match /holidays/{holidayId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor')
+      ));
+    }
+
+    match /unit_transfers/{transferId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if false;
+    }
+
+    match /bc_incomes/{incomeId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if false;
+    }
+
+    match /bc_expenses/{expenseId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if false;
+    }
+
+    match /bc_transfers/{transferId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId
+      ));
+      allow delete: if false;
+    }
+
+    match /collections/{collectionId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /transfers/{transferId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /insurance_applications/{applicationId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+    }
+
+    match /boxes/{boxId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() || (
+          request.resource.data.tenantId == userTenantId() &&
+          request.resource.data.status == 'open'
+        )
+      );
+
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() || (
+          resource.data.tenantId == userTenantId() &&
+          request.resource.data.tenantId == userTenantId() &&
+          (
+            // Allow updates while the box is open by the box owner or admin or supervisor
+            (
+              resource.data.status == 'open' &&
+              request.resource.data.status == 'open' &&
+              (resource.data.userId == request.auth.uid || userRole() == 'admin' || userRole() == 'supervisor')
+            ) ||
+            // Allow close (status open -> closed) by the box owner
+            (
+              resource.data.status == 'open' &&
+              request.resource.data.status == 'closed' &&
+              resource.data.userId == request.auth.uid
+            ) ||
+            // Allow confirm (status closed -> confirmed) by admin or supervisor
+            (
+              resource.data.status == 'closed' &&
+              request.resource.data.status == 'confirmed' &&
+              (
+                userRole() == 'admin' ||
+                userRole() == 'supervisor'
+              )
+            )
+          )
+        )
+      );
+
+      allow delete: if false;
+
+      match /transactions/{txId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    match /credit_requests/{requestId} {
+      // Leitura: qualquer usuário autenticado do mesmo tenant
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+
+      // Criar: qualquer usuário autenticado (collector, supervisor, admin)
+      // Obrigatório: tenantId do documento == tenantId do usuário
+      allow create: if isAuthenticated() && (isSuperAdmin() || (
+        request.resource.data.tenantId == userTenantId() &&
+        request.resource.data.status == 'pending'
+      ));
+
+      // Atualizar (aprovar/rejeitar): apenas admin ou supervisor
+      // Não pode alterar tenantId nem clientId após criação
+      allow update: if isAuthenticated() && (isSuperAdmin() || (
+        resource.data.tenantId == userTenantId() &&
+        (userRole() == 'admin' || userRole() == 'supervisor') &&
+        request.resource.data.tenantId == resource.data.tenantId &&
+        request.resource.data.clientId == resource.data.clientId
+      ));
+
+      // Deletar: nunca permitido — auditoria garantida
+      allow delete: if false;
+    }
+
+    match /locations/{userId} {
+      // Qualquer usuário autenticado pode gravar sua própria localização
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Admin, supervisor e superadmin, ou o próprio usuário podem ler
+      allow read: if isAuthenticated() && (
+        isSuperAdmin() ||
+        request.auth.uid == userId ||
+        (resource.data.tenantId == userTenantId() && 
+         (userRole() == 'admin' || userRole() == 'supervisor'))
+      );
+    }
+  }
+}

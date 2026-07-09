@@ -1,0 +1,178 @@
+{
+  "rules": {
+    "functions": {
+      "isSuperAdmin()": "request.auth != null && request.auth.token.email == 'maildojg@gmail.com'",
+      "isAuthenticated()": "request.auth != null",
+      "userTenantId()": "get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenantId"
+    },
+    "collections": {
+      "tenants": {
+        "description": "Empresas/Inquilinos cadastrados no sistema",
+        "fields": {
+          "name": "string",
+          "active": "boolean",
+          "createdAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated()",
+          "write": "isSuperAdmin()"
+        }
+      },
+      "users": {
+        "description": "Usuários do sistema (superadmins, admins, colaboradores)",
+        "fields": {
+          "email": "string",
+          "role": "string",
+          "tenantId": "string",
+          "name": "string",
+          "active": "boolean"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId() || request.auth.uid == resource.id)",
+          "write": "isAuthenticated() && (isSuperAdmin() || (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' && request.resource.data.tenantId == userTenantId()))"
+        }
+      },
+      "clients": {
+        "description": "Clientes associados a um inquilino e vendedor",
+        "fields": {
+          "tenantId": "string",
+          "name": "string",
+          "document": "string",
+          "phone": "string",
+          "address": "string",
+          "createdAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "sales": {
+         "description": "Vendas atreladas a um cliente",
+         "fields": {
+            "tenantId": "string",
+            "clientId": "string",
+            "amount": "number",
+            "date": "timestamp",
+            "status": "string"
+         },
+         "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "payments": {
+         "description": "Pagamentos associados a uma venda",
+         "fields": {
+            "tenantId": "string",
+            "saleId": "string",
+            "amount": "number",
+            "date": "timestamp",
+            "userId": "string"
+         },
+         "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "boxes": {
+        "description": "Cajas (caixas) abertos pelos usuários",
+        "fields": {
+            "tenantId": "string",
+            "userId": "string",
+            "status": "string",
+            "openedAt": "timestamp",
+            "closedAt": "timestamp"
+        },
+         "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "routes": {
+        "description": "Rutas o unidades de cobradores asociadas a un inquilino",
+        "fields": {
+          "tenantId": "string",
+          "name": "string",
+          "description": "string",
+          "assignedUserId": "string",
+          "assignedUserName": "string",
+          "cnId": "string",
+          "cnName": "string",
+          "clientCount": "number",
+          "active": "boolean",
+          "createdAt": "timestamp",
+          "updatedAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "bc_incomes": {
+        "description": "Ingresos/Entradas de dinheiro diretamente em os Centros de Negocio (CN)",
+        "fields": {
+          "tenantId": "string",
+          "cnId": "string",
+          "cnName": "string",
+          "userId": "string",
+          "userName": "string",
+          "amount": "number",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "approvedBy": "string",
+          "approvedAt": "timestamp",
+          "createdAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "bc_transfers": {
+        "description": "Transferências de dinheiro entre Centros de Negócio ou de cobrador para o CN",
+        "fields": {
+          "tenantId": "string",
+          "fromType": "string",
+          "fromId": "string",
+          "fromName": "string",
+          "toCnId": "string",
+          "toCnName": "string",
+          "amount": "number",
+          "description": "string",
+          "status": "string",
+          "confirmedBy": "string",
+          "confirmedAt": "timestamp",
+          "boxId": "string",
+          "createdAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      },
+      "bc_expenses": {
+        "description": "Egresos/Despesas operacionais diretamente nos Centros de Negócio (CN)",
+        "fields": {
+          "tenantId": "string",
+          "cnId": "string",
+          "cnName": "string",
+          "userId": "string",
+          "userName": "string",
+          "amount": "number",
+          "description": "string",
+          "category": "string",
+          "status": "string",
+          "approvedBy": "string",
+          "approvedAt": "timestamp",
+          "createdAt": "timestamp"
+        },
+        "permissions": {
+          "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
+          "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
+        }
+      }
+    }
+  }
+}
