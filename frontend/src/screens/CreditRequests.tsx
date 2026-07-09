@@ -1,6 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
+import { SKELETON_CARD_KEYS } from '../constants/placeholders';
 import { ConfirmModal } from './components/ConfirmModal';
+import { creditRequestStatusLabel, creditRequestStatusBadgeClasses, creditScoreColorClasses } from '../utils/statusLabels';
+import { listViewBody } from '../utils/listViewBody';
 import { 
   Search, 
   Check, 
@@ -9,11 +14,7 @@ import {
   Plus, 
   Loader2, 
   AlertCircle, 
-  History, 
-  TrendingUp, 
-  Wallet, 
-  User as UserIcon,
-  HelpCircle
+  History
 } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
 import { db, auth } from '../lib/firebase';
@@ -23,6 +24,7 @@ import {
   serverTimestamp, Timestamp, arrayUnion
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { mapCreditRequestDoc, sortCreditRequestsByDate } from '../utils/creditRequestMapper';
 
 interface CreditRequest {
   id: string;
@@ -99,28 +101,7 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
     );
 
     const unsubscribe = onSnapshot(qWithOrder, (snapshot) => {
-      const items: CreditRequest[] = snapshot.docs.map(docSnap => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          tenantId: data.tenantId || '',
-          clientId: data.clientId || '',
-          clientName: data.clientName || '',
-          clientDoc: data.clientDoc || '',
-          amount: data.amount || 0,
-          requestedBy: data.requestedBy || '',
-          requestedById: data.requestedById || '',
-          status: data.status || 'pending',
-          score: data.score || 0,
-          currentBalance: data.currentBalance || 0,
-          observations: data.observations || '',
-          createdAt: data.createdAt || null,
-          reviewedAt: data.reviewedAt || null,
-          reviewedBy: data.reviewedBy || '',
-          reviewedById: data.reviewedById || '',
-          historyLogs: data.historyLogs || []
-        };
-      });
+      const items = snapshot.docs.map(mapCreditRequestDoc) as CreditRequest[];
       setRequests(items);
       setLoading(false);
     }, (err) => {
@@ -134,36 +115,7 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
       );
       
       const unsubscribeFallback = onSnapshot(qWithoutOrder, (snapshot) => {
-        const items: CreditRequest[] = snapshot.docs.map(docSnap => {
-          const data = docSnap.data();
-          return {
-            id: docSnap.id,
-            tenantId: data.tenantId || '',
-            clientId: data.clientId || '',
-            clientName: data.clientName || '',
-            clientDoc: data.clientDoc || '',
-            amount: data.amount || 0,
-            requestedBy: data.requestedBy || '',
-            requestedById: data.requestedById || '',
-            status: data.status || 'pending',
-            score: data.score || 0,
-            currentBalance: data.currentBalance || 0,
-            observations: data.observations || '',
-            createdAt: data.createdAt || null,
-            reviewedAt: data.reviewedAt || null,
-            reviewedBy: data.reviewedBy || '',
-            reviewedById: data.reviewedById || '',
-            historyLogs: data.historyLogs || []
-          };
-        });
-
-        // Sort manually in memory client-side
-        items.sort((a, b) => {
-          const timeA = a.createdAt?.seconds || 0;
-          const timeB = b.createdAt?.seconds || 0;
-          return timeB - timeA;
-        });
-
+        const items = sortCreditRequestsByDate(snapshot.docs.map(mapCreditRequestDoc)) as CreditRequest[];
         setRequests(items);
         setLoading(false);
       }, (fallbackErr) => {
@@ -216,7 +168,7 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
   });
 
   // Create solicitation submit
-  const handleCreateRequest = async (e: React.FormEvent) => {
+  const handleCreateRequest = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId || !userName) return;
 
@@ -230,8 +182,11 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
     setModalError(null);
 
     try {
-      // Intelligent score evaluation: 40 - 100
-      const calculatedScore = Math.floor(Math.random() * 61) + 40;
+      // Pontuação determinística baseada nos dados do cliente (40–100)
+      const scoreSeed = (newClientDoc + newClientName)
+        .split('')
+        .reduce((sum, char) => sum + char.charCodeAt(0), 0);
+      const calculatedScore = 40 + (scoreSeed % 61);
 
       await addDoc(collection(db, 'credit_requests'), {
         tenantId,
@@ -262,14 +217,14 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
       setShowAddModal(false);
     } catch (err: unknown) {
       console.error("Error creating credit request document:", err);
-      setModalError((err instanceof Error ? err.message : String(err)) || "Erro ao salvar solicitação. Verifique os privilégios.");
+      setModalError((getErrorMessage(err)) || "Erro ao salvar solicitação. Verifique os privilégios.");
     } finally {
       setSavingNew(false);
     }
   };
 
   // Format currency on typing
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: HtmlInputChangeEvent) => {
     setNewAmount(formatCurrencyBRL(e.target.value));
   };
 
@@ -387,10 +342,13 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
 
       {/* REQUESTS LIST MAIN CONTENT AREA */}
       <div className="flex-1 overflow-y-auto px-3 pb-3 space-y-3">
-        {tenantLoading || loading ? (
+        {listViewBody(
+          tenantLoading || loading,
+          filteredRequests.length,
+          (
           <div className="space-y-3">
-            {Array.from({ length: 3 }).map((_, idx) => (
-              <div key={idx} className="animate-pulse bg-white border border-gray-200 h-24 rounded p-3 space-y-3">
+            {SKELETON_CARD_KEYS.slice(0, 3).map((key) => (
+              <div key={key} className="animate-pulse bg-white border border-gray-200 h-24 rounded p-3 space-y-3">
                 <div className="flex justify-between">
                   <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                   <div className="h-4 bg-gray-200 rounded w-1/4"></div>
@@ -400,38 +358,23 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
               </div>
             ))}
           </div>
-        ) : filteredRequests.length === 0 ? (
+        ),
+          (
           <div className="flex flex-col items-center justify-center p-8 bg-white border border-gray-200 rounded text-center">
             <AlertCircle className="w-8 h-8 text-gray-300 mb-2" />
             <span className="text-xs text-gray-400 italic">Nenhuma solicitação encontrada</span>
           </div>
-        ) : (
+        ),
+          (
           <div className="space-y-3">
             {filteredRequests.map((request) => {
               const isExpanded = expandedId === request.id;
               const dateStr = formatDate(request.createdAt);
 
-              // Status badges styling representation
-              let badgeClasses = 'bg-yellow-100 text-yellow-800';
-              let badgeLabel = 'Pendente';
-              if (request.status === 'approved') {
-                badgeClasses = 'bg-green-100 text-green-800';
-                badgeLabel = 'Aprovada';
-              } else if (request.status === 'rejected') {
-                badgeClasses = 'bg-red-100 text-red-800';
-                badgeLabel = 'Rejeitada';
-              } else if (request.status === 'auto') {
-                badgeClasses = 'bg-blue-100 text-blue-800';
-                badgeLabel = 'Automática';
-              }
+              const badgeClasses = creditRequestStatusBadgeClasses(request.status);
+              const badgeLabel = creditRequestStatusLabel(request.status);
 
-              // Intelligent score representation colors
-              let scoreColor = 'text-red-600 bg-red-50 border-red-200';
-              if (request.score >= 70) {
-                scoreColor = 'text-green-600 bg-green-50 border-green-200';
-              } else if (request.score >= 40) {
-                scoreColor = 'text-yellow-600 bg-yellow-50 border-yellow-200';
-              }
+              const scoreColor = creditScoreColorClasses(request.score);
 
               const isPending = request.status === 'pending';
               const showReviewButtons = isPending && canReview;
@@ -495,8 +438,8 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
                         </span>
                         <div className="max-h-36 overflow-y-auto space-y-1.5 border border-gray-150 rounded bg-gray-50 p-2">
                           {request.historyLogs && request.historyLogs.length > 0 ? (
-                            request.historyLogs.map((log, idx) => (
-                              <div key={idx} className="text-[10px] border-b border-gray-100 pb-1.5 last:border-0 last:pb-0">
+                            request.historyLogs.map((log) => (
+                              <div key={`${log.time}-${log.action}-${log.user}`} className="text-[10px] border-b border-gray-100 pb-1.5 last:border-0 last:pb-0">
                                 <div className="flex justify-between text-purple-700 font-bold">
                                   <span>{log.action}</span>
                                   <span className="text-gray-400 font-normal">{log.time}</span>
@@ -546,7 +489,7 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
               );
             })}
           </div>
-        )}
+        ))}
       </div>
 
       {/* FOOTER NAVIGATION */}

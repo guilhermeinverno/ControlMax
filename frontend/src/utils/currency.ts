@@ -26,9 +26,12 @@ export function formatCurrencyBRL(value: string): string {
 
   // Remove leading zeros from integer part, but preserve '0' if it is just '0'
   const cleanInteger = integerPart.replace(/^0+/, '');
-  const formattedInteger = cleanInteger 
-    ? parseInt(cleanInteger, 10).toLocaleString('pt-BR') 
-    : (integerPart ? '0' : '');
+  let formattedInteger = '';
+  if (cleanInteger) {
+    formattedInteger = parseInt(cleanInteger, 10).toLocaleString('pt-BR');
+  } else if (integerPart) {
+    formattedInteger = '0';
+  }
 
   if (decimalPart !== undefined) {
     return formattedInteger + ',' + decimalPart;

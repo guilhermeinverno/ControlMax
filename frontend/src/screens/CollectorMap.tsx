@@ -1,10 +1,11 @@
-import React, { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import { ShieldAlert, Search, RefreshCw, Navigation } from 'lucide-react';
+import { listViewBody } from '../utils/listViewBody';
 
 interface CollectorLocation {
   userId: string;
@@ -340,17 +341,23 @@ export function CollectorMap() {
 
         {/* Collector List Container */}
         <div className="flex-1 overflow-y-auto divide-y divide-gray-100">
-          {loading ? (
+          {listViewBody(
+            loading,
+            filteredLocations.length,
+            (
             <div className="p-8 text-center text-gray-400 text-xs">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-700 mx-auto mb-2"></div>
               Sincronizando localizações...
             </div>
-          ) : filteredLocations.length === 0 ? (
+          ),
+            (
             <div className="p-8 text-center text-gray-400 text-xs">
               Nenhum registro encontrado para o filtro selecionado.
             </div>
-          ) : (
-            filteredLocations.map((loc) => (
+          ),
+            (
+            <>
+            {filteredLocations.map((loc) => (
               <div
                 key={loc.userId}
                 onClick={() => flyToCollector(loc)}
@@ -378,8 +385,9 @@ export function CollectorMap() {
                   }`} />
                 </div>
               </div>
-            ))
-          )}
+            ))}
+            </>
+          ))}
         </div>
       </div>
 
@@ -400,7 +408,7 @@ export function CollectorMap() {
           {/* User's own real-time location blue dot and accuracy circle */}
           {userLatLng && (
             <>
-              {userAccuracy && userAccuracy < 2000 && (
+              {userAccuracy != null && userAccuracy > 0 && userAccuracy < 2000 && (
                 <Circle
                   center={userLatLng}
                   radius={userAccuracy}
@@ -417,7 +425,7 @@ export function CollectorMap() {
                   <div className="p-1 text-center" style={{ minWidth: 120 }}>
                     <div className="font-extrabold text-xs text-blue-600">Você está aqui</div>
                     <p className="text-[10px] text-gray-500 mt-0.5">Sua localização atual</p>
-                    {userAccuracy && (
+                    {userAccuracy != null && (
                       <div className="text-[9px] text-gray-400 font-mono mt-1 border-t border-gray-100 pt-1">
                         Precisão: ±{Math.round(userAccuracy)}m
                       </div>

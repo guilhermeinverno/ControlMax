@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import {
   collection,
   query,
   where,
-  orderBy,
   limit,
   onSnapshot,
   getDocs,
@@ -17,11 +16,13 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { userRoleLabel } from '../utils/statusLabels';
+import { formatFirestoreDate, toJsDate } from '../utils/firestoreTimestamp';
+import { guardedListViewBody, listViewBody } from '../utils/listViewBody';
 import { ConfirmModal } from './components/ConfirmModal';
 import {
   ArrowRightLeft,
   Building2,
-  Users,
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -33,7 +34,6 @@ import {
   X,
   Inbox,
   Calendar,
-  DollarSign,
   Briefcase,
   AlertTriangle
 } from 'lucide-react';
@@ -209,8 +209,8 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
       where('status', '==', 'open')
     );
 
-    let unsubSales = () => {};
-    let unsubBoxes = () => {};
+    let unsubSales: (() => void) | null = null;
+    let unsubBoxes: (() => void) | null = null;
 
     try {
       unsubSales = onSnapshot(qSales, (snapshot) => {
@@ -254,8 +254,8 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
     }
 
     return () => {
-      unsubSales();
-      unsubBoxes();
+      unsubSales?.();
+      unsubBoxes?.();
     };
   }, [tenantId, selectedCnId, businessCenters]);
 
@@ -707,24 +707,31 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                     </h3>
                   </div>
 
-                  {!selectedCnId ? (
+                  {guardedListViewBody(
+                    Boolean(selectedCnId),
+                    (
                     <div className="text-center py-10 bg-gray-50/50">
                       <Briefcase className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                       <p className="text-[11px] text-gray-400 font-bold">
                         Seleccione un Centro de Negocios para ver sus unidades.
                       </p>
                     </div>
-                  ) : loadingUnitsData ? (
+                  ),
+                    loadingUnitsData,
+                    activeUnitsInCn.length,
+                    (
                     <div className="text-center py-10 bg-gray-50/50 space-y-2">
                       <Loader2 className="w-6 h-6 animate-spin text-[#6A008A] mx-auto" />
                       <p className="text-[10px] text-gray-400 font-bold">Calculando saldos y estados de caja...</p>
                     </div>
-                  ) : activeUnitsInCn.length === 0 ? (
+                  ),
+                    (
                     <div className="text-center py-10 bg-gray-50/50">
                       <AlertCircle className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                       <p className="text-[11px] text-gray-400 font-bold">No hay unidades activas en este centro de negocios.</p>
                     </div>
-                  ) : (
+                  ),
+                    (
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
@@ -784,7 +791,7 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                         })}
                       </tbody>
                     </table>
-                  )}
+                  ))}
                 </div>
               </div>
             </div>
@@ -819,7 +826,7 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                         .filter(u => u.id !== currentUserId)
                         .map(u => (
                           <option key={u.id} value={u.id}>
-                            {u.userName} ({u.role === 'collector' ? 'Cobrador' : u.role === 'supervisor' ? 'Supervisor' : 'Administrador'})
+                            {u.userName} ({userRoleLabel(u.role)})
                           </option>
                         ))}
                     </select>
@@ -890,18 +897,23 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
               Traslados de Unidades pendientes de recepción
             </h2>
 
-            {loadingPending ? (
+            {listViewBody(
+              loadingPending,
+              pendingTransfers.length,
+              (
               <div className="bg-white border border-gray-200 rounded p-12 text-center text-gray-500 space-y-2">
                 <Loader2 className="w-8 h-8 animate-spin text-[#6B21A8] mx-auto" />
                 <p className="text-xs font-bold">Consultando bandeja de entrada...</p>
               </div>
-            ) : pendingTransfers.length === 0 ? (
+            ),
+              (
               <div className="bg-white border border-gray-300 rounded p-12 text-center text-gray-400 space-y-2 shadow-sm">
                 <CheckCircle2 className="w-10 h-10 text-gray-300 mx-auto" />
                 <h3 className="font-bold text-gray-600 text-xs uppercase tracking-wide">Bandeja Vacía</h3>
                 <p className="text-[11px]">No tiene traslados de unidades pendientes de aceptación.</p>
               </div>
-            ) : (
+            ),
+              (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {pendingTransfers.map((transfer) => {
                   const totalBalance = transfer.units.reduce((s, u) => s + (u.balance || 0), 0);
@@ -920,7 +932,7 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                           </span>
                           <div className="text-[10px] text-gray-400 font-semibold font-mono flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
-                            {transfer.createdAt ? (transfer.createdAt.toDate ? transfer.createdAt.toDate().toLocaleString('es-CO') : new Date().toLocaleString()) : ''}
+                            {formatFirestoreDate(transfer.createdAt, 'es-CO')}
                           </div>
                         </div>
                         <div className="text-right">
@@ -1040,7 +1052,7 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                   );
                 })}
               </div>
-            )}
+            ))}
           </div>
         )}
 
@@ -1052,18 +1064,23 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
               Historial de traslados finalizados (Últimos 50 registros)
             </h2>
 
-            {loadingHistory ? (
+            {listViewBody(
+              loadingHistory,
+              historyTransfers.length,
+              (
               <div className="bg-white border border-gray-200 rounded p-12 text-center text-gray-500 space-y-2">
                 <Loader2 className="w-8 h-8 animate-spin text-[#6B21A8] mx-auto" />
                 <p className="text-xs font-bold">Cargando histórico de auditoría...</p>
               </div>
-            ) : historyTransfers.length === 0 ? (
+            ),
+              (
               <div className="bg-white border border-gray-300 rounded p-12 text-center text-gray-400 space-y-1 shadow-sm">
                 <HistoryIcon className="w-10 h-10 text-gray-300 mx-auto" />
                 <h3 className="font-bold text-gray-600 text-xs uppercase tracking-wide">Sin Registros</h3>
                 <p className="text-[11px]">No hay traslados finalizados en el histórico de auditoría.</p>
               </div>
-            ) : (
+            ),
+              (
               <div className="bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse text-xs">
@@ -1082,12 +1099,8 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                     <tbody className="divide-y divide-gray-200">
                       {historyTransfers.map((t) => {
                         const totalBalance = t.units.reduce((s, u) => s + (u.balance || 0), 0);
-                        const transDate = t.createdAt
-                          ? (t.createdAt.toDate ? t.createdAt.toDate() : new Date(t.createdAt.seconds * 1000))
-                          : new Date();
-                        const resolDate = t.resolvedAt
-                          ? (t.resolvedAt.toDate ? t.resolvedAt.toDate() : new Date(t.resolvedAt.seconds * 1000))
-                          : null;
+                        const transDate = toJsDate(t.createdAt);
+                        const resolDate = t.resolvedAt ? toJsDate(t.resolvedAt) : null;
 
                         return (
                           <tr key={t.id} className="hover:bg-gray-50/60 transition-colors">
@@ -1127,7 +1140,7 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
                   </table>
                 </div>
               </div>
-            )}
+            ))}
           </div>
         )}
 

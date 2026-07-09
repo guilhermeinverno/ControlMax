@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState } from 'react';
 import { Screen } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { UnitSelectors } from './components/UnitSelectors';
@@ -28,7 +29,7 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
         onNavigate('box-summary');
       }
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : String(err));
+      setSubmitError(getErrorMessage(err));
     } finally {
       setSubmitting(false);
     }
@@ -38,6 +39,20 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
     return (
       <div className="flex justify-center items-center py-12 bg-[#F3F4F6] min-h-screen">
         <div className="border-2 border-[#6B21A8] border-t-transparent rounded-full w-6 h-6 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error && !activeBox) {
+    return (
+      <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333]">
+        <UnitSelectors />
+        <div className="px-3 pt-3 pb-6">
+          <div className="bg-red-50 border border-red-300 rounded-sm p-4 text-xs flex flex-col items-center text-center space-y-2 shadow-sm">
+            <span className="font-bold text-red-800 text-sm">Erro ao verificar caixa aberta</span>
+            <span className="text-red-700">{error}</span>
+          </div>
+        </div>
       </div>
     );
   }

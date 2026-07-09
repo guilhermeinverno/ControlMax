@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
-import { MapPin, Building2, Layers, DollarSign, Users, Briefcase, RefreshCw, Compass, Navigation } from 'lucide-react';
+import { Building2, RefreshCw, Compass, Navigation } from 'lucide-react';
+import { centerMapIconColor } from '../utils/statusLabels';
 
 interface BusinessCenter {
   id: string;
@@ -187,8 +188,8 @@ export function BCMap() {
   };
 
   const createCenterIcon = (isSelected: boolean, isActive: boolean) => {
-    const color = isSelected ? '#84CC16' : (isActive ? '#7E22CE' : '#4B5563');
-    const borderColor = isSelected ? '#FFFFFF' : '#FFFFFF';
+    const color = centerMapIconColor(isSelected, isActive);
+    const borderColor = '#FFFFFF';
     return L.divIcon({
       html: `
         <div style="position: relative; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
@@ -271,7 +272,7 @@ export function BCMap() {
               {/* User's own real-time location blue dot and accuracy circle */}
               {userLatLng && (
                 <>
-                  {userAccuracy && userAccuracy < 2000 && (
+                  {userAccuracy != null && userAccuracy > 0 && userAccuracy < 2000 && (
                     <Circle
                       center={userLatLng}
                       radius={userAccuracy}
@@ -288,7 +289,7 @@ export function BCMap() {
                       <div className="p-1 text-center" style={{ minWidth: 120 }}>
                         <div className="font-extrabold text-xs text-blue-600">Você está aqui</div>
                         <p className="text-[10px] text-gray-500 mt-0.5">Sua localização atual</p>
-                        {userAccuracy && (
+                        {userAccuracy != null && (
                           <div className="text-[9px] text-gray-400 font-mono mt-1 border-t border-gray-100 pt-1">
                             Precisão: ±{Math.round(userAccuracy)}m
                           </div>

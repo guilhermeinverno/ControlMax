@@ -3,8 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { db } from "./firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { buildOperationalContext } from "./buildOperationalContext";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,7 +12,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = 3000; // Porta local de desenvolvimento — não expõe stack em produção sem proxy reverso
 
 app.use(express.json({ limit: "50mb" }));
 
@@ -38,107 +37,7 @@ app.post("/api/gemini/assistant", async (req, res) => {
     let operationalContext = clientOperationalContext || "";
     if (!operationalContext && tenantId) {
       try {
-        // 1. Fetch active collectors
-        const qUsers = query(
-          collection(db, "users"),
-          where("tenantId", "==", tenantId),
-          where("role", "==", "collector"),
-          where("active", "==", true)
-        );
-        const usersSnap = await getDocs(qUsers);
-        const collectors = usersSnap.docs.map((doc: any) => ({
-          id: doc.id,
-          name: doc.data().name || doc.data().username || "Coletor",
-          ...doc.data()
-        }));
-
-        // 2. Fetch open boxes for today
-        const startOfToday = new Date();
-        startOfToday.setHours(0, 0, 0, 0);
-
-        const qBoxes = query(
-          collection(db, "boxes"),
-          where("tenantId", "==", tenantId),
-          where("status", "==", "open")
-        );
-        const boxesSnap = await getDocs(qBoxes);
-        const openBoxes = boxesSnap.docs.map((doc: any) => ({
-          id: doc.id,
-          ...doc.data()
-        })).filter((box: any) => {
-          if (!box.openedAt) return false;
-          const date = typeof box.openedAt.toDate === "function" 
-            ? box.openedAt.toDate() 
-            : new Date(box.openedAt.seconds * 1000);
-          return date >= startOfToday;
-        });
-
-        // 3. Fetch active routes
-        const qRoutes = query(
-          collection(db, "routes"),
-          where("tenantId", "==", tenantId)
-        );
-        const routesSnap = await getDocs(qRoutes);
-        const routes = routesSnap.docs.map((doc: any) => ({
-          id: doc.id,
-          ...doc.data()
-        })).filter((r: any) => r.active !== false);
-
-        // 4. Fetch collections for today
-        const qCollections = query(
-          collection(db, "collections"),
-          where("tenantId", "==", tenantId)
-        );
-        const collectionsSnap = await getDocs(qCollections);
-        const collectionsToday = collectionsSnap.docs.map((doc: any) => ({
-          id: doc.id,
-          ...doc.data()
-        })).filter((col: any) => {
-          if (!col.createdAt) return false;
-          const date = typeof col.createdAt.toDate === "function" 
-            ? col.createdAt.toDate() 
-            : new Date(col.createdAt.seconds * 1000);
-          return date >= startOfToday;
-        });
-
-        const totalCollectedTodayCents = collectionsToday.reduce((sum: number, col: any) => sum + (col.amount || 0), 0);
-        const totalCollectedToday = totalCollectedTodayCents / 100;
-
-        // 5. Fetch sales for today
-        const qSales = query(
-          collection(db, "sales"),
-          where("tenantId", "==", tenantId)
-        );
-        const salesSnap = await getDocs(qSales);
-        const salesToday = salesSnap.docs.map((doc: any) => ({
-          id: doc.id,
-          ...doc.data()
-        })).filter((sale: any) => {
-          if (!sale.createdAt) return false;
-          const date = typeof sale.createdAt.toDate === "function" 
-            ? sale.createdAt.toDate() 
-            : new Date(sale.createdAt.seconds * 1000);
-          return date >= startOfToday;
-        });
-
-        const totalSalesTodayCents = salesToday.reduce((sum: number, s: any) => sum + (s.totalAmount || s.amount || 0), 0);
-        const totalSalesToday = totalSalesTodayCents / 100;
-
-        const collectorIdsWithOpenBox = new Set(openBoxes.map((b: any) => b.userId));
-        const notOnRouteCollectors = collectors.filter((c: any) => !collectorIdsWithOpenBox.has(c.id));
-        const onRouteCollectors = collectors.filter((c: any) => collectorIdsWithOpenBox.has(c.id));
-
-        operationalContext = `
---- CONTEXTO EM TEMPO REAL DO SISTEMA ---
-Data/Hora Atual do Servidor: ${new Date().toLocaleString("pt-BR")}
-Cobradores Ativos Cadastrados (Total ${collectors.length}): ${collectors.map((c: any) => c.name).join(", ") || "Nenhum"}
-Cobradores em Rota Hoje (Caixa Aberto Hoje) (Total ${onRouteCollectors.length}): ${onRouteCollectors.map((c: any) => c.name).join(", ") || "Nenhum"}
-Cobradores que ainda NÃO saíram para a rota hoje (Sem caixa aberto hoje) (Total ${notOnRouteCollectors.length}): ${notOnRouteCollectors.map((c: any) => c.name).join(", ") || "Nenhum"}
-Rotas Ativas Cadastradas: ${routes.map((r: any) => `${r.name} (Atribuída a: ${r.assignedUserName || "Ninguém"})`).join("; ") || "Nenhuma"}
-Faturamento Hoje (Vendas): R$ ${totalSalesToday.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-Total Cobrado Hoje (Recebimentos): R$ ${totalCollectedToday.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-----------------------------------------
-Utilize estritamente estas informações reais em tempo real para responder de forma precisa a perguntas sobre quem saiu ou não para a rota, faturamento do dia, recebimentos ou rotas cadastradas. Seja extremamente preciso e nunca invente nomes ou valores.`;
+        operationalContext = await buildOperationalContext(tenantId);
       } catch (err) {
         console.error("Error building operational context:", err);
       }

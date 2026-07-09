@@ -1,10 +1,10 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { HashRouter } from 'react-router-dom';
 import { NavigationProvider } from './context/NavigationContext';
 import { AppRoutes } from './routes/AppRoutes';
 
-class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }> {
-  state = { hasError: false, error: null as Error | null, errorInfo: null as React.ErrorInfo | null };
+class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
+  state = { hasError: false, error: null as Error | null, errorInfo: null as ErrorInfo | null };
 
   static getDerivedStateFromError(error: Error) {
     return { hasError: true, error };
@@ -12,7 +12,7 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error in App:", error, errorInfo);
-    (this as React.Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }>).setState({ errorInfo });
+    (this as Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }>).setState({ errorInfo });
   }
 
   render() {
@@ -37,7 +37,7 @@ class ErrorBoundary extends React.Component<{ children: ReactNode }, { hasError:
         </div>
       );
     }
-    return (this as React.Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: React.ErrorInfo | null }>).props.children;
+    return (this as Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }>).props.children;
   }
 }
 

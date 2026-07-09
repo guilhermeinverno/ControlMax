@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormOrButtonEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
@@ -12,9 +13,7 @@ import {
   Mail, 
   DollarSign, 
   Percent, 
-  Settings, 
   ShieldAlert, 
-  Eye, 
   MessageSquare, 
   Clock, 
   Megaphone, 
@@ -22,7 +21,6 @@ import {
   AppWindow, 
   Lock, 
   CheckCircle, 
-  ToggleLeft, 
   CheckSquare, 
   Sparkles,
   Map,
@@ -144,7 +142,7 @@ export function PlatformManagement({ onNavigate }: PlatformManagementProps) {
     loadSettings();
   }, [tenantId]);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: FormOrButtonEvent) => {
     e.preventDefault();
     if (!tenantId) return;
 

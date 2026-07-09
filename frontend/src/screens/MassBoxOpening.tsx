@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
+import type { HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import {
@@ -9,7 +11,7 @@ import { useTenant } from '../hooks/useTenant';
 import { ConfirmModal } from './components/ConfirmModal';
 import { 
   Calculator, Search, ShieldAlert, CheckCircle2, 
-  AlertCircle, ChevronLeft, DollarSign, Users, X
+  AlertCircle, ChevronLeft
 } from 'lucide-react';
 import { 
   formatCurrencyBRL, 
@@ -59,6 +61,37 @@ const fmt = (cents: number) =>
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   });
+
+function collectorAmountSection(
+  hasOpenBox: boolean,
+  useIndividualAmounts: boolean,
+  collectorId: string,
+  amount: string,
+  onAmountChange: (id: string, value: string) => void,
+  onAmountBlur: (id: string) => void,
+) {
+  if (hasOpenBox) {
+    return (
+      <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-1 rounded border border-yellow-200 whitespace-nowrap uppercase tracking-wider">
+        Já aberta hoje
+      </span>
+    );
+  }
+  if (!useIndividualAmounts) return null;
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-gray-400 font-bold">$</span>
+      <input
+        type="text"
+        value={amount}
+        placeholder="0,00"
+        onChange={(e) => onAmountChange(collectorId, e.target.value)}
+        onBlur={() => onAmountBlur(collectorId)}
+        className="w-28 text-right border border-gray-300 rounded text-xs p-1.5 focus:ring-1 focus:ring-[#6B21A8] outline-none font-bold text-gray-800 shadow-sm bg-white"
+      />
+    </div>
+  );
+}
 
 export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
@@ -113,7 +146,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
         }, (err) => {
           console.error("Users onSnapshot failed:", err);
           if (active) {
-            setErrorMsg(err instanceof Error ? err.message : 'Error al cargar cobradores');
+            setErrorMsg(getErrorMessage(err) || 'Error al cargar cobradores');
             setLoading(false);
           }
         });
@@ -224,7 +257,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   };
 
   // Safe input handler for default single amount
-  const handleDefaultAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleDefaultAmountChange = (e: HtmlInputChangeEvent) => {
     setDefaultAmount(formatCurrencyBRL(e.target.value));
   };
 
@@ -297,7 +330,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
       setGeneralObservation('');
     } catch (err: unknown) {
       console.error("Error performing mass box opening write batch:", err);
-      const msg = err instanceof Error ? err.message : 'Error al abrir las cajas';
+      const msg = getErrorMessage(err) || 'Error al abrir las cajas';
       setErrorMsg(msg);
     } finally {
       setSubmitting(false);
@@ -501,7 +534,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
                 </div>
               </div>
 
-              {/* CN Select (Mocked for now — TODO: connect to real CN collection in Firestore when available) */}
+              {/* CN Select (Mocked for now — Pendente: connect to real CN collection in Firestore when available) */}
               <div className="flex-1 min-w-[200px]">
                 <label className="text-[11px] font-bold text-[#555555] uppercase block mb-1">Centro de Negocios (CN)</label>
                 <select
@@ -589,23 +622,14 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-auto">
-                          {hasOpenBox ? (
-                            <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-1 rounded border border-yellow-200 whitespace-nowrap uppercase tracking-wider">
-                              Já aberta hoje
-                            </span>
-                          ) : useIndividualAmounts ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs text-gray-400 font-bold">$</span>
-                              <input 
-                                type="text"
-                                value={individualAmounts[collector.id] || ''}
-                                placeholder="0,00"
-                                onChange={(e) => handleIndividualAmountChange(collector.id, e.target.value)}
-                                onBlur={() => handleIndividualAmountBlur(collector.id)}
-                                className="w-28 text-right border border-gray-300 rounded text-xs p-1.5 focus:ring-1 focus:ring-[#6B21A8] outline-none font-bold text-gray-800 shadow-sm bg-white"
-                              />
-                            </div>
-                          ) : null}
+                          {collectorAmountSection(
+                            hasOpenBox,
+                            useIndividualAmounts,
+                            collector.id,
+                            individualAmounts[collector.id] || '',
+                            handleIndividualAmountChange,
+                            handleIndividualAmountBlur,
+                          )}
                         </div>
                       </div>
                     );

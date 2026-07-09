@@ -1,4 +1,3 @@
-import React from 'react';
 import { AIVoiceAssistant } from './components/AIVoiceAssistant';
 import { useTenant } from '../hooks/useTenant';
 import { Screen } from '../types';

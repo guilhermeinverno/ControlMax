@@ -1,3 +1,5 @@
+import { getErrorMessage } from '../utils/errorMessage';
+import { logFirestoreError } from '../utils/firestoreError';
 import { useState, useEffect } from 'react';
 import { auth, db } from '../lib/firebase';
 import { 
@@ -5,49 +7,17 @@ import {
   doc, 
   query, 
   where, 
-  orderBy, 
   limit, 
   onSnapshot, 
   addDoc, 
   updateDoc, 
   serverTimestamp, 
-  Timestamp, 
   getDocs,
   runTransaction 
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Box } from '../types';
 import { useTenant } from './useTenant';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth?.currentUser?.uid || null,
-      email: auth?.currentUser?.email || null,
-      emailVerified: auth?.currentUser?.emailVerified || null,
-      isAnonymous: auth?.currentUser?.isAnonymous || null,
-      tenantId: auth?.currentUser?.tenantId || null,
-      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 interface OpenBoxParams {
   unitId: string;
@@ -130,7 +100,7 @@ export function useBox() {
         setLoading(false);
         setError(err.message);
         try {
-          handleFirestoreError(err, OperationType.LIST, 'boxes');
+          logFirestoreError(err, 'list', 'boxes', { throwError: true });
         } catch (e) {
           // Exception logged and passed through
         }
@@ -209,9 +179,9 @@ export function useBox() {
       setLoading(false);
     } catch (err) {
       setLoading(false);
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = getErrorMessage(err);
       setError(msg);
-      handleFirestoreError(err, OperationType.CREATE, pathForBoxes);
+      logFirestoreError(err, 'create', pathForBoxes, { throwError: true });
     }
   };
 
@@ -289,9 +259,9 @@ export function useBox() {
       setLoading(false);
     } catch (err) {
       setLoading(false);
-      const msg = err instanceof Error ? err.message : 'Erro ao fechar caixa';
+      const msg = getErrorMessage(err) || 'Erro ao fechar caixa';
       setError(msg);
-      handleFirestoreError(err, OperationType.UPDATE, pathForClose);
+      logFirestoreError(err, 'update', pathForClose, { throwError: true });
     }
   };
 
@@ -315,9 +285,9 @@ export function useBox() {
       setLoading(false);
     } catch (err) {
       setLoading(false);
-      const msg = err instanceof Error ? err.message : String(err);
+      const msg = getErrorMessage(err);
       setError(msg);
-      handleFirestoreError(err, OperationType.UPDATE, pathForConfirm);
+      logFirestoreError(err, 'update', pathForConfirm, { throwError: true });
     }
   };
 

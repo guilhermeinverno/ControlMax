@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { auth } from '../lib/firebase';
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import type { AuthError } from 'firebase/auth';
@@ -37,15 +38,7 @@ export function Login({ onSuccess }: LoginProps) {
 
   const isLocked = lockedUntil !== null && Date.now() < lockedUntil;
 
-  // Strength check helper (can be used if a signup flow is introduced)
-  const isPasswordStrong = (pwd: string): boolean => {
-    return pwd.length >= 8 &&
-      /[A-Z]/.test(pwd) &&
-      /[a-z]/.test(pwd) &&
-      /[0-9]/.test(pwd);
-  };
-
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleLogin = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (isLocked) return;
 

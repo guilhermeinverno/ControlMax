@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import {
@@ -19,9 +20,10 @@ import {
   formatCurrencyBRL,
   parseCurrencyBRLToCents
 } from '../utils/currency';
+import { approvalStatusLabel, approvalStatusBadgeClasses } from '../utils/statusLabels';
+import { toJsDate } from '../utils/firestoreTimestamp';
+import { listViewBody } from '../utils/listViewBody';
 import {
-  DollarSign,
-  History,
   Calendar,
   Search,
   Loader2,
@@ -29,12 +31,11 @@ import {
   CheckCircle2,
   TrendingDown,
   Clock,
-  User,
-  Building2,
   Check,
   X,
   PlusCircle,
-  Info
+  Info,
+  DollarSign
 } from 'lucide-react';
 
 interface BCExpensesProps {
@@ -113,7 +114,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
   const [expenseToReject, setExpenseToReject] = useState<BCExpense | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  const unsubRef = useRef<() => void>(() => {});
+  const unsubRef = useRef<(() => void) | null>(null);
 
   // Real-time listener for expenses with resilient fallback query routing
   const fetchHistory = () => {
@@ -187,7 +188,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
 
             const filteredList = list.filter(item => {
               if (!item.createdAt) return false;
-              const dVal = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt.seconds * 1000);
+              const dVal = toJsDate(item.createdAt);
               return dVal >= startOfDay && dVal <= endOfDay;
             });
 
@@ -226,12 +227,12 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
     fetchHistory();
   };
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: HtmlInputChangeEvent) => {
     const formatted = formatCurrencyBRL(e.target.value);
     setAmountInput(formatted);
   };
 
-  const handleCreateExpense = async (e: React.FormEvent) => {
+  const handleCreateExpense = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId) {
       setFormError("ID do inquilino não configurado.");
@@ -440,7 +441,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
               </label>
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                 className="border border-gray-300 rounded p-2 text-xs bg-white text-[#333333] outline-none focus:border-[#6B21A8]"
               >
                 <option value="all">Todos os Status</option>
@@ -457,7 +458,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
               </label>
               <select
                 value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
+                onChange={(e) => setCategoryFilter(e.target.value as typeof categoryFilter)}
                 className="border border-gray-300 rounded p-2 text-xs bg-white text-[#333333] outline-none focus:border-[#6B21A8]"
               >
                 <option value="all">Todas as Categorias</option>
@@ -480,7 +481,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
               >
                 <option value="all">Todos os CNs (Mock)</option>
               </select>
-              {/* TODO: conectar Firestore v1.2 */}
+              {/* Pendente: conectar Firestore v1.2 */}
             </div>
 
             {/* Buscar Button */}
@@ -550,23 +551,26 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
           </div>
 
           {/* List Section with states */}
-          {loading ? (
+          {listViewBody(
+            loading,
+            filteredExpenses.length,
+            (
             <div className="space-y-2">
               <div className="animate-pulse h-16 bg-gray-100 rounded mb-2"></div>
               <div className="animate-pulse h-16 bg-gray-100 rounded mb-2"></div>
               <div className="animate-pulse h-16 bg-gray-100 rounded mb-2"></div>
             </div>
-          ) : filteredExpenses.length === 0 ? (
+          ),
+            (
             <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-md">
               <DollarSign className="w-8 h-8 text-gray-300 mx-auto mb-2" />
               <p className="text-xs font-bold text-gray-400">Nenhum egreso encontrado para esta data</p>
             </div>
-          ) : (
+          ),
+            (
             <div className="space-y-3">
               {filteredExpenses.map((expense) => {
-                const createdAtDate = expense.createdAt
-                  ? (expense.createdAt.toDate ? expense.createdAt.toDate() : new Date(expense.createdAt.seconds * 1000))
-                  : new Date();
+                const createdAtDate = toJsDate(expense.createdAt);
 
                 return (
                   <div
@@ -606,14 +610,8 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
                       </div>
 
                       <div className="flex items-center space-x-2">
-                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded ${
-                          expense.status === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : expense.status === 'approved'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {expense.status === 'pending' ? 'Pendente' : expense.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded ${approvalStatusBadgeClasses(expense.status)}`}>
+                          {approvalStatusLabel(expense.status)}
                         </span>
                       </div>
                     </div>
@@ -641,7 +639,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
       </div>
 
@@ -697,7 +695,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
                   <option value="cn_b">CN Filial Principal</option>
                 </select>
                 <span className="text-[10px] text-gray-400 mt-1 italic">
-                  * TODO: Vincular com centros de negócios reais em atualizações futuras.
+                  * Pendente: Vincular com centros de negócios reais em atualizações futuras.
                 </span>
               </div>
 
@@ -708,7 +706,7 @@ export function BCExpenses({ onNavigate }: BCExpensesProps) {
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => setCategory(e.target.value as typeof category)}
                   className="border border-gray-300 rounded p-2.5 text-xs bg-white outline-none focus:border-[#6B21A8]"
                 >
                   <option value="supplies">Suprimentos</option>

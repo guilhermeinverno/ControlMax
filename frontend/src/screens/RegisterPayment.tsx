@@ -1,12 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
+import type { HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { Save, X, Loader2, AlertCircle } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
 import { db, auth } from '../lib/firebase';
-import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore';
+import { doc, collection, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
+import { mapSaleFromSnapshot } from '../utils/saleMapper';
 
 interface RegisterPaymentProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
@@ -37,8 +40,9 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
 
     const saleRef = doc(db, 'sales', saleId);
     const unsubscribe = onSnapshot(saleRef, (docSnap) => {
-      if (docSnap.exists()) {
-        setSale({ id: docSnap.id, ...docSnap.data() });
+      const mapped = mapSaleFromSnapshot(docSnap);
+      if (mapped) {
+        setSale(mapped);
       } else {
         console.warn("Sale not found in RegisterPayment with ID:", saleId);
       }
@@ -111,15 +115,13 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
 
   const currentTotalPending = currentTotalPendingCents / 100;
 
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: HtmlInputChangeEvent) => {
     setAmount(formatCurrencyBRL(e.target.value));
   };
 
   const parsedAmount = parseCurrencyBRLToFloat(amount);
   const parsedAmountCents = Math.round(parsedAmount * 100);
   const newBalance = Math.max(0, currentTotalPending - parsedAmount);
-  const newBalanceCents = Math.max(0, currentTotalPendingCents - parsedAmountCents);
-
   const handleSavePayment = async () => {
     if (!activeBox || !sale) return;
     if (!parsedAmountCents || parsedAmountCents <= 0) {
@@ -200,7 +202,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
       }
 
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Erro ao registrar pagamento';
+      const msg = getErrorMessage(err) || 'Erro ao registrar pagamento';
       setSaveError(msg);
     } finally {
       setSaving(false);

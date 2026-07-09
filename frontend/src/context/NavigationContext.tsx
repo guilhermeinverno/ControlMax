@@ -1,4 +1,4 @@
-import React, { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../types';
 
@@ -64,44 +64,36 @@ export const ROUTE_SCREENS: Record<string, Screen> = Object.entries(SCREEN_ROUTE
   {} as Record<string, Screen>
 );
 
+function resolveScreen(pathname: string): Screen {
+  if (pathname === '/' || pathname === '') return 'dashboard';
+  const normalizedPath =
+    pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+  return ROUTE_SCREENS[normalizedPath] || 'dashboard';
+}
+
 export function NavigationProvider({ children }: { children: ReactNode }) {
   const navigateReactRouter = useNavigate();
   const location = useLocation();
 
-  // Derive the active screen name from the current pathname
-  const path = location.pathname;
-  let screen: Screen = 'dashboard';
-  
-  if (path === '/' || path === '') {
-    screen = 'dashboard';
-  } else {
-    // Exact match or prefix match (to handle leading/trailing slashes or match nesting)
-    const normalizedPath = path.endsWith('/') && path.length > 1 ? path.slice(0, -1) : path;
-    screen = ROUTE_SCREENS[normalizedPath] || 'dashboard';
-  }
+  const navState = useMemo<NavState>(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const queryParams: Record<string, unknown> = {};
+    searchParams.forEach((value, key) => {
+      queryParams[key] = value;
+    });
 
-  // Combine params from router state and query string
-  const searchParams = new URLSearchParams(location.search);
-  const queryParams: Record<string, unknown> = {};
-  searchParams.forEach((value, key) => {
-    queryParams[key] = value;
-  });
+    return {
+      screen: resolveScreen(location.pathname),
+      params: {
+        ...(location.state as Record<string, unknown> || {}),
+        ...queryParams,
+      },
+    };
+  }, [location.pathname, location.search, location.state]);
 
-  const params = {
-    ...(location.state as Record<string, unknown> || {}),
-    ...queryParams,
-  };
-
-  const navState: NavState = {
-    screen,
-    params,
-  };
-
-  const navigate = (targetScreen: Screen, targetParams?: Record<string, unknown>) => {
+  const navigate = useCallback((targetScreen: Screen, targetParams?: Record<string, unknown>) => {
     let routePath = SCREEN_ROUTES[targetScreen] || '/dashboard';
-    
-    // If we have target parameters, serialize them into the URL query string
-    // to support deep linking and refreshing, while also passing them via router state.
+
     if (targetParams) {
       const queryParts: string[] = [];
       Object.entries(targetParams).forEach(([key, value]) => {
@@ -115,10 +107,15 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     }
 
     navigateReactRouter(routePath, { state: targetParams });
-  };
+  }, [navigateReactRouter]);
+
+  const contextValue = useMemo(
+    () => ({ navState, navigate }),
+    [navState, navigate]
+  );
 
   return (
-    <NavigationContext.Provider value={{ navState, navigate }}>
+    <NavigationContext.Provider value={contextValue}>
       {children}
     </NavigationContext.Provider>
   );

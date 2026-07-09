@@ -105,7 +105,7 @@ try {
 
 // Make absolutely sure we do not export an empty object `{}` as `db` or `auth`!
 // If they failed to initialize, getFirestore(app) or getAuth() fallback as a last resort
-if (!authInstance!) {
+if (!authInstance) {
   try {
     authInstance = getAuth();
   } catch (e) {
@@ -113,7 +113,7 @@ if (!authInstance!) {
   }
 }
 
-if (!firestoreDb!) {
+if (!firestoreDb) {
   try {
     firestoreDb = getFirestore();
   } catch (e) {
@@ -121,5 +121,5 @@ if (!firestoreDb!) {
   }
 }
 
-export const auth = authInstance!;
-export const db = firestoreDb!;
+export const auth = authInstance;
+export const db = firestoreDb;

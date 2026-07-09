@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
-import { Check, X, Clock, AlertCircle, TrendingUp, CheckCircle, XCircle, Search, User, CreditCard } from 'lucide-react';
+import { approvalStatusCardBorderClasses } from '../utils/statusLabels';
+import { listViewBody } from '../utils/listViewBody';
+import { Check, X, CheckCircle, XCircle, Search, User, AlertCircle } from 'lucide-react';
 
 interface BCApprovalsProps {
   onNavigate?: (screen: Screen) => void;
@@ -32,15 +34,17 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
   const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
   const [requests, setRequests] = useState<ExpenseRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const { tenantId, userName, role } = useTenant();
+  const { tenantId, userName } = useTenant();
 
   // Load real-time expense approvals under this tenant
   useEffect(() => {
     if (!tenantId) return;
 
+    setLoadError(null);
     const expensesRef = collection(db, 'expenses');
     const q = query(
       expensesRef,
@@ -71,9 +75,11 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
         };
       });
       setRequests(loaded);
+      setLoadError(null);
       setLoading(false);
     }, (error) => {
       console.error("Error loading approvals:", error);
+      setLoadError('Erro ao carregar solicitações de aprovação do Firestore.');
       setLoading(false);
     });
 
@@ -256,26 +262,32 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
         </div>
 
         {/* REQUESTS CONTAINER */}
-        {loading ? (
+        {loadError && (
+          <div className="bg-red-50 border border-red-300 text-red-800 p-3 rounded text-xs flex items-start gap-2 mb-3">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <span>{loadError}</span>
+          </div>
+        )}
+
+        {listViewBody(
+          loading,
+          filteredRequests.length,
+          (
           <div className="bg-white border border-gray-300 p-8 text-center text-xs text-gray-500 rounded">
             Cargando solicitudes de aprobación...
           </div>
-        ) : filteredRequests.length === 0 ? (
+        ),
+          (
           <div className="bg-white border border-gray-300 p-8 text-center text-xs text-gray-500 rounded">
             No se encontraron solicitudes para mostrar.
           </div>
-        ) : (
+        ),
+          (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {filteredRequests.map((req) => (
               <div 
                 key={req.id} 
-                className={`bg-white border rounded-sm shadow-sm p-4 relative flex flex-col justify-between ${
-                  req.status === 'pending' 
-                    ? 'border-l-4 border-l-amber-500 border-gray-300' 
-                    : req.status === 'approved' 
-                      ? 'border-l-4 border-l-green-500 border-gray-300' 
-                      : 'border-l-4 border-l-red-500 border-gray-300'
-                }`}
+                className={`bg-white border rounded-sm shadow-sm p-4 relative flex flex-col justify-between ${approvalStatusCardBorderClasses(req.status)}`}
               >
                 <div>
                   {/* Status & Date */}
@@ -358,7 +370,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
               </div>
             ))}
           </div>
-        )}
+        ))}
       </div>
 
     </div>

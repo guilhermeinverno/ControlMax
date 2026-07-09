@@ -1,4 +1,4 @@
-import React from 'react';
+import { FC } from 'react';
 import { Coins, Pencil, Clock, Camera } from 'lucide-react';
 import { Screen } from '../../types';
 import { formatToBRL } from '../../utils/currencyUtils';
@@ -27,7 +27,7 @@ interface SalesListItemProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
 }
 
-export const SalesListItem: React.FC<SalesListItemProps> = ({ sale, onNavigate }) => {
+export const SalesListItem: FC<SalesListItemProps> = ({ sale, onNavigate }) => {
   return (
     <tr className="hover:bg-gray-50/40 transition-colors">
       {/* Left Column (Metadata fields stacked) */}

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import {
@@ -19,9 +20,10 @@ import {
   formatCurrencyBRL,
   parseCurrencyBRLToCents
 } from '../utils/currency';
+import { transferStatusLabel, transferStatusBadgeClasses } from '../utils/statusLabels';
+import { toJsDate } from '../utils/firestoreTimestamp';
+import { loadingErrorEmptyContent } from '../utils/listViewBody';
 import {
-  DollarSign,
-  History,
   Calendar,
   Search,
   Loader2,
@@ -35,7 +37,8 @@ import {
   PlusCircle,
   Info,
   ArrowRightLeft,
-  ArrowRight
+  ArrowRight,
+  History
 } from 'lucide-react';
 
 interface BCTransfersProps {
@@ -65,7 +68,7 @@ const fmt = (cents: number) =>
 export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
 
-  const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || role === 'superadmin' || isSuperAdmin;
+  const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || isSuperAdmin;
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historico'>('nuevo');
@@ -106,7 +109,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const [transferToReject, setTransferToReject] = useState<BCTransfer | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  const unsubRef = useRef<() => void>(() => {});
+  const unsubRef = useRef<(() => void) | null>(null);
 
   // Sync fromName default value on load/fromType change
   useEffect(() => {
@@ -188,7 +191,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
             // Filter by date client-side
             const filteredList = list.filter(item => {
               if (!item.createdAt) return false;
-              const date = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt.seconds * 1000);
+              const date = toJsDate(item.createdAt);
               return date >= startOfDay && date <= endOfDay;
             });
 
@@ -224,13 +227,13 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   }, [tenantId, selectedDate]);
 
   // Form input formatter
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: HtmlInputChangeEvent) => {
     const formatted = formatCurrencyBRL(e.target.value);
     setAmountInput(formatted);
   };
 
   // Submit Handler for New Transfer
-  const handleCreateTransfer = async (e: React.FormEvent) => {
+  const handleCreateTransfer = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId) {
       setFormError("ID do inquilino não configurado.");
@@ -505,7 +508,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                   <option value="cn_b">CN Filial Principal</option>
                 </select>
                 <span className="text-[10px] text-gray-400 mt-1 italic">
-                  * TODO: Vincular com centros de negócios reais em atualizações futuras.
+                  * Pendente: Vincular com centros de negócios reais em atualizações futuras.
                 </span>
               </div>
 
@@ -603,7 +606,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Status</label>
                     <select
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
+                      onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                       className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
                     >
                       <option value="all">Todos os Status</option>
@@ -618,7 +621,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Origem</label>
                     <select
                       value={typeFilter}
-                      onChange={(e) => setTypeFilter(e.target.value)}
+                      onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
                       className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
                     >
                       <option value="all">Todos os Tipos</option>
@@ -632,7 +635,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                     <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">CN Destino</label>
                     <select
                       value={targetCnFilter}
-                      onChange={(e) => setTargetCnFilter(e.target.value)}
+                      onChange={(e) => setTargetCnFilter(e.target.value as typeof targetCnFilter)}
                       className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
                     >
                       <option value="all">Todos os CNs Destino</option>
@@ -690,28 +693,31 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
               </div>
 
               {/* Lista */}
-              {loading ? (
+              {loadingErrorEmptyContent(
+                loading,
+                error,
+                filteredTransfers.length,
+                (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-400 space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin text-[#6B21A8]" />
                   <p className="text-xs">Buscando transferências no banco de dados...</p>
                 </div>
-              ) : error ? (
+              ),
+                (
                 <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded text-xs text-center">
                   {error}
                 </div>
-              ) : filteredTransfers.length === 0 ? (
+              ),
+                (
                 <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-200 rounded-lg text-gray-400 space-y-2">
                   <Info className="w-8 h-8 text-gray-300" />
                   <p className="text-xs font-semibold">Nenhuma transferência encontrada para os filtros aplicados.</p>
                 </div>
-              ) : (
+              ),
+                (
                 <div className="space-y-3">
                   {filteredTransfers.map((transfer) => {
-                    const createdAtDate = transfer.createdAt?.toDate
-                      ? transfer.createdAt.toDate()
-                      : (transfer.createdAt?.seconds
-                          ? new Date(transfer.createdAt.seconds * 1000)
-                          : null);
+                    const createdAtDate = transfer.createdAt ? toJsDate(transfer.createdAt) : null;
                     return (
                       <div
                         key={transfer.id}
@@ -752,14 +758,8 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                             <span className="text-sm font-black text-[#6B21A8] font-mono">
                               $ {fmt(transfer.amount)}
                             </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              transfer.status === 'pending'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : transfer.status === 'confirmed'
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-red-100 text-red-800'
-                            }`}>
-                              {transfer.status === 'pending' ? 'Pendente' : transfer.status === 'confirmed' ? 'Confirmada' : 'Rejeitada'}
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${transferStatusBadgeClasses(transfer.status)}`}>
+                              {transferStatusLabel(transfer.status)}
                             </span>
                           </div>
                         </div>
@@ -802,7 +802,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                     );
                   })}
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>

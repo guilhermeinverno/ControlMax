@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { Search, ChevronLeft, ChevronRight, Filter, Loader2 } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { PaymentRecord } from '../types/operational';
 
 interface PaymentHistoryProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
   params?: Record<string, unknown>;
 }
 
-const STATIC_DEMO_PAYMENTS = [
+const STATIC_DEMO_PAYMENTS: PaymentRecord[] = [
   {
     id: "demo1",
     date: "25/08/2025 10:00",
@@ -47,7 +48,7 @@ export function PaymentHistory({ onNavigate, params }: PaymentHistoryProps) {
   const { tenantId } = useTenant();
   const saleId = params?.saleId as string;
 
-  const [payments, setPayments] = useState<unknown[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -139,7 +140,11 @@ export function PaymentHistory({ onNavigate, params }: PaymentHistoryProps) {
       {/* Return Button */}
       <div className="bg-[#E5E7EB] px-3 py-2 flex items-center text-xs font-bold text-[#555555] border-b border-gray-300">
         <button 
-          onClick={() => onNavigate && onNavigate(saleId ? 'sale-detail' : 'sales', saleId ? { saleId } : undefined)} 
+          onClick={() => {
+            if (!onNavigate) return;
+            if (saleId) onNavigate('sale-detail', { saleId });
+            else onNavigate('sales');
+          }}
           className="uppercase hover:underline"
         >
           &lt; {saleId ? 'Volver a Detalle' : 'Volver a Ventas'}

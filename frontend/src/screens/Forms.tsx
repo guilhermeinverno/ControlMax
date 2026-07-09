@@ -1,25 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import { logFirestoreError } from '../utils/firestoreError';
+import { booleanFieldDisplay } from '../utils/statusLabels';
+import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { 
   collection, 
   query, 
   where, 
-  getDocs, 
   addDoc, 
   deleteDoc, 
   doc, 
   serverTimestamp, 
   Timestamp,
-  orderBy,
   onSnapshot
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { listViewBody } from '../utils/listViewBody';
 import { FormField, FormDefinition, FormResponse } from '../types';
 import { 
   ClipboardList, 
   Plus, 
   Trash2, 
-  Eye, 
   CheckSquare, 
   FileText, 
   Loader2, 
@@ -28,26 +28,9 @@ import {
   PlusCircle,
   CheckCircle2,
   Calendar,
-  User,
-  ListFilter
+  User
 } from 'lucide-react';
 
-enum OperationType {
-  CREATE = 'create',
-  DELETE = 'delete',
-  LIST = 'list',
-  WRITE = 'write',
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    operationType,
-    path
-  };
-  console.error('Firestore Error in Forms: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 
 export function Forms() {
@@ -115,7 +98,7 @@ export function Forms() {
     }, (error) => {
       setErrorMsg('Error al cargar formularios.');
       try {
-        handleFirestoreError(error, OperationType.LIST, 'forms');
+        logFirestoreError(error, 'list', 'forms', { label: 'Firestore Error in Forms', throwError: true, includeAuth: false });
       } catch (e) {}
       setLoadingForms(false);
     });
@@ -151,7 +134,7 @@ export function Forms() {
     }, (error) => {
       setErrorMsg('Error al cargar respuestas.');
       try {
-        handleFirestoreError(error, OperationType.LIST, 'form_responses');
+        logFirestoreError(error, 'list', 'form_responses', { label: 'Firestore Error in Forms', throwError: true, includeAuth: false });
       } catch (e) {}
       setLoadingResponses(false);
     });
@@ -251,7 +234,7 @@ export function Forms() {
     } catch (err) {
       setErrorMsg('Fallo al guardar el formulario.');
       try {
-        handleFirestoreError(err, OperationType.WRITE, 'forms');
+        logFirestoreError(err, 'write', 'forms', { label: 'Firestore Error in Forms', throwError: true, includeAuth: false });
       } catch (e) {}
     }
   };
@@ -265,7 +248,7 @@ export function Forms() {
     } catch (err) {
       setErrorMsg('No se pudo eliminar el formulario.');
       try {
-        handleFirestoreError(err, OperationType.DELETE, `forms/${formId}`);
+        logFirestoreError(err, 'delete', `forms/${formId}`, { label: 'Firestore Error in Forms', throwError: true, includeAuth: false });
       } catch (e) {}
     }
   };
@@ -324,7 +307,7 @@ export function Forms() {
     } catch (err) {
       setFillingError('Fallo al enviar la respuesta del formulario.');
       try {
-        handleFirestoreError(err, OperationType.WRITE, 'form_responses');
+        logFirestoreError(err, 'write', 'form_responses', { label: 'Firestore Error in Forms', throwError: true, includeAuth: false });
       } catch (e) {}
     } finally {
       setSubmittingResponse(false);
@@ -430,16 +413,21 @@ export function Forms() {
             <p className="text-[11px] text-gray-400">Total: {formsList.length}</p>
           </div>
 
-          {loadingForms ? (
+          {listViewBody(
+            loadingForms,
+            formsList.length,
+            (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-purple-700 mb-2" />
               <p className="text-xs text-gray-400">Sincronizando encuestas...</p>
             </div>
-          ) : formsList.length === 0 ? (
+          ),
+            (
             <div className="text-center py-12 text-gray-400 text-xs">
               No hay formularios creados para este canal. {isAdminOrSupervisor && '¡Crea uno nuevo usando la pestaña de arriba!'}
             </div>
-          ) : (
+          ),
+            (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {formsList.map(form => (
                 <div key={form.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 hover:bg-white transition-all hover:shadow-md flex flex-col justify-between">
@@ -471,7 +459,7 @@ export function Forms() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -490,16 +478,21 @@ export function Forms() {
             <p className="text-[11px] text-gray-400">Total: {responsesList.length}</p>
           </div>
 
-          {loadingResponses ? (
+          {listViewBody(
+            loadingResponses,
+            responsesList.length,
+            (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-purple-700 mb-2" />
               <p className="text-xs text-gray-400">Buscando envíos...</p>
             </div>
-          ) : responsesList.length === 0 ? (
+          ),
+            (
             <div className="text-center py-12 text-gray-400 text-xs">
               Ninguna respuesta registrada hasta el momento.
             </div>
-          ) : (
+          ),
+            (
             <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
               {responsesList.map(resp => (
                 <div key={resp.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50 flex flex-col md:flex-row justify-between gap-4">
@@ -519,7 +512,7 @@ export function Forms() {
                             {key.replace(/_/g, ' ')}
                           </span>
                           <span className="font-semibold text-gray-800">
-                            {typeof value === 'boolean' ? (value ? 'Sí ✅' : 'No ❌') : String(value)}
+                            {typeof value === 'boolean' ? booleanFieldDisplay(value) : String(value)}
                           </span>
                         </div>
                       ))}
@@ -540,7 +533,7 @@ export function Forms() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </div>
       )}
 
@@ -659,7 +652,7 @@ export function Forms() {
               ) : (
                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
                   {builderFields.map((field, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200 rounded text-xs">
+                    <div key={field.id} className="flex items-center justify-between p-2.5 bg-gray-50 border border-gray-200 rounded text-xs">
                       <div className="space-y-0.5">
                         <div className="font-bold text-gray-800">
                           {field.label} {field.required && <span className="text-red-500">*</span>}
@@ -723,6 +716,8 @@ export function Forms() {
               {fillingForm.fields.map(field => {
                 const isRequired = field.required;
                 const value = fillingAnswers[field.id];
+                const textValue =
+                  typeof value === 'string' || typeof value === 'number' ? String(value) : '';
 
                 return (
                   <div key={field.id} className="flex flex-col">
@@ -735,7 +730,7 @@ export function Forms() {
                     {field.type === 'text' && (
                       <input 
                         type="text"
-                        value={value || ''}
+                        value={textValue}
                         onChange={(e) => handleAnswerChange(field.id, e.target.value)}
                         placeholder="Escriba aquí..."
                         className="border border-gray-300 rounded p-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-purple-600"
@@ -746,7 +741,7 @@ export function Forms() {
                     {field.type === 'number' && (
                       <input 
                         type="number"
-                        value={value || ''}
+                        value={textValue}
                         onChange={(e) => handleAnswerChange(field.id, e.target.value)}
                         placeholder="0"
                         className="border border-gray-300 rounded p-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-purple-600"
@@ -756,7 +751,7 @@ export function Forms() {
                     {/* SELECT FIELD */}
                     {field.type === 'select' && (
                       <select
-                        value={value || ''}
+                        value={textValue}
                         onChange={(e) => handleAnswerChange(field.id, e.target.value)}
                         className="border border-gray-300 rounded p-2 text-sm text-gray-800 bg-white focus:outline-none focus:border-purple-600 cursor-pointer"
                       >

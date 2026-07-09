@@ -1,22 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
+import type { FormOrButtonEvent } from '../types/reactEvents';
 import { 
   ShieldCheck, 
-  FileText, 
   History, 
   Settings, 
   CheckCircle, 
   AlertTriangle, 
-  Check, 
   Search, 
-  X, 
-  Users, 
   Briefcase, 
   FileSpreadsheet,
-  TrendingUp,
-  Clock,
-  ExternalLink
+  TrendingUp
 } from 'lucide-react';
-import { db, auth } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { 
   collection, 
   addDoc, 
@@ -26,54 +22,9 @@ import {
   onSnapshot, 
   serverTimestamp 
 } from 'firebase/firestore';
+import { logFirestoreError } from '../utils/firestoreError';
 import { useTenant } from '../hooks/useTenant';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error),
-    authInfo: {
-      userId: auth?.currentUser?.uid || null,
-      email: auth?.currentUser?.email || null,
-      emailVerified: auth?.currentUser?.emailVerified || null,
-      isAnonymous: auth?.currentUser?.isAnonymous || null,
-      tenantId: auth?.currentUser?.tenantId || null,
-      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+import { insuranceStatusBadgeClasses } from '../utils/statusLabels';
 
 interface InsuredPerson {
   id?: string;
@@ -160,7 +111,7 @@ export function Insurance() {
       console.error('Error fetching business centers', err);
       setUnits(fallbackUnits);
       try {
-        handleFirestoreError(err, OperationType.GET, 'business_centers');
+        logFirestoreError(err, 'get', 'business_centers', { throwError: true });
       } catch (e) {
         // Logged and captured
       }
@@ -188,7 +139,7 @@ export function Insurance() {
     }, (err) => {
       console.error('Error fetching insurance applications', err);
       try {
-        handleFirestoreError(err, OperationType.GET, 'insurance_applications');
+        logFirestoreError(err, 'get', 'insurance_applications', { throwError: true });
       } catch (e) {
         // Logged and captured
       }
@@ -220,7 +171,7 @@ export function Insurance() {
     setPaqueteSeguro('Plan Estándar - $ 150.000,00');
   };
 
-  const handleSave = async (e: React.FormEvent, isDirectApproval: boolean) => {
+  const handleSave = async (e: FormOrButtonEvent, isDirectApproval: boolean) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -280,7 +231,7 @@ export function Insurance() {
       try {
         await addDoc(collection(db, 'insurance_applications'), payload);
       } catch (err: unknown) {
-        handleFirestoreError(err, OperationType.CREATE, 'insurance_applications');
+        logFirestoreError(err, 'create', 'insurance_applications', { throwError: true });
       }
       
       setSuccessMsg(
@@ -299,7 +250,7 @@ export function Insurance() {
 
     } catch (err: unknown) {
       console.error('Error saving insurance application', err);
-      setErrorMsg('Error al guardar la solicitud en la base de datos: ' + (err instanceof Error ? err.message : String(err)));
+      setErrorMsg('Error al guardar la solicitud en la base de datos: ' + (getErrorMessage(err)));
     } finally {
       setSaving(false);
     }
@@ -776,13 +727,7 @@ export function Insurance() {
                         {item.estadoCivil} / {item.numeroHijos} {parseInt(item.numeroHijos) === 1 ? 'hijo' : 'hijos'}
                       </td>
                       <td className="p-3 text-center">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${
-                          item.status === 'Aprobado'
-                            ? 'bg-green-100 text-green-800 border-green-200'
-                            : item.status === 'Pendiente'
-                            ? 'bg-amber-100 text-amber-800 border-amber-200'
-                            : 'bg-red-100 text-red-800 border-red-200'
-                        }`}>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wide border ${insuranceStatusBadgeClasses(item.status)}`}>
                           {item.status}
                         </span>
                       </td>

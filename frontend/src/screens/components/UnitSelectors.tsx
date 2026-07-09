@@ -1,39 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { db, auth } from '../../lib/firebase';
+import { logFirestoreError } from '../../utils/firestoreError';
+import { useState, useEffect } from 'react';
+import { db } from '../../lib/firebase';
 import { useTenant } from '../../hooks/useTenant';
+import { BusinessCenter, RouteOption } from '../../types/operational';
 import {
   collection, query, where, orderBy, onSnapshot
 } from 'firebase/firestore';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth?.currentUser?.uid || null,
-      email: auth?.currentUser?.email || null,
-      emailVerified: auth?.currentUser?.emailVerified || null,
-      isAnonymous: auth?.currentUser?.isAnonymous || null,
-      tenantId: auth?.currentUser?.tenantId || null,
-      providerInfo: auth?.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 interface UnitSelectorsProps {
   selectedCnId?: string;
@@ -66,10 +38,10 @@ export function UnitSelectors({
   const selectedCnId = isCnControlled ? propSelectedCnId : localCnId;
   const selectedUnitId = isUnitControlled ? propSelectedUnitId : localUnitId;
 
-  const [cns, setCns] = useState<unknown[]>([]);
+  const [cns, setCns] = useState<BusinessCenter[]>([]);
   const [loadingCns, setLoadingCns] = useState(true);
 
-  const [units, setUnits] = useState<unknown[]>([]);
+  const [units, setUnits] = useState<RouteOption[]>([]);
   const [loadingUnits, setLoadingUnits] = useState(true);
 
   // 1. Fetch Business Centers (CNs)
@@ -90,7 +62,7 @@ export function UnitSelectors({
         id: doc.id,
         name: doc.data().name || '',
         ...doc.data()
-      }));
+      })) as BusinessCenter[];
       setCns(list);
       setLoadingCns(false);
     }, (err) => {
@@ -107,14 +79,10 @@ export function UnitSelectors({
           id: doc.id,
           name: doc.data().name || '',
           ...doc.data()
-        })) as unknown[];
+        })) as BusinessCenter[];
         
         // Client-side sort
-        list.sort((a, b) => {
-          const nameA = String((a as { name?: string }).name || '');
-          const nameB = String((b as { name?: string }).name || '');
-          return nameA.localeCompare(nameB);
-        });
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         setCns(list);
         setLoadingCns(false);
@@ -122,7 +90,7 @@ export function UnitSelectors({
         console.error("business_centers fallback query failed:", fallbackErr);
         setLoadingCns(false);
         try {
-          handleFirestoreError(fallbackErr, OperationType.LIST, 'business_centers');
+          logFirestoreError(fallbackErr, 'list', 'business_centers', { throwError: true });
         } catch (e) {
           // Kept caught
         }
@@ -162,7 +130,7 @@ export function UnitSelectors({
         id: doc.id,
         name: doc.data().name || '',
         ...doc.data()
-      }));
+      })) as RouteOption[];
       setUnits(list);
       setLoadingUnits(false);
     }, (err) => {
@@ -178,14 +146,10 @@ export function UnitSelectors({
           id: doc.id,
           name: doc.data().name || '',
           ...doc.data()
-        })) as unknown[];
+        })) as RouteOption[];
 
         // Client-side sort
-        list.sort((a, b) => {
-          const nameA = String((a as { name?: string }).name || '');
-          const nameB = String((b as { name?: string }).name || '');
-          return nameA.localeCompare(nameB);
-        });
+        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         setUnits(list);
         setLoadingUnits(false);
@@ -193,7 +157,7 @@ export function UnitSelectors({
         console.error("routes fallback query failed:", fallbackErr);
         setLoadingUnits(false);
         try {
-          handleFirestoreError(fallbackErr, OperationType.LIST, 'routes');
+          logFirestoreError(fallbackErr, 'list', 'routes', { throwError: true });
         } catch (e) {
           // Kept caught
         }

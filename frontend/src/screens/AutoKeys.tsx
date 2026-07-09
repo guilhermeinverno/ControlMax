@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Screen } from '../types';
-import { Save, X, Key, List, PlusCircle, CheckCircle, XCircle, Info, Edit, Trash } from 'lucide-react';
+import { Save, X, Key, List, PlusCircle, Info, Edit, Trash } from 'lucide-react';
 import { ConfirmModal } from './components/ConfirmModal';
+import { activeInactiveLabel, activeInactiveTextClass } from '../utils/statusLabels';
 
 interface AutoKeysProps {
   onNavigate?: (screen: Screen) => void;
@@ -317,7 +318,7 @@ export function AutoKeys({ onNavigate }: AutoKeysProps) {
                     <div>• Máximo de Cuotas: <strong className="text-gray-800">{formMaxInstallments || '0'} cuotas</strong></div>
                   </>
                 )}
-                <div>• Estado: <strong className={formActive ? 'text-[#16A34A]' : 'text-red-500'}>{formActive ? 'ACTIVO' : 'INACTIVO'}</strong></div>
+                <div>• Estado: <strong className={activeInactiveTextClass(formActive)}>{activeInactiveLabel(formActive)}</strong></div>
               </div>
             </div>
 

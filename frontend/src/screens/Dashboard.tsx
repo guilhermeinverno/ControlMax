@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
-  Search, MapPin, Smartphone, RefreshCw, Calendar, Check, 
-  AlertCircle, ChevronDown, Award, Target, X, Calculator,
-  Phone, Smartphone as PhoneIcon
+  MapPin, Smartphone, RefreshCw, Calendar, AlertCircle, Target, Calculator,
+  Phone as PhoneIcon
 } from 'lucide-react';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, orderBy, limit, Timestamp, onSnapshot } from 'firebase/firestore';
+import { listViewBody } from '../utils/listViewBody';
 import { useTenant } from '../hooks/useTenant';
-import { useBox } from '../hooks/useBox';
 import { Screen } from '../types';
-import { useNavigation } from '../context/NavigationContext';
+import { DEFAULT_DEVICE_APP_VERSION } from '../constants/device';
+import { SKELETON_SINGLE_KEY } from '../constants/placeholders';
+import { pickJsDate } from '../utils/firestoreTimestamp';
+import { dashboardBoxListStatusLabel } from '../utils/statusLabels';
+import { mapBoxRecord, sortBoxesByOpenedAtDesc } from '../utils/boxRecordMapper';
 import { UnitSelectors } from './components/UnitSelectors';
 
 interface BoxRecord {
@@ -35,11 +38,8 @@ interface DashboardProps {
 const fmt = (cents: number) =>
   (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-export function Dashboard({ onNavigate }: DashboardProps) {
-  const { tenantId, role, userName, loading: tenantLoading } = useTenant();
-  const { activeBox, loading: boxLoading } = useBox();
-  const { navigate: contextNavigate } = useNavigation();
-  const navigate = onNavigate || contextNavigate;
+export function Dashboard({ onNavigate: _onNavigate }: DashboardProps) {
+  const { tenantId, role, loading: tenantLoading } = useTenant();
 
   const [boxes, setBoxes] = useState<BoxRecord[]>([]);
   const [loadingBoxes, setLoadingBoxes] = useState(true);
@@ -68,22 +68,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list: BoxRecord[] = snapshot.docs.map(doc => {
-        const d = doc.data();
+      const list: BoxRecord[] = snapshot.docs.map((docSnap) => {
+        const mapped = mapBoxRecord(docSnap);
         return {
-          id: doc.id,
-          unitId: d.unitId || '',
-          unitName: d.unitName || '',
-          cnId: d.cnId || '',
-          cnName: d.cnName || '',
-          userId: d.userId || '',
-          userName: d.userName || '',
-          status: d.status || 'open',
-          openedAt: d.openedAt || null,
-          closedAt: d.closedAt || null,
-          confirmedAt: d.confirmedAt || null,
-          initialAmount: d.initialAmount || 0,
-          finalAmount: d.finalAmount || 0,
+          ...mapped,
+          status: mapped.status as BoxRecord['status'],
         };
       });
       setBoxes(list);
@@ -97,31 +86,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       );
 
       const unsubFallback = onSnapshot(fallbackQuery, (snapshot) => {
-        const list: BoxRecord[] = snapshot.docs.map(doc => {
-          const d = doc.data();
-          return {
-            id: doc.id,
-            unitId: d.unitId || '',
-            unitName: d.unitName || '',
-            cnId: d.cnId || '',
-            cnName: d.cnName || '',
-            userId: d.userId || '',
-            userName: d.userName || '',
-            status: d.status || 'open',
-            openedAt: d.openedAt || null,
-            closedAt: d.closedAt || null,
-            confirmedAt: d.confirmedAt || null,
-            initialAmount: d.initialAmount || 0,
-            finalAmount: d.finalAmount || 0,
-          };
-        });
-        
-        // Sort client-side
-        list.sort((a, b) => {
-          const tA = a.openedAt?.toDate().getTime() || 0;
-          const tB = b.openedAt?.toDate().getTime() || 0;
-          return tB - tA;
-        });
+        const list: BoxRecord[] = sortBoxesByOpenedAtDesc(
+          snapshot.docs.map((docSnap) => {
+            const mapped = mapBoxRecord(docSnap);
+            return {
+              ...mapped,
+              status: mapped.status as BoxRecord['status'],
+            };
+          })
+        ) as BoxRecord[];
 
         setBoxes(list);
         setLoadingBoxes(false);
@@ -218,11 +191,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         )}
 
         {/* LIST OF CARDS */}
-        {loadingBoxes ? (
-          // Beautiful skeleton list
+        {listViewBody(
+          loadingBoxes,
+          filteredBoxes.length,
+          (
           <div className="space-y-4">
-            {Array.from({ length: 1 }).map((_, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm animate-pulse space-y-4">
+            <div key={SKELETON_SINGLE_KEY} className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm animate-pulse space-y-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-3">
                     <div className="w-10 h-10 rounded bg-gray-100"></div>
@@ -239,24 +213,24 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="h-4 bg-gray-100 rounded"></div>
                 </div>
               </div>
-            ))}
           </div>
-        ) : filteredBoxes.length === 0 ? (
+        ),
+          (
           <div className="text-center py-12 text-gray-400">
             <Calculator className="w-10 h-10 mx-auto mb-2 text-gray-300" />
             <p className="text-xs font-extrabold text-gray-500">Nenhuma caixa correspondente ativa</p>
           </div>
-        ) : (
+        ),
+          (
           <div className="space-y-4">
             {filteredBoxes.map((record) => {
               const openedDate = record.openedAt ? record.openedAt.toDate() : new Date();
               const dateBoxStr = openedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
               
-              const syncDate = record.closedAt ? record.closedAt.toDate() : record.openedAt ? record.openedAt.toDate() : new Date();
+              const syncDate = pickJsDate(record.closedAt, record.openedAt);
               const syncStr = syncDate.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-              const isConfirmed = record.status === 'confirmed';
-              const statusLabel = isConfirmed ? 'Confirmada' : record.status === 'closed' ? 'Fechada' : 'Confirmada'; // Match exact color and label as shown in image: "Confirmada"
+              const statusLabel = dashboardBoxListStatusLabel(record.status);
 
               return (
                 <div 
@@ -363,7 +337,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       <PhoneIcon className="w-5.5 h-5.5 text-[#6B21A8] shrink-0 stroke-[1.8] mt-0.5" />
                       <div>
                         <span className="block text-[10px] text-gray-400 font-bold leading-none mb-1">PIN/Versión App</span>
-                        <span className="block text-xs font-extrabold text-gray-700">- / 6.0.0.2</span>
+                        <span className="block text-xs font-extrabold text-gray-700">- / {DEFAULT_DEVICE_APP_VERSION}</span>
                       </div>
                     </div>
 
@@ -373,7 +347,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               );
             })}
           </div>
-        )}
+        ))}
 
       </div>
 

@@ -1,11 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db, auth } from '../lib/firebase';
 import {
   collection, query, where, orderBy,
   onSnapshot, addDoc, updateDoc, doc, deleteDoc,
-  serverTimestamp, getDocs
+  serverTimestamp
 } from 'firebase/firestore';
+import { SKELETON_CARD_KEYS } from '../constants/placeholders';
 import { useTenant } from '../hooks/useTenant';
+import { hasAdminAccess } from '../types/operational';
+import { listViewBody } from '../utils/listViewBody';
 import { useNavigation } from '../context/NavigationContext';
 import { ConfirmModal } from './components/ConfirmModal';
 import { UnitSelectors } from './components/UnitSelectors';
@@ -19,8 +23,7 @@ import {
   X, 
   AlertCircle, 
   User, 
-  Building2, 
-  Users2 
+  Building2
 } from 'lucide-react';
 
 interface Route {
@@ -52,7 +55,7 @@ export function RouteList() {
   const { navigate } = useNavigation();
 
   // Permissões
-  const isAdmin = role === 'admin' || role === 'superadmin' || isSuperAdmin;
+  const isAdmin = hasAdminAccess(role, isSuperAdmin);
   const isCollector = role === 'collector';
 
   // Estados principais
@@ -75,7 +78,7 @@ export function RouteList() {
   // Modal de Confirmação para Deletar
   const [routeToDelete, setRouteToDelete] = useState<Route | null>(null);
 
-  const unsubRef = useRef<() => void>(() => {});
+  const unsubRef = useRef<(() => void) | null>(null);
 
   // 1. Ouvir Rotas com real-time (onSnapshot) e fallback se der erro de índice
   useEffect(() => {
@@ -179,7 +182,7 @@ export function RouteList() {
   };
 
   // Criar nova rota
-  const handleCreateRouteSubmit = async (e: React.FormEvent) => {
+  const handleCreateRouteSubmit = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     if (!name.trim()) return;
@@ -197,7 +200,7 @@ export function RouteList() {
         }
       }
 
-      // TODO: Implementar seleção real de Centro de Negócios (CN).
+      // Pendente: Implementar seleção real de Centro de Negócios (CN).
       // Atualmente, as rotas são associadas por padrão ao "CN Padrão".
       const cnId = ''; 
       const cnName = 'CN Padrão';
@@ -310,10 +313,13 @@ export function RouteList() {
           </div>
 
           {/* Loading Skeletons */}
-          {loading ? (
+          {listViewBody(
+            loading,
+            filteredRoutes.length,
+            (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map(i => (
-                <div key={i} className="bg-white border border-gray-200 shadow-sm rounded-sm p-4 animate-pulse space-y-3">
+              {SKELETON_CARD_KEYS.slice(0, 3).map((key) => (
+                <div key={key} className="bg-white border border-gray-200 shadow-sm rounded-sm p-4 animate-pulse space-y-3">
                   <div className="h-4 bg-gray-200 rounded w-2/3"></div>
                   <div className="h-3 bg-gray-100 rounded w-1/2"></div>
                   <div className="space-y-2 pt-2">
@@ -323,7 +329,8 @@ export function RouteList() {
                 </div>
               ))}
             </div>
-          ) : filteredRoutes.length === 0 ? (
+          ),
+            (
             <div className="text-center py-12 bg-gray-50 border border-dashed border-gray-300 rounded-sm">
               <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
               <p className="text-sm font-bold text-gray-700">Nenhuma rota cadastrada ainda</p>
@@ -338,8 +345,8 @@ export function RouteList() {
                 </button>
               )}
             </div>
-          ) : (
-            /* Cards de Rota */
+          ),
+            (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredRoutes.map((route) => (
                 <div key={route.id} className="bg-white border border-gray-300 shadow-sm rounded-sm p-3 flex flex-col justify-between hover:border-gray-400 transition-colors">
@@ -413,7 +420,7 @@ export function RouteList() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
         </div>
       </div>
 
@@ -479,7 +486,7 @@ export function RouteList() {
                 </select>
               </div>
 
-              {/* CN - Mock por enquanto (TODO comment) */}
+              {/* CN - Mock por enquanto (Pendente comment) */}
               <div className="flex flex-col opacity-60">
                 <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
                   Centro de Negócios (CN)
@@ -491,7 +498,7 @@ export function RouteList() {
                   <option value="">CN Padrão (Mock)</option>
                 </select>
                 <span className="text-[10px] text-gray-400 mt-1 italic">
-                  * TODO: Vincular com centro de negócios reais em atualizações futuras.
+                  * Pendente: Vincular com centro de negócios reais em atualizações futuras.
                 </span>
               </div>
 

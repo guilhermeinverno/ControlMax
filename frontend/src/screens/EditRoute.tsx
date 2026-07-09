@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import {
@@ -13,11 +14,11 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { formatFirestoreDate } from '../utils/firestoreTimestamp';
 import { useNavigation } from '../context/NavigationContext';
 import { ConfirmModal } from './components/ConfirmModal';
 import {
   MapPin,
-  User,
   Building2,
   Calendar,
   Layers,
@@ -62,7 +63,7 @@ interface CollectorUser {
 }
 
 export function EditRoute({ onNavigate, params }: EditRouteProps) {
-  const { tenantId, role, userName, loading: tenantLoading } = useTenant();
+  const { tenantId, role, loading: tenantLoading } = useTenant();
   const { navState, navigate } = useNavigation();
 
   // RouteId retrieval (tries prop first, then global navState)
@@ -153,7 +154,7 @@ export function EditRoute({ onNavigate, params }: EditRouteProps) {
     fetchData();
   }, [tenantId, routeId]);
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId || !routeId) return;
 
@@ -380,7 +381,7 @@ export function EditRoute({ onNavigate, params }: EditRouteProps) {
                   <span>{routeData.cnName || 'CN de la sociedade 6501'}</span>
                 </div>
                 <span className="text-[9px] text-gray-400 mt-1 italic">
-                  * TODO: Vinculação flexível de rotas com múltiplos CNs em futuras versões.
+                  * Pendente: Vinculação flexível de rotas com múltiplos CNs em futuras versões.
                 </span>
               </div>
 
@@ -413,7 +414,7 @@ export function EditRoute({ onNavigate, params }: EditRouteProps) {
                     Criado em:{' '}
                     <strong className="text-gray-800">
                       {routeData.createdAt
-                        ? (routeData.createdAt.toDate ? routeData.createdAt.toDate() : new Date(routeData.createdAt.seconds * 1000)).toLocaleDateString('pt-BR')
+                        ? formatFirestoreDate(routeData.createdAt, 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
                         : 'Desconhecido'}
                     </strong>
                   </span>

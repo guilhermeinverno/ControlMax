@@ -1,12 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
 import { UnitSelectors } from './components/UnitSelectors';
 import { Save, X, AlertCircle } from 'lucide-react';
-import { db } from '../lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL } from '../utils/currency';
 
 interface OpenBoxProps {
@@ -15,7 +14,7 @@ interface OpenBoxProps {
 
 export function OpenBox({ onNavigate }: OpenBoxProps) {
   const { activeBox, loading: boxLoading, error: boxError, openBox } = useBox();
-  const { userName, loading: tenantLoading, tenantId } = useTenant();
+  const { loading: tenantLoading } = useTenant();
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [amount, setAmount] = useState('');
@@ -75,7 +74,7 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
         if (onNavigate) onNavigate('dashboard');
       }, 2000);
     } catch (err: unknown) {
-      setSubmitError((err instanceof Error ? err.message : String(err)) || 'Error al abrir la caja.');
+      setSubmitError((getErrorMessage(err)) || 'Error al abrir la caja.');
     } finally {
       setIsSubmitting(false);
     }
@@ -222,6 +221,13 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
             </div>
           </div>
         </div>
+
+        {boxError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 p-2.5 rounded-sm text-xs font-semibold flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+            <span>{boxError}</span>
+          </div>
+        )}
 
         {submitError && (
           <div className="bg-red-50 border border-red-200 text-red-600 p-2.5 rounded-sm text-xs font-semibold">

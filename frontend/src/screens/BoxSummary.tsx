@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
 import { Screen, Box } from '../types';
 import { Search, ChevronLeft, ChevronRight, Download, AlertCircle } from 'lucide-react';
+import { boxStatusLabel, boxStatusBadgeBorderClasses } from '../utils/statusLabels';
 import { useTenant } from '../hooks/useTenant';
 import { db, auth } from '../lib/firebase';
 import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
@@ -21,7 +23,7 @@ interface BoxTransaction {
 }
 
 export function BoxSummary({ onNavigate }: BoxSummaryProps) {
-  const { tenantId, role, loading: tenantLoading } = useTenant();
+  const { tenantId, loading: tenantLoading } = useTenant();
 
   // Local helper to get today's date in YYYY-MM-DD
   const getTodayString = () => {
@@ -36,7 +38,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
   const [selectedDate, setSelectedDate] = useState(todayStr);
 
   // CN and Unit Options (Mocked for now as requested)
-  // TODO: Conectar con Firestore futuramente
+  // Pendente: Conectar con Firestore futuramente
   const cnOptions = [
     { id: 'CN_6501', name: 'CN de la sociedad 6501' }
   ];
@@ -143,7 +145,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
       }
     } catch (err: unknown) {
       console.error(err);
-      setSearchError((err instanceof Error ? err.message : String(err)) || 'Error al buscar la caja.');
+      setSearchError((getErrorMessage(err)) || 'Error al buscar la caja.');
     } finally {
       setIsSearching(false);
     }
@@ -162,13 +164,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
 
     const dataToExport = transactions.map(tx => {
       const timeStr = tx.createdAt ? tx.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'N/A';
-      
-      let typeLabel = tx.type;
-      if (tx.type === 'income') typeLabel = 'Ingreso';
-      else if (tx.type === 'expense') typeLabel = 'Gasto';
-      else if (tx.type === 'sale') typeLabel = 'Venda';
-      else if (tx.type === 'collection') typeLabel = 'Recaudo';
-      else if (tx.type === 'transfer') typeLabel = 'Transferência';
+      const typeLabel = getTypeName(tx.type);
 
       return {
         'Hora': timeStr,
@@ -241,7 +237,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
           <div className="space-y-3">
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#555555] mb-1">CN de la sociedad</label>
-              {/* TODO: Conectar con Firestore futuramente */}
+              {/* Pendente: Conectar con Firestore futuramente */}
               <select 
                 value={selectedCnId}
                 onChange={(e) => setSelectedCnId(e.target.value)}
@@ -255,7 +251,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
             
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#555555] mb-1">Unidad</label>
-              {/* TODO: Conectar con Firestore futuramente */}
+              {/* Pendente: Conectar con Firestore futuramente */}
               <select 
                 value={selectedUnitId}
                 onChange={(e) => setSelectedUnitId(e.target.value)}
@@ -324,14 +320,8 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
             <div className="bg-white text-xs border border-gray-300 shadow-sm rounded-sm p-3">
               <div className="flex justify-between items-center border-b border-gray-200 pb-1 mb-2">
                 <h3 className="font-bold text-[#6B21A8] uppercase text-[10px] tracking-wider">Cierre de Caja</h3>
-                <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-sm border ${
-                  box.status === 'open' 
-                    ? 'bg-green-50 text-green-700 border-green-300' 
-                    : box.status === 'closed'
-                    ? 'bg-yellow-50 text-yellow-700 border-yellow-300'
-                    : 'bg-purple-50 text-purple-700 border-purple-300'
-                }`}>
-                  {box.status === 'open' ? 'Aberta' : box.status === 'closed' ? 'Fechada' : 'Confirmada'}
+                <span className={`px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-sm border ${boxStatusBadgeBorderClasses(box.status)}`}>
+                  {boxStatusLabel(box.status)}
                 </span>
               </div>
               <div className="space-y-1.5">

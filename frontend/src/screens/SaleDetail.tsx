@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Coins, Clock, Pencil, MapPin, User as UserIcon, Phone, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import { doc, onSnapshot, collection, query, where, orderBy } from 'firebase/firestore';
+import { saleActivityLabel } from '../utils/statusLabels';
+import { formatFirestoreDate } from '../utils/firestoreTimestamp';
 import { useTenant } from '../hooks/useTenant';
 
 interface Sale {
@@ -38,31 +40,15 @@ export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
   const { tenantId } = useTenant();
   const saleId = params?.saleId as string | undefined;
 
-  // Guard clause for missing saleId
-  if (!saleId) {
-    return (
-      <div className="flex flex-col bg-[#F3F4F6] min-h-screen p-4 space-y-3">
-        <div className="bg-red-50 border border-red-300 rounded p-4 flex flex-col items-center text-center space-y-3">
-          <AlertCircle className="w-10 h-10 text-red-400" />
-          <span className="font-bold text-red-800 text-sm">Venda não encontrada</span>
-          <span className="text-red-700 text-xs">Nenhum ID de venda foi fornecido.</span>
-          <button
-            onClick={() => onNavigate && onNavigate('sales')}
-            className="bg-[#6B21A8] text-white font-bold text-xs py-2 px-6 rounded shadow cursor-pointer"
-          >
-            Voltar às Vendas
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const [sale, setSale] = useState<Sale | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!!saleId);
 
   useEffect(() => {
-    if (!saleId || !tenantId) return;
+    if (!saleId || !tenantId) {
+      setLoading(false);
+      return;
+    }
 
     // 1. Subscribe to the specific sale document
     const saleDocRef = doc(db, 'sales', saleId);
@@ -134,6 +120,24 @@ export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
     };
   }, [saleId, tenantId]);
 
+  if (!saleId) {
+    return (
+      <div className="flex flex-col bg-[#F3F4F6] min-h-screen p-4 space-y-3">
+        <div className="bg-red-50 border border-red-300 rounded p-4 flex flex-col items-center text-center space-y-3">
+          <AlertCircle className="w-10 h-10 text-red-400" />
+          <span className="font-bold text-red-800 text-sm">Venda não encontrada</span>
+          <span className="text-red-700 text-xs">Nenhum ID de venda foi fornecido.</span>
+          <button
+            onClick={() => onNavigate && onNavigate('sales')}
+            className="bg-[#6B21A8] text-white font-bold text-xs py-2 px-6 rounded shadow cursor-pointer"
+          >
+            Voltar às Vendas
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center bg-[#F3F4F6] min-h-screen pt-4">
@@ -186,7 +190,7 @@ export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
           </div>
           <div className="flex flex-col">
             <span className="text-[#777777] text-[10px] font-bold">Estado</span>
-            <span className="font-semibold text-[#333333] capitalize">{sale.status === 'active' ? 'Activa' : sale.status === 'inactive' ? 'Inactiva' : sale.status}</span>
+            <span className="font-semibold text-[#333333] capitalize">{saleActivityLabel(sale.status)}</span>
           </div>
           <div className="flex flex-col">
             <span className="text-[#777777] text-[10px] font-bold">Unidad</span>
@@ -195,13 +199,9 @@ export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
           <div className="flex flex-col">
             <span className="text-[#777777] text-[10px] font-bold">Fecha Creación</span>
             <span className="font-semibold text-[#333333]">
-              {sale.createdAt ? (
-                typeof sale.createdAt.toDate === 'function'
-                  ? sale.createdAt.toDate().toLocaleDateString('pt-BR')
-                  : sale.createdAt.seconds
-                    ? new Date(sale.createdAt.seconds * 1000).toLocaleDateString('pt-BR')
-                    : String(sale.createdAt)
-              ) : '--'}
+              {sale.createdAt
+                ? formatFirestoreDate(sale.createdAt, 'pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+                : '--'}
             </span>
           </div>
         </div>

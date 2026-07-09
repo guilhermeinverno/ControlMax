@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormOrButtonEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
@@ -8,21 +9,14 @@ import {
   Plus, 
   Trash2, 
   Edit, 
-  ShieldCheck, 
   X, 
   Save, 
   Building2, 
   Coins, 
   User, 
-  FileText, 
   Info, 
   PlusCircle, 
-  Search, 
-  MapPin, 
-  DollarSign, 
-  Percent, 
-  CheckCircle, 
-  AlertCircle 
+  Search
 } from 'lucide-react';
 
 interface BusinessCentersProps {
@@ -264,7 +258,7 @@ export function BusinessCenters({ onNavigate }: BusinessCentersProps) {
   };
 
   // Save changes
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: FormOrButtonEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formCode.trim() || !formResponsible.trim()) {
       alert('Por favor, complete todos los campos requeridos (*).');

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { 
   doc, 
@@ -13,6 +13,7 @@ import { useTenant } from '../hooks/useTenant';
 import { useNavigation } from '../context/NavigationContext';
 import { UnitSelectors } from './components/UnitSelectors';
 import { ConfirmModal } from './components/ConfirmModal';
+import { DEFAULT_DEVICE_APP_VERSION } from '../constants/device';
 import { 
   Smartphone, 
   ArrowLeft, 
@@ -47,10 +48,8 @@ interface AppUser {
 }
 
 export function EditDevice() {
-  const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { tenantId, loading: tenantLoading } = useTenant();
   const { navState, navigate } = useNavigation();
-
-  const isAdmin = role === 'admin' || role === 'superadmin' || isSuperAdmin;
 
   // Extrair ID com suporte para refresh / deep link
   const queryParams = new URLSearchParams(window.location.search);
@@ -133,7 +132,7 @@ export function EditDevice() {
         setDeviceModel(data.deviceModel || '');
         setAssignedUserId(data.assignedUserId || '');
         setStatus(data.status || 'active');
-        setAppVersion(data.appVersion || '6.0.0.2');
+        setAppVersion(data.appVersion || DEFAULT_DEVICE_APP_VERSION);
 
       } catch (err) {
         console.error("Error fetching device details:", err);
@@ -342,7 +341,7 @@ export function EditDevice() {
               className="border border-gray-300 rounded p-2 text-sm text-[#333333] bg-white outline-none focus:border-[#6B21A8] font-mono" 
               value={appVersion}
               onChange={(e) => setAppVersion(e.target.value)}
-              placeholder="Ex: 6.0.0.2"
+              placeholder={`Ex: ${DEFAULT_DEVICE_APP_VERSION}`}
             />
           </div>
 
@@ -353,7 +352,7 @@ export function EditDevice() {
             </label>
             <select 
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as typeof status)}
               className="border border-gray-300 rounded p-2 text-sm text-[#333333] bg-white outline-none focus:border-[#6B21A8]"
             >
               <option value="active">Ativo (Permitido sincronizar)</option>

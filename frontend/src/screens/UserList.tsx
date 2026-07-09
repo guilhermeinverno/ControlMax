@@ -1,39 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { logFirestoreError } from '../utils/firestoreError';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, addDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
-import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft, Landmark, Calculator } from 'lucide-react';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: 'system_user'
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
+import { listViewBody } from '../utils/listViewBody';
+import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface AppUser {
   id?: string;
@@ -52,7 +24,7 @@ interface AppUser {
 }
 
 export function UserList() {
-  const { tenantId, loading: tenantLoading } = useTenant();
+  const { tenantId } = useTenant();
 
   // Mode: 'list' or 'create'
   const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
@@ -66,6 +38,7 @@ export function UserList() {
   // Users State
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
 
   // Form states - Step 1: Información de usuario
   const [formUsername, setFormUsername] = useState('');
@@ -89,6 +62,7 @@ export function UserList() {
     if (!tenantId) return;
 
     setLoadingUsers(true);
+    setListError(null);
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('tenantId', '==', tenantId));
 
@@ -99,9 +73,11 @@ export function UserList() {
       })) as AppUser[];
 
       setUsers(list);
+      setListError(null);
       setLoadingUsers(false);
     }, (error) => {
       console.error("Error listening to users list:", error);
+      setListError('Erro ao carregar a lista de usuários do Firestore.');
       setLoadingUsers(false);
     });
 
@@ -117,12 +93,12 @@ export function UserList() {
         active: !user.active
       });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.id}`);
+      logFirestoreError(err, 'update', `users/${user.id}`, { throwError: true, extraAuth: { userId: 'system_user' } });
     }
   };
 
   // Step 1 Validation & Proceed
-  const handleProceedToStep2 = (e: React.FormEvent) => {
+  const handleProceedToStep2 = (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!formUsername || !formDocNumber || !formEmail || !formFirstName || !formLastName1) {
       setNotification({ type: 'error', message: 'Por favor complete todos los campos obligatorios (*) de información de usuario.' });
@@ -133,7 +109,7 @@ export function UserList() {
   };
 
   // Submit and Create User in Firestore
-  const handleCreateUser = async (e: React.FormEvent) => {
+  const handleCreateUser = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId) return;
 
@@ -296,15 +272,27 @@ export function UserList() {
           </div>
 
           {/* Cards list matching the image style exactly */}
-          {loadingUsers ? (
+          {listError && (
+            <div className="mb-4 bg-red-50 border border-red-300 text-red-800 p-3 rounded text-xs flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+              <span>{listError}</span>
+            </div>
+          )}
+
+          {listViewBody(
+            loadingUsers,
+            filteredUsers.length,
+            (
             <div className="py-12 text-center text-xs font-bold text-gray-500">
               Cargando usuarios desde base de datos...
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ),
+            (
             <div className="py-12 text-center text-xs font-bold text-gray-400">
               No hay usuarios que coincidan con la búsqueda.
             </div>
-          ) : (
+          ),
+            (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredUsers.map(user => (
                 <div 
@@ -375,7 +363,7 @@ export function UserList() {
                 </div>
               ))}
             </div>
-          )}
+          ))}
 
         </div>
       )}

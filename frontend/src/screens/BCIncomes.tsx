@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import {
@@ -16,6 +17,9 @@ import {
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { ConfirmModal } from './components/ConfirmModal';
+import { approvalStatusLabel, approvalStatusBadgeClasses } from '../utils/statusLabels';
+import { toJsDate } from '../utils/firestoreTimestamp';
+import { listViewBody } from '../utils/listViewBody';
 import {
   formatCurrencyBRL,
   parseCurrencyBRLToCents
@@ -72,7 +76,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
   const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
   const { activeBox } = useBox();
 
-  const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || role === 'superadmin' || isSuperAdmin;
+  const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || isSuperAdmin;
 
   // Active Tab
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historico'>('nuevo');
@@ -109,7 +113,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
   const [incomeToReject, setIncomeToReject] = useState<BCIncome | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  const unsubRef = useRef<() => void>(() => {});
+  const unsubRef = useRef<(() => void) | null>(null);
 
   // Real-time listener with fallback query
   const fetchHistory = () => {
@@ -182,7 +186,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
             // Filter by date client-side
             const filteredList = list.filter(item => {
               if (!item.createdAt) return false;
-              const date = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt.seconds * 1000);
+              const date = toJsDate(item.createdAt);
               return date >= startOfDay && date <= endOfDay;
             });
 
@@ -218,13 +222,13 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
   }, [tenantId, selectedDate]);
 
   // Form input formatter
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAmountChange = (e: HtmlInputChangeEvent) => {
     const formatted = formatCurrencyBRL(e.target.value);
     setAmountInput(formatted);
   };
 
   // Submit Handler for New Income
-  const handleCreateIncome = async (e: React.FormEvent) => {
+  const handleCreateIncome = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!tenantId) {
       setFormError("ID do inquilino não configurado.");
@@ -434,7 +438,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                   <option value="cn_b">CN Filial Principal</option>
                 </select>
                 <span className="text-[10px] text-gray-400 mt-1 italic">
-                  * TODO: Vincular com centros de negócios reais em atualizações futuras.
+                  * Pendente: Vincular com centros de negócios reais em atualizações futuras.
                 </span>
               </div>
 
@@ -457,7 +461,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                 </label>
                 <select
                   value={category}
-                  onChange={(e) => setCategory(e.target.value)}
+                  onChange={(e) => setCategory(e.target.value as typeof category)}
                   className="border border-gray-300 rounded p-2.5 text-sm bg-white outline-none focus:border-[#6B21A8]"
                 >
                   <option value="deposit">Depósito Bancário</option>
@@ -555,7 +559,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                   </label>
                   <select
                     value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
+                    onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                     className="border border-gray-300 rounded p-2 text-xs bg-white text-[#333333]"
                   >
                     <option value="all">Todos os Status</option>
@@ -576,7 +580,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                   >
                     <option value="all">Todos os CNs (Mock)</option>
                   </select>
-                  {/* TODO: Vincular com centro de negócios reais em atualizações futuras */}
+                  {/* Pendente: Vincular com centro de negócios reais em atualizações futuras */}
                 </div>
 
                 {/* Buscar Button */}
@@ -642,23 +646,26 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
               </div>
 
               {/* List of Incomes */}
-              {loading ? (
+              {listViewBody(
+                loading,
+                filteredIncomes.length,
+                (
                 <div className="flex flex-col items-center justify-center py-10 text-gray-400 space-y-2">
                   <Loader2 className="w-6 h-6 animate-spin text-purple-600" />
                   <p className="text-[11px] font-medium">Carregando ingressos...</p>
                 </div>
-              ) : filteredIncomes.length === 0 ? (
+              ),
+                (
                 <div className="text-center py-10 bg-gray-50 border border-dashed border-gray-200 rounded-md">
                   <DollarSign className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                   <p className="text-xs font-bold text-gray-600">Nenhum ingresso encontrado para esta data</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">Cadastre uma nova entrada ou tente outra data.</p>
                 </div>
-              ) : (
+              ),
+                (
                 <div className="space-y-3">
                   {filteredIncomes.map((income) => {
-                    const createdAtDate = income.createdAt
-                      ? (income.createdAt.toDate ? income.createdAt.toDate() : new Date(income.createdAt.seconds * 1000))
-                      : null;
+                    const createdAtDate = income.createdAt ? toJsDate(income.createdAt) : null;
 
                     return (
                       <div
@@ -674,14 +681,8 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                               <span className="text-[9px] text-gray-400 font-mono">
                                 #{income.id.substring(0, 6)}
                               </span>
-                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${
-                                income.status === 'pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : income.status === 'approved'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {income.status === 'pending' ? 'Pendente' : income.status === 'approved' ? 'Aprovado' : 'Rejeitado'}
+                              <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${approvalStatusBadgeClasses(income.status)}`}>
+                                {approvalStatusLabel(income.status)}
                               </span>
                             </div>
                             <p className="text-xs text-gray-600 mt-1">{income.description}</p>
@@ -735,7 +736,7 @@ export function BCIncomes({ onNavigate }: BCIncomesProps) {
                     );
                   })}
                 </div>
-              )}
+              ))}
             </div>
           )}
         </div>

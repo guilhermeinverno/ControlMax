@@ -1,13 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { db, auth } from '../lib/firebase';
+import { useState, useEffect } from 'react';
+import { db } from '../lib/firebase';
 import {
-  collection, query, where, getDocs, Timestamp, limit
+  collection, query, where, getDocs, Timestamp
 } from 'firebase/firestore';
+import { logFirestoreError } from '../utils/firestoreError';
+import { toJsDate } from '../utils/firestoreTimestamp';
+import { collectorRankMedal } from '../utils/statusLabels';
 import { useTenant } from '../hooks/useTenant';
-import { 
-  TrendingUp, Briefcase, Percent, TrendingDown, 
-  Calendar, Award, CheckCircle2, XCircle, AlertCircle,
-  Search, BarChart3, ChevronLeft, ChevronRight, Users, ShieldAlert, DollarSign
+import {
+  TrendingUp, Briefcase, Percent, TrendingDown,
+  Calendar, Award, BarChart3, ChevronLeft, ChevronRight, Search, AlertCircle
 } from 'lucide-react';
 
 // Formatter function for Brazilian Real / general currency
@@ -73,57 +75,6 @@ export interface StatsCustomer {
   createdAt?: Timestamp;
 }
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-  }
-}
-
-// Global firestore error handling per instructions
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error in Statistics: ', JSON.stringify(errInfo));
-}
-
-// Convert firestore timestamp safely
-const toDate = (ts: unknown): Date => {
-  if (!ts) return new Date();
-  if (typeof ts === "object" && ts !== null && "toDate" in ts && typeof (ts as Record<string, unknown>).toDate === "function") {
-    return (ts as { toDate: () => Date }).toDate();
-  }
-  if (typeof ts === 'object' && 'seconds' in ts) {
-    return new Date((ts as { seconds: number }).seconds * 1000);
-  }
-  return new Date(ts as string | number);
-};
-
 // Generic safe loader with automatic client-side fallback
 async function fetchCollectionWithFallback<T>(
   colName: string,
@@ -137,13 +88,235 @@ async function fetchCollectionWithFallback<T>(
     const snap = await getDocs(q);
     return snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as T));
   } catch (err) {
-    handleFirestoreError(err, OperationType.GET, colName);
+    logFirestoreError(err, 'get', colName, { label: 'Firestore Error in Statistics' });
     return [];
   }
 }
 
+interface DualAxisChartProps {
+  title: string;
+  barLegend: string;
+  lineLegend: string;
+  barColor: string;
+  lineColor: string;
+  leftLabel: string;
+  rightLabel: string;
+  isRightPercent?: boolean;
+  hasPaging?: boolean;
+  pageIndex?: number;
+  onPagePrev?: () => void;
+  onPageNext?: () => void;
+  data: Array<{ label: string; barVal: number; lineVal: number }>;
+}
+
+function SymmetricDualAxisChart({
+  title,
+  barLegend,
+  lineLegend,
+  barColor,
+  lineColor,
+  leftLabel,
+  rightLabel,
+  isRightPercent = false,
+  hasPaging = false,
+  pageIndex = 0,
+  onPagePrev,
+  onPageNext,
+  data,
+}: DualAxisChartProps) {
+  const maxBar = Math.max(...data.map(d => d.barVal), 1);
+  const maxLine = Math.max(...data.map(d => d.lineVal), 1);
+
+  const width = 420;
+  const height = 150;
+  const paddingLeft = 45;
+  const paddingRight = 45;
+  const paddingTop = 15;
+  const paddingBottom = 30;
+
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+
+  const points = data.map((d, i) => {
+    const x = paddingLeft + (i * plotWidth) / (data.length - 1 || 1);
+    const y = height - paddingBottom - (d.lineVal / maxLine) * plotHeight;
+    return { x, y, val: d.lineVal, label: d.label };
+  });
+
+  let linePath = '';
+  if (points.length > 0) {
+    linePath = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
+  }
+
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
+  return (
+    <div className="bg-white border-b border-gray-100 py-5">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-gray-900 font-extrabold text-sm uppercase tracking-tight">{title}</span>
+          {hasPaging && (
+            <div className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-black">
+              <button
+                type="button"
+                onClick={onPagePrev}
+                className="hover:opacity-80 active:scale-95 transition-all p-0.5 cursor-pointer"
+              >
+                <ChevronLeft size={12} className="stroke-[3]" />
+              </button>
+              <span>{pageIndex + 1}/2</span>
+              <button
+                type="button"
+                onClick={onPageNext}
+                className="hover:opacity-80 active:scale-95 transition-all p-0.5 cursor-pointer"
+              >
+                <ChevronRight size={12} className="stroke-[3]" />
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] font-bold text-[#555555] mb-4">
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-2.5 rounded-xs" style={{ backgroundColor: barColor }} />
+          <span>{barLegend}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-0.5" style={{ backgroundColor: lineColor }} />
+          <span>{lineLegend}</span>
+        </div>
+      </div>
+
+      <div className="relative">
+        <div className="absolute top-[15px] bottom-[30px] left-0 flex flex-col justify-between text-[10px] text-gray-400 font-mono font-bold leading-none select-none">
+          <span>100</span>
+          <span>50</span>
+          <span>0</span>
+        </div>
+        <div className="absolute top-[15px] bottom-[30px] right-0 flex flex-col justify-between text-[10px] text-gray-400 font-mono font-bold leading-none select-none">
+          <span>{isRightPercent ? '100%' : '100'}</span>
+          <span>{isRightPercent ? '50%' : '50'}</span>
+          <span>{isRightPercent ? '0%' : '0'}</span>
+        </div>
+
+        <span className="absolute left-[-15px] top-[45%] -translate-y-1/2 -rotate-90 text-[10px] font-extrabold text-gray-400 select-none tracking-tight">
+          {leftLabel}
+        </span>
+        <span className="absolute right-[-18px] top-[45%] -translate-y-1/2 rotate-90 text-[10px] font-extrabold text-gray-400 select-none tracking-tight">
+          {rightLabel}
+        </span>
+
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
+          {[0, 0.5, 1].map((ratio) => {
+            const y = paddingTop + ratio * plotHeight;
+            return (
+              <line
+                key={ratio}
+                x1={paddingLeft}
+                y1={y}
+                x2={width - paddingRight}
+                y2={y}
+                stroke="#E5E7EB"
+                strokeWidth={1}
+                strokeDasharray={ratio !== 1 ? '3 3' : undefined}
+              />
+            );
+          })}
+
+          {data.map((d, i) => {
+            const totalItems = data.length;
+            const barWidth = Math.min(16, plotWidth / totalItems - 10);
+            const x = paddingLeft + (i * plotWidth) / (totalItems - 1 || 1) - barWidth / 2;
+            const barHeight = (d.barVal / maxBar) * plotHeight;
+            const y = height - paddingBottom - barHeight;
+
+            return (
+              <g
+                key={d.label}
+                onMouseEnter={() => setHoveredIdx(i)}
+                onMouseLeave={() => setHoveredIdx(null)}
+                className="cursor-pointer group"
+              >
+                <rect
+                  x={x}
+                  y={y}
+                  width={barWidth}
+                  height={Math.max(barHeight, 1.5)}
+                  fill={barColor}
+                  rx={1.5}
+                  className="transition-all duration-300 hover:brightness-95"
+                />
+                {hoveredIdx === i && (
+                  <rect
+                    x={x - 4}
+                    y={paddingTop}
+                    width={barWidth + 8}
+                    height={plotHeight}
+                    fill="rgba(0,0,0,0.02)"
+                    rx={2}
+                    pointerEvents="none"
+                  />
+                )}
+              </g>
+            );
+          })}
+
+          {linePath && (
+            <path
+              d={linePath}
+              fill="none"
+              stroke={lineColor}
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          )}
+
+          {points.map((p, i) => (
+            <g
+              key={`point-${p.label}`}
+              onMouseEnter={() => setHoveredIdx(i)}
+              onMouseLeave={() => setHoveredIdx(null)}
+              className="cursor-pointer"
+            >
+              <circle cx={p.x} cy={p.y} r={3.5} fill="white" stroke={lineColor} strokeWidth={2} />
+              {hoveredIdx === i && (
+                <g pointerEvents="none">
+                  <rect x={p.x - 45} y={p.y - 28} width={90} height={20} fill="#1E293B" rx={3} />
+                  <text x={p.x} y={p.y - 15} fill="white" fontSize={8} textAnchor="middle" fontWeight="bold">
+                    {isRightPercent ? `${p.val.toFixed(0)}%` : p.val.toLocaleString()} / ${' '}
+                    {data[i].barVal >= 100 ? fmt(data[i].barVal) : data[i].barVal.toFixed(0)}
+                  </text>
+                </g>
+              )}
+            </g>
+          ))}
+
+          {data.map((d, i) => {
+            const x = paddingLeft + (i * plotWidth) / (data.length - 1 || 1);
+            const y = height - paddingBottom + 14;
+            return (
+              <text
+                key={`label-${d.label}`}
+                x={x}
+                y={y}
+                transform={`rotate(-25, ${x}, ${y})`}
+                textAnchor="end"
+                className="text-[9px] font-extrabold fill-gray-400 select-none"
+              >
+                {d.label}
+              </text>
+            );
+          })}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 export function Statistics() {
-  const { tenantId, role, isSuperAdmin } = useTenant();
+  const { tenantId } = useTenant();
 
   // Filters state (Defaults to 30 days range ending today)
   const [startDate, setStartDate] = useState<string>(() => {
@@ -162,17 +335,19 @@ export function Statistics() {
   const [boxes, setBoxes] = useState<StatsBox[]>([]);
   const [collections, setCollections] = useState<StatsCollection[]>([]);
   const [expenses, setExpenses] = useState<StatsExpense[]>([]);
-  const [creditRequests, setCreditRequests] = useState<StatsCreditRequest[]>([]);
+  const [, setCreditRequests] = useState<StatsCreditRequest[]>([]);
   const [sales, setSales] = useState<StatsSale[]>([]);
   const [customersCount, setCustomersCount] = useState<number>(12);
 
   // Page status states
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filterTrigger, setFilterTrigger] = useState<number>(0);
 
   useEffect(() => {
     if (!tenantId) return;
     setLoading(true);
+    setLoadError(null);
 
     const loadData = async () => {
       try {
@@ -195,6 +370,7 @@ export function Statistics() {
         }
       } catch (e) {
         console.error("Error loading analytics database data", e);
+        setLoadError('Erro ao carregar métricas do painel. Verifique permissões e conexão com o Firestore.');
       } finally {
         setLoading(false);
       }
@@ -209,34 +385,27 @@ export function Statistics() {
 
   // Filter lists by selected dates
   const filteredBoxes = boxes.filter(b => {
-    const d = toDate(b.openedAt);
+    const d = toJsDate(b.openedAt);
     return d >= filterStart && d <= filterEnd;
   });
 
   const filteredCollections = collections.filter(c => {
-    const d = toDate(c.createdAt);
+    const d = toJsDate(c.createdAt);
     return d >= filterStart && d <= filterEnd;
   });
 
   const filteredExpenses = expenses.filter(e => {
-    const d = toDate(e.createdAt);
+    const d = toJsDate(e.createdAt);
     return d >= filterStart && d <= filterEnd;
   });
 
   const filteredSales = sales.filter(s => {
-    const d = toDate(s.createdAt);
-    return d >= filterStart && d <= filterEnd;
-  });
-
-  const filteredCreditRequests = creditRequests.filter(r => {
-    const d = toDate(r.createdAt);
+    const d = toJsDate(s.createdAt);
     return d >= filterStart && d <= filterEnd;
   });
 
   // Client-side calculations
   const totalBoxesCount = filteredBoxes.length;
-  const totalOpenCount = filteredBoxes.filter(b => b.status === 'open').length;
-  const totalConfirmedCount = filteredBoxes.filter(b => b.status === 'confirmed').length;
 
   const totalRecaudo = filteredCollections.reduce((s, c) => s + (c.amount || 0), 0) || 
                        filteredBoxes.reduce((s, b) => s + (b.totalCollections || 0), 0);
@@ -246,10 +415,6 @@ export function Statistics() {
 
   const totalVentas = filteredSales.reduce((s, sa) => s + (Number(sa.valor) || 0), 0) || 
                       filteredBoxes.reduce((s, b) => s + (b.totalSales || 0), 0);
-
-  const totalPending = filteredCreditRequests.filter(r => r.status === 'pending').length;
-  const totalApproved = filteredCreditRequests.filter(r => r.status === 'approved').length;
-  const totalRejected = filteredCreditRequests.filter(r => r.status === 'rejected').length;
 
   // Efficiency percentage
   const eficiencia = totalVentas > 0 
@@ -287,17 +452,17 @@ export function Statistics() {
 
       // Aggregate documents in this bucket
       const bucketSales = filteredSales.filter(s => {
-        const d = toDate(s.createdAt);
+        const d = toJsDate(s.createdAt);
         return d >= bucketStart && d <= bucketEnd;
       });
 
       const bucketCollections = filteredCollections.filter(c => {
-        const d = toDate(c.createdAt);
+        const d = toJsDate(c.createdAt);
         return d >= bucketStart && d <= bucketEnd;
       });
 
       const bucketExpenses = filteredExpenses.filter(e => {
-        const d = toDate(e.createdAt);
+        const d = toJsDate(e.createdAt);
         return d >= bucketStart && d <= bucketEnd;
       });
 
@@ -350,7 +515,6 @@ export function Statistics() {
   const dashboardData = getAggregatedData();
 
   // Top collectors calculation for Admin / Supervisor
-  const showAdminSections = role === 'admin' || role === 'supervisor' || isSuperAdmin;
   const byCollector: Record<string, { name: string; total: number; boxes: number }> = {};
   
   filteredBoxes.forEach(box => {
@@ -369,254 +533,6 @@ export function Statistics() {
 
   const maxCollectorTotal = topCollectors[0]?.total || 1;
 
-  // Custom dual-axis SVG chart component mirroring screenshot perfectly
-  const SymmetricDualAxisChart = ({
-    title,
-    barLegend,
-    lineLegend,
-    barColor,
-    lineColor,
-    leftLabel,
-    rightLabel,
-    isRightPercent = false,
-    hasPaging = false,
-    data,
-  }: {
-    title: string;
-    barLegend: string;
-    lineLegend: string;
-    barColor: string;
-    lineColor: string;
-    leftLabel: string;
-    rightLabel: string;
-    isRightPercent?: boolean;
-    hasPaging?: boolean;
-    data: Array<{ label: string; barVal: number; lineVal: number }>;
-  }) => {
-    const maxBar = Math.max(...data.map(d => d.barVal), 1);
-    const maxLine = Math.max(...data.map(d => d.lineVal), 1);
-
-    // Build the line path coordinates
-    const width = 420;
-    const height = 150;
-    const paddingLeft = 45;
-    const paddingRight = 45;
-    const paddingTop = 15;
-    const paddingBottom = 30;
-
-    const plotWidth = width - paddingLeft - paddingRight;
-    const plotHeight = height - paddingTop - paddingBottom;
-
-    const points = data.map((d, i) => {
-      const x = paddingLeft + (i * plotWidth) / (data.length - 1 || 1);
-      const y = height - paddingBottom - (d.lineVal / maxLine) * plotHeight;
-      return { x, y, val: d.lineVal, label: d.label };
-    });
-
-    let linePath = '';
-    if (points.length > 0) {
-      linePath = `M ${points[0].x} ${points[0].y} ` + points.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ');
-    }
-
-    // Interactive tooltip state
-    const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
-
-    return (
-      <div className="bg-white border-b border-gray-100 py-5">
-        {/* Title and Legends */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-gray-900 font-extrabold text-sm uppercase tracking-tight">{title}</span>
-            {hasPaging && (
-              <div className="flex items-center gap-1.5 bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full text-[10px] font-black">
-                <button 
-                  onClick={() => setRecaudosPageIndex(p => Math.max(0, p - 1))}
-                  className="hover:opacity-80 active:scale-95 transition-all p-0.5 cursor-pointer"
-                >
-                  <ChevronLeft size={12} className="stroke-[3]" />
-                </button>
-                <span>{recaudosPageIndex + 1}/2</span>
-                <button 
-                  onClick={() => setRecaudosPageIndex(p => Math.min(1, p + 1))}
-                  className="hover:opacity-80 active:scale-95 transition-all p-0.5 cursor-pointer"
-                >
-                  <ChevronRight size={12} className="stroke-[3]" />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Legends section from TryController */}
-        <div className="flex items-center gap-4 text-[10px] font-bold text-[#555555] mb-4">
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-2.5 rounded-xs" style={{ backgroundColor: barColor }} />
-            <span>{barLegend}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-4 h-0.5" style={{ backgroundColor: lineColor }} />
-            <span>{lineLegend}</span>
-          </div>
-        </div>
-
-        {/* Dual Axis labels + Gridlines container */}
-        <div className="relative">
-          {/* Outer Labels */}
-          <div className="absolute top-[15px] bottom-[30px] left-0 flex flex-col justify-between text-[10px] text-gray-400 font-mono font-bold leading-none select-none">
-            <span>100</span>
-            <span>50</span>
-            <span>0</span>
-          </div>
-          <div className="absolute top-[15px] bottom-[30px] right-0 flex flex-col justify-between text-[10px] text-gray-400 font-mono font-bold leading-none select-none">
-            <span>{isRightPercent ? '100%' : '100'}</span>
-            <span>{isRightPercent ? '50%' : '50'}</span>
-            <span>{isRightPercent ? '0%' : '0'}</span>
-          </div>
-
-          {/* Left/Right Sidebar rotated texts exactly like screenshot */}
-          <span className="absolute left-[-15px] top-[45%] -translate-y-1/2 -rotate-90 text-[10px] font-extrabold text-gray-400 select-none tracking-tight">
-            {leftLabel}
-          </span>
-          <span className="absolute right-[-18px] top-[45%] -translate-y-1/2 rotate-90 text-[10px] font-extrabold text-gray-400 select-none tracking-tight">
-            {rightLabel}
-          </span>
-
-          {/* SVG Canvas */}
-          <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
-            {/* Gridlines */}
-            {[0, 0.5, 1].map((ratio) => {
-              const y = paddingTop + ratio * plotHeight;
-              return (
-                <line 
-                  key={ratio}
-                  x1={paddingLeft} 
-                  y1={y} 
-                  x2={width - paddingRight} 
-                  y2={y} 
-                  stroke="#E5E7EB" 
-                  strokeWidth={1}
-                  strokeDasharray={ratio !== 1 ? "3 3" : undefined}
-                />
-              );
-            })}
-
-            {/* Bars */}
-            {data.map((d, i) => {
-              const totalItems = data.length;
-              const barWidth = Math.min(16, plotWidth / totalItems - 10);
-              const x = paddingLeft + (i * plotWidth) / (totalItems - 1 || 1) - barWidth / 2;
-              const barHeight = (d.barVal / maxBar) * plotHeight;
-              const y = height - paddingBottom - barHeight;
-
-              return (
-                <g 
-                  key={i} 
-                  onMouseEnter={() => setHoveredIdx(i)}
-                  onMouseLeave={() => setHoveredIdx(null)}
-                  className="cursor-pointer group"
-                >
-                  <rect 
-                    x={x} 
-                    y={y} 
-                    width={barWidth} 
-                    height={Math.max(barHeight, 1.5)} 
-                    fill={barColor} 
-                    rx={1.5}
-                    className="transition-all duration-300 hover:brightness-95"
-                  />
-                  {/* Subtle bar hover helper */}
-                  {hoveredIdx === i && (
-                    <rect 
-                      x={x - 4} 
-                      y={paddingTop} 
-                      width={barWidth + 8} 
-                      height={plotHeight} 
-                      fill="rgba(0,0,0,0.02)" 
-                      rx={2}
-                      pointerEvents="none"
-                    />
-                  )}
-                </g>
-              );
-            })}
-
-            {/* Line Path */}
-            {linePath && (
-              <path 
-                d={linePath} 
-                fill="none" 
-                stroke={lineColor} 
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            )}
-
-            {/* Line Dots / Anchors */}
-            {points.map((p, i) => (
-              <g 
-                key={i}
-                onMouseEnter={() => setHoveredIdx(i)}
-                onMouseLeave={() => setHoveredIdx(null)}
-                className="cursor-pointer"
-              >
-                <circle 
-                  cx={p.x} 
-                  cy={p.y} 
-                  r={3.5} 
-                  fill="white" 
-                  stroke={lineColor} 
-                  strokeWidth={2} 
-                />
-                {/* Visual tooltip popover on hover */}
-                {hoveredIdx === i && (
-                  <g pointerEvents="none">
-                    <rect 
-                      x={p.x - 45} 
-                      y={p.y - 28} 
-                      width={90} 
-                      height={20} 
-                      fill="#1E293B" 
-                      rx={3} 
-                    />
-                    <text 
-                      x={p.x} 
-                      y={p.y - 15} 
-                      fill="white" 
-                      fontSize={8} 
-                      textAnchor="middle" 
-                      fontWeight="bold"
-                    >
-                      {isRightPercent ? `${p.val.toFixed(0)}%` : p.val.toLocaleString()} / $ {(data[i].barVal >= 100 ? fmt(data[i].barVal) : data[i].barVal.toFixed(0))}
-                    </text>
-                  </g>
-                )}
-              </g>
-            ))}
-
-            {/* X Axis Labels rotated precisely -25 degrees */}
-            {data.map((d, i) => {
-              const x = paddingLeft + (i * plotWidth) / (data.length - 1 || 1);
-              const y = height - paddingBottom + 14;
-              return (
-                <text 
-                  key={i}
-                  x={x} 
-                  y={y} 
-                  transform={`rotate(-25, ${x}, ${y})`} 
-                  textAnchor="end" 
-                  className="text-[9px] font-extrabold fill-gray-400 select-none"
-                >
-                  {d.label}
-                </text>
-              );
-            })}
-          </svg>
-        </div>
-      </div>
-    );
-  };
-
   const handleSearchClick = () => {
     setFilterTrigger(prev => prev + 1);
   };
@@ -627,6 +543,20 @@ export function Statistics() {
         <div className="flex flex-col items-center">
           <div className="border-4 border-[#8CC63F] border-t-transparent rounded-full w-12 h-12 animate-spin mb-4" />
           <p className="text-gray-500 text-sm font-extrabold">Cargando métricas del panel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px] p-4">
+        <div className="bg-red-50 border border-red-300 text-red-800 p-4 rounded-lg text-sm max-w-md flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold mb-1">Erro ao carregar métricas</p>
+            <p className="text-xs">{loadError}</p>
+          </div>
         </div>
       </div>
     );
@@ -728,6 +658,9 @@ export function Statistics() {
             rightLabel="% Recaudo"
             isRightPercent={true}
             hasPaging={true}
+            pageIndex={recaudosPageIndex}
+            onPagePrev={() => setRecaudosPageIndex(p => Math.max(0, p - 1))}
+            onPageNext={() => setRecaudosPageIndex(p => Math.min(1, p + 1))}
             data={dashboardData.map(d => {
               // Apply page modifier to Recaudos curve to let page 2 look different
               const offset = recaudosPageIndex === 1 ? 0.75 : 1.0;
@@ -858,11 +791,11 @@ export function Statistics() {
           ) : (
             <div className="space-y-3">
               {topCollectors.map((collector, idx) => {
-                const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '👤';
+                const medal = collectorRankMedal(idx);
                 const percentWidth = (collector.total / maxCollectorTotal) * 100;
 
                 return (
-                  <div key={idx} className="space-y-1 bg-gray-50/50 border border-gray-100 p-3 rounded-xl">
+                  <div key={collector.name} className="space-y-1 bg-gray-50/50 border border-gray-100 p-3 rounded-xl">
                     <div className="flex justify-between items-center text-xs">
                       <div className="flex items-center gap-2">
                         <span className="text-sm">{medal}</span>

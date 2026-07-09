@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db, auth } from '../lib/firebase';
 import {
   collection, query, where, orderBy,
   onSnapshot, addDoc, updateDoc, doc,
-  serverTimestamp,
-  Timestamp
+  serverTimestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { useNavigation } from '../context/NavigationContext';
@@ -13,7 +13,6 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { 
   Smartphone, 
   Pencil, 
-  ShieldAlert, 
   Plus, 
   Search, 
   X, 
@@ -21,10 +20,14 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  User,
-  Cpu
+  User
 } from 'lucide-react';
+import { DEFAULT_DEVICE_APP_VERSION } from '../constants/device';
+import { SKELETON_CARD_KEYS } from '../constants/placeholders';
+import { deviceStatusLabel, deviceStatusBadgeClasses } from '../utils/statusLabels';
 import { Device, AppUser } from '../types';
+import { hasAdminAccess } from '../types/operational';
+import { listViewBody } from '../utils/listViewBody';
 
 // Helper para formatar o tempo de última sincronização
 function formatTimeAgo(ts: unknown): string {
@@ -61,7 +64,7 @@ export function DeviceList() {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
   const { navigate } = useNavigation();
 
-  const isAdmin = role === 'admin' || role === 'superadmin' || isSuperAdmin;
+  const isAdmin = hasAdminAccess(role, isSuperAdmin);
   const isCollector = role === 'collector';
 
   // Estados principais
@@ -84,7 +87,7 @@ export function DeviceList() {
   // Modal para Bloqueio/Desbloqueio
   const [deviceToToggleBlock, setDeviceToToggleBlock] = useState<Device | null>(null);
 
-  const unsubRef = useRef<() => void>(() => {});
+  const unsubRef = useRef<(() => void) | null>(null);
 
   // 1. Escutar Dispositivos em Tempo Real
   useEffect(() => {
@@ -191,7 +194,7 @@ export function DeviceList() {
   };
 
   // Vincular novo dispositivo
-  const handleBindDeviceSubmit = async (e: React.FormEvent) => {
+  const handleBindDeviceSubmit = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!isAdmin) return;
     if (!deviceName.trim() || !deviceIdInput.trim()) return;
@@ -216,7 +219,7 @@ export function DeviceList() {
         assignedUserId,
         assignedUserName,
         status: 'active',
-        appVersion: '6.0.0.2',
+        appVersion: DEFAULT_DEVICE_APP_VERSION,
         lastSync: serverTimestamp(),
         linkedAt: serverTimestamp(),
         createdAt: serverTimestamp(),
@@ -306,7 +309,10 @@ export function DeviceList() {
           </div>
 
           {/* Skeletons de Loading */}
-          {loading ? (
+          {listViewBody(
+            loading,
+            filteredDevices.length,
+            (
             <div className="border border-gray-200 rounded-sm overflow-hidden text-sm">
               <div className="bg-[#8CC63F] text-white flex px-3 py-2.5 font-bold uppercase text-[10px] tracking-wider">
                 <div className="flex-[2]">Dispositivo</div>
@@ -316,8 +322,8 @@ export function DeviceList() {
                 <div className="flex-[1.5]">Última Sinc.</div>
                 <div className="w-24 text-center">Ações</div>
               </div>
-              {[1, 2, 3].map(i => (
-                <div key={i} className="flex border-b border-gray-100 items-center px-3 py-3 animate-pulse bg-white">
+              {SKELETON_CARD_KEYS.slice(0, 3).map((key) => (
+                <div key={key} className="flex border-b border-gray-100 items-center px-3 py-3 animate-pulse bg-white">
                   <div className="flex-[2] h-4 bg-gray-100 rounded w-4/5 mr-2"></div>
                   <div className="flex-[2] h-4 bg-gray-50 rounded w-3/4 mr-2"></div>
                   <div className="w-24 flex justify-center"><div className="h-4 bg-gray-100 rounded w-16"></div></div>
@@ -327,7 +333,8 @@ export function DeviceList() {
                 </div>
               ))}
             </div>
-          ) : filteredDevices.length === 0 ? (
+          ),
+            (
             <div className="text-center py-12 bg-gray-50 border border-dashed border-gray-300 rounded-sm">
               <Smartphone className="w-10 h-10 text-gray-300 mx-auto mb-3" />
               <p className="text-sm font-bold text-gray-700">Nenhum dispositivo vinculado ainda</p>
@@ -342,8 +349,8 @@ export function DeviceList() {
                 </button>
               )}
             </div>
-          ) : (
-            /* Tabela de Dispositivos */
+          ),
+            (
             <div className="w-full border border-gray-200 shadow-sm overflow-hidden text-sm mb-2 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[700px]">
                 <thead>
@@ -380,18 +387,12 @@ export function DeviceList() {
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center">
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                          device.status === 'active' 
-                            ? 'bg-green-100 text-green-800' 
-                            : device.status === 'blocked' 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-gray-100 text-gray-600'
-                        }`}>
-                          {device.status === 'active' ? 'Ativo' : device.status === 'blocked' ? 'Bloqueado' : 'Inativo'}
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${deviceStatusBadgeClasses(device.status)}`}>
+                          {deviceStatusLabel(device.status)}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-center font-mono text-xs text-gray-500">
-                        v{device.appVersion || '6.0.0.2'}
+                        v{device.appVersion || DEFAULT_DEVICE_APP_VERSION}
                       </td>
                       <td className="px-3 py-3 text-xs text-gray-600">
                         {formatTimeAgo(device.lastSync)}
@@ -431,7 +432,7 @@ export function DeviceList() {
                 </tbody>
               </table>
             </div>
-          )}
+          ))}
         </div>
       </div>
 

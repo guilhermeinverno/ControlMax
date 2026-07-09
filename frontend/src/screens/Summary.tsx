@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { UnitSelectors } from './components/UnitSelectors';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { loadingErrorEmptyContent } from '../utils/listViewBody';
 import { AlertCircle, HelpCircle, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
 
 const fmt = (cents: number) =>
@@ -118,7 +119,11 @@ export function Summary() {
           </span>
         </div>
 
-        {loading ? (
+        {loadingErrorEmptyContent(
+          loading,
+          error,
+          summaryData?.count ?? 0,
+          (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm p-4 space-y-3">
             <div className="animate-pulse space-y-2">
               <div className="h-4 bg-gray-200 rounded w-1/3"></div>
@@ -127,7 +132,8 @@ export function Summary() {
               <div className="h-4 bg-gray-200 rounded w-1/2"></div>
             </div>
           </div>
-        ) : error ? (
+        ),
+          (
           <div className="bg-red-50 border border-red-300 text-red-800 p-3 rounded-sm text-xs flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
             <div>
@@ -135,7 +141,8 @@ export function Summary() {
               <span>{error}</span>
             </div>
           </div>
-        ) : !summaryData || summaryData.count === 0 ? (
+        ),
+          (
           <div className="bg-white border border-gray-300 shadow-sm rounded-sm p-8 flex flex-col items-center text-center space-y-2">
             <HelpCircle className="w-10 h-10 text-gray-300 animate-bounce" />
             <span className="font-bold text-gray-700 text-xs uppercase tracking-wider">Nenhuma caixa registrada hoje</span>
@@ -143,7 +150,8 @@ export function Summary() {
               Os dados consolidados de desempenho financeiro aparecerão assim que a primeira caixa for aberta hoje.
             </p>
           </div>
-        ) : (
+        ),
+          (
           <div className="space-y-4">
             
             {/* Purple Card - Caja Final */}
@@ -208,7 +216,7 @@ export function Summary() {
             </div>
 
           </div>
-        )}
+        ))}
 
       </div>
     </div>

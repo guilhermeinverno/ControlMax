@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { logFirestoreError } from '../utils/firestoreError';
+import { useState, useEffect } from 'react';
 import { useTenant } from '../hooks/useTenant';
+import { fetchUnifiedMovements, UnifiedMovement } from '../utils/financeMovements';
+import { financeMovementStatusBadgeClasses } from '../utils/statusLabels';
+import { loadingErrorContent } from '../utils/listViewBody';
 import { 
   Landmark, 
   ArrowUpRight, 
@@ -12,43 +14,15 @@ import {
   Loader2, 
   Lock, 
   RefreshCw,
-  Search,
   AlertTriangle
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-enum OperationType {
-  LIST = 'list',
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    operationType,
-    path
-  };
-  console.error('Firestore Error in Finance: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
-interface UnifiedMovement {
-  id: string;
-  type: 'Ingreso' | 'Egreso' | 'Transferencia' | 'Recaudo';
-  amount: number; // in cents
-  description: string;
-  status: 'Aprobado' | 'Pendiente' | 'Rechazado';
-  date: Date;
-  dateStr: string;
-  responsible: string;
-  cnName: string;
-}
-
 export function Finance() {
-  const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { tenantId, role, loading: tenantLoading } = useTenant();
 
   // Access Control: collector -> restricted access
   const isCollector = role === 'collector';
-  const hasAccess = !isCollector && tenantId;
 
   // State
   const [loadingData, setLoadingData] = useState<boolean>(true);
@@ -73,135 +47,19 @@ export function Finance() {
     selectedYear + 1
   ];
 
-  // Helper to safely parse dates from Firestore fields
-  const parseFirestoreDate = (field: unknown): Date => {
-    if (!field) return new Date();
-    if (typeof field === "object" && field !== null && "toDate" in field && typeof (field as Record<string, unknown>).toDate === "function") return (field as { toDate: () => Date }).toDate();
-    if (field instanceof Date) return field;
-    if ((field as { seconds: number }).seconds !== undefined) return new Timestamp((field as { seconds: number }).seconds, (field as { nanoseconds?: number }).nanoseconds || 0).toDate();
-    const parsed = new Date(field as string | number);
-    return isNaN(parsed.getTime()) ? new Date() : parsed;
-  };
-
   const loadFinancialData = async () => {
     if (!tenantId) return;
     setLoadingData(true);
     setErrorMsg(null);
 
     try {
-      // 1. Fetch collections in parallel using Promise.all()
-      const [incomesSnap, expensesSnap, transfersSnap, collectionsSnap] = await Promise.all([
-        getDocs(query(collection(db, 'bc_incomes'), where('tenantId', '==', tenantId))),
-        getDocs(query(collection(db, 'bc_expenses'), where('tenantId', '==', tenantId))),
-        getDocs(query(collection(db, 'bc_transfers'), where('tenantId', '==', tenantId))),
-        getDocs(query(collection(db, 'collections'), where('tenantId', '==', tenantId)))
-      ]);
-
-      const loadedMovements: UnifiedMovement[] = [];
-      const cnNamesSet = new Set<string>();
-
-      // 2. Process bc_incomes
-      incomesSnap.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const date = parseFirestoreDate(data.createdAt);
-        const cnName = data.cnName || 'CN General';
-        cnNamesSet.add(cnName);
-
-        // Normalize status
-        let mappedStatus: 'Aprobado' | 'Pendiente' | 'Rechazado' = 'Pendiente';
-        if (data.status === 'approved') mappedStatus = 'Aprobado';
-        else if (data.status === 'rejected') mappedStatus = 'Rechazado';
-
-        loadedMovements.push({
-          id: docSnap.id,
-          type: 'Ingreso',
-          amount: Number(data.amount || 0),
-          description: data.description || 'Ingreso de Capital',
-          status: mappedStatus,
-          date,
-          dateStr: date.toLocaleString(),
-          responsible: data.userName || 'Sistema',
-          cnName
-        });
-      });
-
-      // 3. Process bc_expenses
-      expensesSnap.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const date = parseFirestoreDate(data.createdAt);
-        const cnName = data.cnName || 'CN General';
-        cnNamesSet.add(cnName);
-
-        let mappedStatus: 'Aprobado' | 'Pendiente' | 'Rechazado' = 'Pendiente';
-        if (data.status === 'approved') mappedStatus = 'Aprobado';
-        else if (data.status === 'rejected') mappedStatus = 'Rechazado';
-
-        loadedMovements.push({
-          id: docSnap.id,
-          type: 'Egreso',
-          amount: Number(data.amount || 0),
-          description: data.description || 'Gasto Operativo',
-          status: mappedStatus,
-          date,
-          dateStr: date.toLocaleString(),
-          responsible: data.userName || 'Sistema',
-          cnName
-        });
-      });
-
-      // 4. Process bc_transfers
-      transfersSnap.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const date = parseFirestoreDate(data.createdAt);
-        const cnName = data.toCnName || 'CN Destino';
-        cnNamesSet.add(cnName);
-
-        let mappedStatus: 'Aprobado' | 'Pendiente' | 'Rechazado' = 'Pendiente';
-        if (data.status === 'confirmed') mappedStatus = 'Aprobado';
-        else if (data.status === 'rejected') mappedStatus = 'Rechazado';
-
-        loadedMovements.push({
-          id: docSnap.id,
-          type: 'Transferencia',
-          amount: Number(data.amount || 0),
-          description: data.description || 'Transferencia entre cajas',
-          status: mappedStatus,
-          date,
-          dateStr: date.toLocaleString(),
-          responsible: data.fromName || 'Sistema',
-          cnName
-        });
-      });
-
-      // 5. Process collections
-      collectionsSnap.docs.forEach(docSnap => {
-        const data = docSnap.data();
-        const date = parseFirestoreDate(data.createdAt);
-        const cnName = data.cnName || 'Ruta de Cobro';
-        cnNamesSet.add(cnName);
-
-        loadedMovements.push({
-          id: docSnap.id,
-          type: 'Recaudo',
-          amount: Number(data.amount || 0),
-          description: `Cobro de Cliente - ${data.clientName || 'Sin Nombre'}`,
-          status: 'Aprobado',
-          date,
-          dateStr: date.toLocaleString(),
-          responsible: data.registeredBy || 'Cobrador',
-          cnName
-        });
-      });
-
-      // Sort by date descending
-      loadedMovements.sort((a, b) => b.date.getTime() - a.date.getTime());
-
+      const { movements: loadedMovements, cnNames } = await fetchUnifiedMovements(tenantId);
       setMovements(loadedMovements);
-      setAvailableCns(Array.from(cnNamesSet));
+      setAvailableCns(cnNames);
     } catch (err: unknown) {
       setErrorMsg('No se pudo cargar la información financiera. Intente de nuevo.');
       try {
-        handleFirestoreError(err, OperationType.LIST, 'finance_collections');
+        logFirestoreError(err, 'list', 'finance_collections', { label: 'Firestore Error in Finance', throwError: true, includeAuth: false });
       } catch (e) {}
     } finally {
       setLoadingData(false);
@@ -356,12 +214,16 @@ export function Finance() {
         </div>
       </div>
 
-      {loadingData ? (
+      {loadingErrorContent(
+        loadingData,
+        Boolean(errorMsg),
+        (
         <div className="flex flex-col items-center justify-center py-24 bg-white border border-gray-200 rounded-lg shadow-sm">
           <Loader2 className="w-12 h-12 animate-spin text-purple-700 mb-3" />
           <p className="text-xs font-medium text-gray-500">Cargando flujos financieros del mes seleccionado...</p>
         </div>
-      ) : errorMsg ? (
+      ),
+        (
         <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
           <div>
@@ -370,7 +232,8 @@ export function Finance() {
             <button onClick={loadFinancialData} className="mt-2 text-xs font-bold underline text-red-900">Reintentar</button>
           </div>
         </div>
-      ) : (
+      ),
+        (
         <>
           {/* KPIs Grid */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -541,13 +404,7 @@ export function Finance() {
                               {m.dateStr.split(' ')[0]}
                             </td>
                             <td className="p-2.5 text-center">
-                              <span className={`px-2 py-0.5 text-[9px] font-bold uppercase rounded ${
-                                m.status === 'Aprobado' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : m.status === 'Pendiente' 
-                                  ? 'bg-amber-100 text-amber-800' 
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
+                              <span className={`px-2 py-0.5 text-[9px] font-bold uppercase rounded ${financeMovementStatusBadgeClasses(m.status)}`}>
                                 {m.status}
                               </span>
                             </td>
@@ -573,7 +430,7 @@ export function Finance() {
                 </div>
               ) : (
                 <div className="space-y-5">
-                  {(Object.entries(distributionData) as [string, number][]).map(([cnName, balance]) => {
+                  {Object.entries(distributionData).map(([cnName, balance]) => {
                     const absBal = Math.abs(balance);
                     const percentage = Math.min((absBal / maxCnValue) * 100, 100);
                     return (
@@ -606,7 +463,7 @@ export function Finance() {
 
           </div>
         </>
-      )}
+      ))}
 
     </div>
   );

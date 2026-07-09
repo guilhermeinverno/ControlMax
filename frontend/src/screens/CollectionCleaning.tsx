@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { getErrorMessage } from '../utils/errorMessage';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db } from '../lib/firebase';
 import {
   collection as firestoreCollection,
@@ -13,9 +15,10 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
-import { useBox } from '../hooks/useBox';
+import { SKELETON_CARD_KEYS } from '../constants/placeholders';
+import { listViewBody } from '../utils/listViewBody';
 import { Screen } from '../types';
-import { Calendar, Search, AlertCircle, CheckCircle, X, Trash2, ShieldAlert } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle, X, Trash2, ShieldAlert } from 'lucide-react';
 
 interface CollectionCleaningProps {
   onNavigate?: (screen: Screen) => void;
@@ -41,7 +44,6 @@ interface Collection {
 
 export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
   const { tenantId, role, userName, loading: tenantLoading } = useTenant();
-  const { activeBox } = useBox();
 
   // Selected date state (defaults to today)
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -153,7 +155,7 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
     };
   }, [tenantId, selectedDate]);
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     setSelectedDate(dateInput);
     setSearchQuery(searchQueryInput);
@@ -247,7 +249,7 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
       setCancelReason('');
     } catch (err) {
       console.error("Error cancelling collection:", err);
-      alert("Erro ao tentar cancelar a cobrança: " + (err instanceof Error ? err.message : String(err)));
+      alert("Erro ao tentar cancelar a cobrança: " + (getErrorMessage(err)));
     } finally {
       setCancelLoading(false);
     }
@@ -355,7 +357,7 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
               </label>
               <select
                 value={statusFilterInput}
-                onChange={(e) => setStatusFilterInput(e.target.value)}
+                onChange={(e) => setStatusFilterInput(e.target.value as typeof statusFilterInput)}
                 className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-xs font-bold text-[#333333] bg-white outline-none focus:border-[#16A34A]"
               >
                 <option value="all">Todos</option>
@@ -394,17 +396,22 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
             Cobranças Registradas ({displayedCollections.length})
           </h2>
 
-          {loading || tenantLoading ? (
+          {listViewBody(
+            loading || tenantLoading,
+            displayedCollections.length,
+            (
             <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="animate-pulse h-16 bg-gray-100 rounded border border-gray-200" />
+              {SKELETON_CARD_KEYS.slice(0, 3).map((key) => (
+                <div key={key} className="animate-pulse h-16 bg-gray-100 rounded border border-gray-200" />
               ))}
             </div>
-          ) : displayedCollections.length === 0 ? (
+          ),
+            (
             <div className="bg-white border border-gray-300 rounded text-center py-10 px-4 shadow-sm text-sm text-gray-500">
               Nenhuma cobrança encontrada para esta data
             </div>
-          ) : (
+          ),
+            (
             <div className="grid grid-cols-1 gap-3">
               {displayedCollections.map((col) => {
                 const isItemActive = col.status === 'active';
@@ -488,7 +495,7 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { onAuthStateChanged, User } from 'firebase/auth';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
 import { useNavigation } from '../context/NavigationContext';
@@ -11,52 +12,105 @@ import { Dashboard } from '../screens/Dashboard';
 
 // Lazy loading all screen components for optimized code-splitting and performance
 // Dashboard is imported statically above to ensure correct React context and hook resolution
-const Statistics = React.lazy(() => import('../screens/Statistics').then(m => ({ default: m.Statistics })));
-const Forms = React.lazy(() => import('../screens/Forms').then(m => ({ default: m.Forms })));
-const SalesList = React.lazy(() => import('../screens/SalesList').then(m => ({ default: m.SalesList })));
-const Summary = React.lazy(() => import('../screens/Summary').then(m => ({ default: m.Summary })));
-const Holidays = React.lazy(() => import('../screens/Holidays').then(m => ({ default: m.Holidays })));
-const EditRoute = React.lazy(() => import('../screens/EditRoute').then(m => ({ default: m.EditRoute })));
-const RouteList = React.lazy(() => import('../screens/RouteList').then(m => ({ default: m.RouteList })));
-const UserList = React.lazy(() => import('../screens/UserList').then(m => ({ default: m.UserList })));
-const DeviceList = React.lazy(() => import('../screens/DeviceList').then(m => ({ default: m.DeviceList })));
-const EditDevice = React.lazy(() => import('../screens/EditDevice').then(m => ({ default: m.EditDevice })));
-const CompanyList = React.lazy(() => import('../screens/CompanyList').then(m => ({ default: m.CompanyList })));
-const SaleDetail = React.lazy(() => import('../screens/SaleDetail').then(m => ({ default: m.SaleDetail })));
-const RegisterPayment = React.lazy(() => import('../screens/RegisterPayment').then(m => ({ default: m.RegisterPayment })));
-const PaymentHistory = React.lazy(() => import('../screens/PaymentHistory').then(m => ({ default: m.PaymentHistory })));
-const OpenBox = React.lazy(() => import('../screens/OpenBox').then(m => ({ default: m.OpenBox })));
-const CloseBox = React.lazy(() => import('../screens/CloseBox').then(m => ({ default: m.CloseBox })));
-const NewIncome = React.lazy(() => import('../screens/NewIncome').then(m => ({ default: m.NewIncome })));
-const NewExpense = React.lazy(() => import('../screens/NewExpense').then(m => ({ default: m.NewExpense })));
-const Performance = React.lazy(() => import('../screens/Performance').then(m => ({ default: m.Performance })));
-const BoxSummary = React.lazy(() => import('../screens/BoxSummary').then(m => ({ default: m.BoxSummary })));
-const TransferSales = React.lazy(() => import('../screens/TransferSales').then(m => ({ default: m.TransferSales })));
-const MassBoxOpening = React.lazy(() => import('../screens/MassBoxOpening').then(m => ({ default: m.MassBoxOpening })));
-const AutoKeys = React.lazy(() => import('../screens/AutoKeys').then(m => ({ default: m.AutoKeys })));
-const CreditRequests = React.lazy(() => import('../screens/CreditRequests').then(m => ({ default: m.CreditRequests })));
-const BusinessCenters = React.lazy(() => import('../screens/BusinessCenters').then(m => ({ default: m.BusinessCenters })));
-const CollectionCleaning = React.lazy(() => import('../screens/CollectionCleaning').then(m => ({ default: m.CollectionCleaning })));
-const PeriodSummary = React.lazy(() => import('../screens/PeriodSummary').then(m => ({ default: m.PeriodSummary })));
-const PlatformManagement = React.lazy(() => import('../screens/PlatformManagement').then(m => ({ default: m.PlatformManagement })));
-const AIAssistant = React.lazy(() => import('../screens/AIAssistant').then(m => ({ default: m.AIAssistant })));
-const CollectorMap = React.lazy(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
+const Statistics = lazy(() => import('../screens/Statistics').then(m => ({ default: m.Statistics })));
+const Forms = lazy(() => import('../screens/Forms').then(m => ({ default: m.Forms })));
+const SalesList = lazy(() => import('../screens/SalesList').then(m => ({ default: m.SalesList })));
+const Summary = lazy(() => import('../screens/Summary').then(m => ({ default: m.Summary })));
+const Holidays = lazy(() => import('../screens/Holidays').then(m => ({ default: m.Holidays })));
+const EditRoute = lazy(() => import('../screens/EditRoute').then(m => ({ default: m.EditRoute })));
+const RouteList = lazy(() => import('../screens/RouteList').then(m => ({ default: m.RouteList })));
+const UserList = lazy(() => import('../screens/UserList').then(m => ({ default: m.UserList })));
+const DeviceList = lazy(() => import('../screens/DeviceList').then(m => ({ default: m.DeviceList })));
+const EditDevice = lazy(() => import('../screens/EditDevice').then(m => ({ default: m.EditDevice })));
+const CompanyList = lazy(() => import('../screens/CompanyList').then(m => ({ default: m.CompanyList })));
+const SaleDetail = lazy(() => import('../screens/SaleDetail').then(m => ({ default: m.SaleDetail })));
+const RegisterPayment = lazy(() => import('../screens/RegisterPayment').then(m => ({ default: m.RegisterPayment })));
+const PaymentHistory = lazy(() => import('../screens/PaymentHistory').then(m => ({ default: m.PaymentHistory })));
+const OpenBox = lazy(() => import('../screens/OpenBox').then(m => ({ default: m.OpenBox })));
+const CloseBox = lazy(() => import('../screens/CloseBox').then(m => ({ default: m.CloseBox })));
+const NewIncome = lazy(() => import('../screens/NewIncome').then(m => ({ default: m.NewIncome })));
+const NewExpense = lazy(() => import('../screens/NewExpense').then(m => ({ default: m.NewExpense })));
+const Performance = lazy(() => import('../screens/Performance').then(m => ({ default: m.Performance })));
+const BoxSummary = lazy(() => import('../screens/BoxSummary').then(m => ({ default: m.BoxSummary })));
+const TransferSales = lazy(() => import('../screens/TransferSales').then(m => ({ default: m.TransferSales })));
+const MassBoxOpening = lazy(() => import('../screens/MassBoxOpening').then(m => ({ default: m.MassBoxOpening })));
+const AutoKeys = lazy(() => import('../screens/AutoKeys').then(m => ({ default: m.AutoKeys })));
+const CreditRequests = lazy(() => import('../screens/CreditRequests').then(m => ({ default: m.CreditRequests })));
+const BusinessCenters = lazy(() => import('../screens/BusinessCenters').then(m => ({ default: m.BusinessCenters })));
+const CollectionCleaning = lazy(() => import('../screens/CollectionCleaning').then(m => ({ default: m.CollectionCleaning })));
+const PeriodSummary = lazy(() => import('../screens/PeriodSummary').then(m => ({ default: m.PeriodSummary })));
+const PlatformManagement = lazy(() => import('../screens/PlatformManagement').then(m => ({ default: m.PlatformManagement })));
+const AIAssistant = lazy(() => import('../screens/AIAssistant').then(m => ({ default: m.AIAssistant })));
+const CollectorMap = lazy(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
 
-const BCIncomes = React.lazy(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
-const BCExpenses = React.lazy(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
-const BCTransfers = React.lazy(() => import('../screens/BCTransfers').then(m => ({ default: m.BCTransfers })));
-const BCApprovals = React.lazy(() => import('../screens/BCApprovals').then(m => ({ default: m.BCApprovals })));
-const BCMap = React.lazy(() => import('../screens/BCMap').then(m => ({ default: m.BCMap })));
-const Insurance = React.lazy(() => import('../screens/Insurance').then(m => ({ default: m.Insurance })));
-const Finance = React.lazy(() => import('../screens/Finance').then(m => ({ default: m.Finance })));
+const BCIncomes = lazy(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
+const BCExpenses = lazy(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
+const BCTransfers = lazy(() => import('../screens/BCTransfers').then(m => ({ default: m.BCTransfers })));
+const BCApprovals = lazy(() => import('../screens/BCApprovals').then(m => ({ default: m.BCApprovals })));
+const BCMap = lazy(() => import('../screens/BCMap').then(m => ({ default: m.BCMap })));
+const Insurance = lazy(() => import('../screens/Insurance').then(m => ({ default: m.Insurance })));
+const Finance = lazy(() => import('../screens/Finance').then(m => ({ default: m.Finance })));
 
 /**
  * ScreenWrapper provides backward-compatibility for legacy screens.
  * It automatically injects the `onNavigate` and `params` props.
  */
-function ScreenWrapper({ Component }: { Component: React.ComponentType<Record<string, unknown>> }) {
+function ScreenWrapper({ Component }: { Component: ComponentType<Record<string, unknown>> }) {
   const { navigate, navState } = useNavigation();
   return <Component onNavigate={navigate} params={navState.params} />;
+}
+
+function AppLoadingSpinner({ label }: { label: string }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+      <div className="flex flex-col items-center">
+        <div className="w-12 h-12 border-4 border-[#6A008A] border-t-transparent rounded-full animate-spin mb-4" />
+        <div className="text-[#6A008A] font-medium">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function TenantBootstrapError({
+  message,
+  onRetry,
+  variant = 'light',
+}: {
+  message: string;
+  onRetry: () => void;
+  variant?: 'light' | 'dark';
+}) {
+  const isDark = variant === 'dark';
+
+  return (
+    <div className={`min-h-screen flex flex-col items-center justify-center p-6 ${isDark ? 'bg-[#0B0F19]' : 'bg-gray-50'}`}>
+      <div className={`max-w-md w-full border rounded-lg p-6 shadow-sm ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-red-200'}`}>
+        <div className="flex items-start gap-3">
+          <AlertCircle className={`w-6 h-6 shrink-0 ${isDark ? 'text-red-400' : 'text-red-500'}`} />
+          <div className="space-y-3">
+            <div>
+              <h2 className={`font-bold text-sm ${isDark ? 'text-slate-100' : 'text-red-800'}`}>
+                Não foi possível carregar sua sessão
+              </h2>
+              <p className={`text-xs mt-1 break-words ${isDark ? 'text-slate-400' : 'text-red-700'}`}>{message}</p>
+            </div>
+            <button
+              type="button"
+              onClick={onRetry}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-sm ${
+                isDark
+                  ? 'bg-indigo-600 hover:bg-indigo-500 text-white'
+                  : 'bg-[#6A008A] hover:bg-[#581c87] text-white'
+              }`}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Tentar novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /**
@@ -75,18 +129,15 @@ function PrivateLayout() {
     return unsub;
   }, []);
 
-  const { isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
   const { navState, navigate } = useNavigation();
 
   if (authLoading || (fbUser && tenantLoading)) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-[#6A008A] border-t-transparent rounded-full animate-spin mb-4" />
-          <div className="text-[#6A008A] font-medium">Cargando aplicación...</div>
-        </div>
-      </div>
-    );
+    return <AppLoadingSpinner label="Cargando aplicación..." />;
+  }
+
+  if (fbUser && tenantError) {
+    return <TenantBootstrapError message={tenantError} onRetry={retry} />;
   }
 
   if (!fbUser) {
@@ -97,13 +148,13 @@ function PrivateLayout() {
 
   return (
     <Layout currentScreen={navState.screen} onNavigate={navigate} isSuperAdmin={isSuperAdmin || isSuperByEmail}>
-      <React.Suspense fallback={
+      <Suspense fallback={
         <div className="flex items-center justify-center h-64">
           <div className="text-[#6A008A] text-sm font-medium">Cargando...</div>
         </div>
       }>
         <Outlet />
-      </React.Suspense>
+      </Suspense>
     </Layout>
   );
 }
@@ -124,17 +175,14 @@ function PublicRoute() {
     return unsub;
   }, []);
 
-  const { isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
 
   if (authLoading || (fbUser && tenantLoading)) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-[#6A008A] border-t-transparent rounded-full animate-spin mb-4" />
-          <div className="text-[#6A008A] font-medium">Cargando aplicación...</div>
-        </div>
-      </div>
-    );
+    return <AppLoadingSpinner label="Cargando aplicación..." />;
+  }
+
+  if (fbUser && tenantError) {
+    return <TenantBootstrapError message={tenantError} onRetry={retry} />;
   }
 
   if (fbUser) {
@@ -162,7 +210,7 @@ function SuperAdminRoute() {
     return unsub;
   }, []);
 
-  const { isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
 
   if (authLoading || (fbUser && tenantLoading)) {
     return (
@@ -175,6 +223,10 @@ function SuperAdminRoute() {
     );
   }
 
+  if (fbUser && tenantError) {
+    return <TenantBootstrapError message={tenantError} onRetry={retry} variant="dark" />;
+  }
+
   if (!fbUser) {
     return <Navigate to="/login" replace />;
   }
@@ -182,13 +234,13 @@ function SuperAdminRoute() {
   const isSuperByEmail = fbUser?.email?.toLowerCase() === 'maildojg@gmail.com';
 
   return (isSuperAdmin || isSuperByEmail) ? (
-    <React.Suspense fallback={
+    <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-[#0B0F19]">
         <div className="text-slate-400 text-sm font-medium">Carregando painel corporativo...</div>
       </div>
     }>
       <SuperAdmin />
-    </React.Suspense>
+    </Suspense>
   ) : (
     <Navigate to="/dashboard" replace />
   );

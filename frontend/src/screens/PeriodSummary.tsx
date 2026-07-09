@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
 import {
@@ -9,6 +9,8 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { reportPeriodBody } from '../utils/listViewBody';
+import { toJsDate } from '../utils/firestoreTimestamp';
 import * as XLSX from 'xlsx';
 import {
   Calendar,
@@ -17,15 +19,13 @@ import {
   TrendingDown,
   Percent,
   Search,
-  Download,
   Loader2,
   AlertCircle,
   Award,
   DollarSign,
   X,
   FileSpreadsheet,
-  Layers,
-  ArrowRight
+  Layers
 } from 'lucide-react';
 
 interface PeriodSummaryProps {
@@ -97,9 +97,8 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
   const [endDateStr, setEndDateStr] = useState(getTodayString());
 
   // Report States
+  // Relatório usa agregados das caixas; consultas separadas de collections/expenses removidas.
   const [boxes, setBoxes] = useState<Box[]>([]);
-  const [collections, setCollections] = useState<CollectionItem[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseItem[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -122,12 +121,8 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
     const endTimestamp = Timestamp.fromDate(end);
 
     try {
-      // Setup queries
       const boxesCol = collection(db, 'boxes');
-      const collectionsCol = collection(db, 'collections');
-      const expensesCol = collection(db, 'expenses');
 
-      // Boxes Query
       const qBoxes = query(
         boxesCol,
         where('tenantId', '==', tenantId),
@@ -135,111 +130,40 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
         where('openedAt', '<=', endTimestamp)
       );
 
-      // Collections Query
-      const qCollections = query(
-        collectionsCol,
-        where('tenantId', '==', tenantId),
-        where('createdAt', '>=', startTimestamp),
-        where('createdAt', '<=', endTimestamp)
-      );
-
-      // Expenses Query
-      const qExpenses = query(
-        expensesCol,
-        where('tenantId', '==', tenantId),
-        where('createdAt', '>=', startTimestamp),
-        where('createdAt', '<=', endTimestamp)
-      );
-
-      // Fetch in parallel
       let boxesSnap;
-      let collectionsSnap;
-      let expensesSnap;
 
       try {
-        [boxesSnap, collectionsSnap, expensesSnap] = await Promise.all([
-          getDocs(qBoxes),
-          getDocs(qCollections),
-          getDocs(qExpenses)
-        ]);
+        boxesSnap = await getDocs(qBoxes);
       } catch (errSnap) {
         console.warn("Primary query with filters failed (index might be missing). Using fallback tenant-wide queries:", errSnap);
-        
-        // Fallback: Fetch all tenant data and filter client-side to prevent app from breaking
-        const qBoxesFallback = query(boxesCol, where('tenantId', '==', tenantId));
-        const qCollectionsFallback = query(collectionsCol, where('tenantId', '==', tenantId));
-        const qExpensesFallback = query(expensesCol, where('tenantId', '==', tenantId));
 
-        [boxesSnap, collectionsSnap, expensesSnap] = await Promise.all([
-          getDocs(qBoxesFallback),
-          getDocs(qCollectionsFallback),
-          getDocs(qExpensesFallback)
-        ]);
+        const qBoxesFallback = query(boxesCol, where('tenantId', '==', tenantId));
+        boxesSnap = await getDocs(qBoxesFallback);
       }
 
-      // Process Boxes
       let boxesList = boxesSnap.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as Box[];
 
-      // Client side date filtering to be absolutely safe (either as double filter or fallback)
       boxesList = boxesList.filter(b => {
         if (!b.openedAt) return false;
-        const dt = b.openedAt.toDate ? b.openedAt.toDate() : new Date(b.openedAt.seconds * 1000);
+        const dt = toJsDate(b.openedAt);
         return dt >= start && dt <= end;
       });
 
-      // Sort desc by openedAt
       boxesList.sort((a, b) => {
         const tA = a.openedAt?.seconds || 0;
         const tB = b.openedAt?.seconds || 0;
         return tB - tA;
       });
 
-      // Filter by Collector if user is collector
       if (isCollector) {
         const currentUserId = auth.currentUser?.uid;
         boxesList = boxesList.filter(b => b.userId === currentUserId);
       }
 
-      // Process Collections
-      let collectionsList = collectionsSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as CollectionItem[];
-
-      collectionsList = collectionsList.filter(c => {
-        if (!c.createdAt) return false;
-        const dt = c.createdAt.toDate ? c.createdAt.toDate() : new Date(c.createdAt.seconds * 1000);
-        return dt >= start && dt <= end;
-      });
-
-      if (isCollector) {
-        const currentUserId = auth.currentUser?.uid;
-        collectionsList = collectionsList.filter(c => c.userId === currentUserId);
-      }
-
-      // Process Expenses
-      let expensesList = expensesSnap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ExpenseItem[];
-
-      expensesList = expensesList.filter(e => {
-        if (!e.createdAt) return false;
-        const dt = e.createdAt.toDate ? e.createdAt.toDate() : new Date(e.createdAt.seconds * 1000);
-        return dt >= start && dt <= end;
-      });
-
-      if (isCollector) {
-        const currentUserId = auth.currentUser?.uid;
-        expensesList = expensesList.filter(e => e.userId === currentUserId);
-      }
-
       setBoxes(boxesList);
-      setCollections(collectionsList);
-      setExpenses(expensesList);
       setReportGenerated(true);
     } catch (err) {
       console.error("Critical: Failed to generate Period Summary:", err);
@@ -443,22 +367,29 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
         )}
 
         {/* Loading Overlay */}
-        {loading ? (
+        {reportPeriodBody(
+          loading,
+          reportGenerated,
+          totalBoxes,
+          (
           <div className="py-12 flex flex-col items-center justify-center space-y-3 bg-white border border-gray-300 rounded">
             <Loader2 className="w-8 h-8 animate-spin text-[#6B21A8]" />
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Compilando transações do período...</p>
           </div>
-        ) : !reportGenerated ? (
+          ),
+          (
           <div className="bg-white border border-gray-300 p-8 text-center rounded">
             <Briefcase className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-xs font-bold text-gray-400">Escolha as datas acima e clique em "Gerar Relatório".</p>
           </div>
-        ) : totalBoxes === 0 ? (
+          ),
+          (
           <div className="bg-white border border-gray-300 p-8 text-center rounded">
             <X className="w-8 h-8 text-gray-300 mx-auto mb-2" />
             <p className="text-xs font-bold text-gray-400">Nenhuma caixa encontrada para o período selecionado</p>
           </div>
-        ) : (
+          ),
+          (
           <div className="space-y-4 animate-in fade-in duration-200">
             {/* Seção 1 — Cards de Totais (grid 2x2 → 4 colunas desktop) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -659,6 +590,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
               </div>
             )}
           </div>
+          )
         )}
       </div>
     </div>

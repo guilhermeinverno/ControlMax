@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { logFirestoreError } from '../utils/firestoreError';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db } from '../lib/firebase';
 import { 
   collection, 
@@ -9,43 +11,22 @@ import {
   updateDoc, 
   deleteDoc, 
   doc, 
-  serverTimestamp,
-  orderBy
+  serverTimestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { listViewBody } from '../utils/listViewBody';
 import { 
   Calendar, 
   Trash2, 
-  Plus, 
   Loader2, 
   AlertCircle, 
   CheckCircle2, 
   Clock, 
-  Check, 
-  X,
   CalendarDays,
   ShieldCheck,
   ToggleLeft,
   ToggleRight
 } from 'lucide-react';
-
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  WRITE = 'write',
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    operationType,
-    path
-  };
-  console.error('Firestore Error in Holidays: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
 
 interface Holiday {
   id: string;
@@ -119,7 +100,7 @@ export function Holidays() {
     }, (error) => {
       setErrorMsg('Error al conectar con la lista de días festivos.');
       try {
-        handleFirestoreError(error, OperationType.LIST, 'holidays');
+        logFirestoreError(error, 'list', 'holidays', { label: 'Firestore Error in Holidays', throwError: true, includeAuth: false });
       } catch (e) {}
       setLoading(false);
     });
@@ -128,7 +109,7 @@ export function Holidays() {
   }, [tenantId]);
 
   // Handler to add a new holiday (Admin only)
-  const handleAddHoliday = async (e: React.FormEvent) => {
+  const handleAddHoliday = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (isReadOnly) return;
 
@@ -161,7 +142,7 @@ export function Holidays() {
     } catch (err) {
       setErrorMsg('No se pudo guardar el día festivo.');
       try {
-        handleFirestoreError(err, OperationType.CREATE, 'holidays');
+        logFirestoreError(err, 'create', 'holidays', { label: 'Firestore Error in Holidays', throwError: true, includeAuth: false });
       } catch (e) {}
     } finally {
       setSubmitting(false);
@@ -181,7 +162,7 @@ export function Holidays() {
     } catch (err) {
       setErrorMsg('No se pudo actualizar el estado del día festivo.');
       try {
-        handleFirestoreError(err, OperationType.UPDATE, `holidays/${holiday.id}`);
+        logFirestoreError(err, 'update', `holidays/${holiday.id}`, { label: 'Firestore Error in Holidays', throwError: true, includeAuth: false });
       } catch (e) {}
     }
   };
@@ -200,7 +181,7 @@ export function Holidays() {
     } catch (err) {
       setErrorMsg('No se pudo eliminar el día festivo.');
       try {
-        handleFirestoreError(err, OperationType.DELETE, `holidays/${holidayId}`);
+        logFirestoreError(err, 'delete', `holidays/${holidayId}`, { label: 'Firestore Error in Holidays', throwError: true, includeAuth: false });
       } catch (e) {}
     }
   };
@@ -287,16 +268,21 @@ export function Holidays() {
             </span>
           </div>
 
-          {loading ? (
+          {listViewBody(
+            loading,
+            holidays.length,
+            (
             <div className="flex flex-col items-center justify-center py-20">
               <Loader2 className="w-10 h-10 animate-spin text-purple-700 mb-2.5" />
               <p className="text-xs text-gray-500">Sincronizando feriados en tiempo real...</p>
             </div>
-          ) : holidays.length === 0 ? (
+          ),
+            (
             <div className="text-center py-16 text-gray-400 text-xs font-medium">
               No hay días festivos registrados para este período.
             </div>
-          ) : (
+          ),
+            (
             <div className="space-y-6 max-h-[600px] overflow-y-auto pr-1">
               {MONTH_NAMES.map((monthName, monthIdx) => {
                 const monthNumber = monthIdx + 1;
@@ -380,7 +366,7 @@ export function Holidays() {
                 );
               })}
             </div>
-          )}
+          ))}
         </div>
 
         {/* Right Columns - Next 5 upcoming & Admin addition Form */}
@@ -393,15 +379,20 @@ export function Holidays() {
               <span>Próximos 5 Festivos</span>
             </h3>
 
-            {loading ? (
+            {listViewBody(
+              loading,
+              upcomingFive.length,
+              (
               <div className="flex items-center justify-center py-6 text-xs text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Cargando...
               </div>
-            ) : upcomingFive.length === 0 ? (
+            ),
+              (
               <div className="text-center py-6 text-gray-400 text-xs">
                 No hay feriados activos próximos.
               </div>
-            ) : (
+            ),
+              (
               <div className="space-y-2">
                 {upcomingFive.map(({ holiday, nextDate }) => {
                   const daysLeft = Math.ceil((nextDate.getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
@@ -422,7 +413,7 @@ export function Holidays() {
                   );
                 })}
               </div>
-            )}
+            ))}
           </div>
 
           {/* Admin Addition Form */}
@@ -470,7 +461,7 @@ export function Holidays() {
                       disabled={submitting}
                     >
                       {MONTH_NAMES.map((name, i) => (
-                        <option key={i + 1} value={i + 1}>{name}</option>
+                        <option key={name} value={i + 1}>{name}</option>
                       ))}
                     </select>
                   </div>

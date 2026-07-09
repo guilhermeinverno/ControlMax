@@ -1,14 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import { logFirestoreError } from '../utils/firestoreError';
+import { useState, useEffect, type ReactNode } from 'react';
 import { 
-  Menu, Award, RefreshCw, Search, SlidersHorizontal,
-  CheckCircle, XCircle, Camera, Loader2, X, ChevronRight,
-  DollarSign, Wallet, Calendar, ShieldAlert, ListFilter,
+  Award, RefreshCw, Search,
+  Loader2, X,
+  Wallet, Calendar, ShieldAlert, ListFilter,
   Coins, Edit3, History, Check, User
 } from 'lucide-react';
-import { Screen, Box } from '../types';
+import { SKELETON_ROW_KEYS } from '../constants/placeholders';
+import { listViewBody } from '../utils/listViewBody';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, Timestamp, doc, setDoc } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { Screen } from '../types';
 import { useBox } from '../hooks/useBox';
 
 interface Sale {
@@ -47,37 +50,6 @@ interface CollectionItem {
   createdAt: Timestamp;
 }
 
-enum OperationType {
-  CREATE = 'create',
-  UPDATE = 'update',
-  DELETE = 'delete',
-  LIST = 'list',
-  GET = 'get',
-  WRITE = 'write',
-}
-
-interface FirestoreErrorInfo {
-  error: string;
-  operationType: OperationType;
-  path: string | null;
-  authInfo: {
-    userId?: string | null;
-  }
-}
-
-function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
-  const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid || 'system_user'
-    },
-    operationType,
-    path
-  };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
-}
-
 function getSevenDaysAgoString() {
   const d = new Date();
   d.setDate(d.getDate() - 7);
@@ -91,12 +63,36 @@ function fmt(cents: number) {
   });
 }
 
+function seedExampleButtonContent(seeding: boolean, seedSuccess: boolean): ReactNode {
+  if (seeding) {
+    return (
+      <>
+        <Loader2 size={14} className="animate-spin" />
+        <span>Semeando...</span>
+      </>
+    );
+  }
+  if (seedSuccess) {
+    return (
+      <>
+        <Check size={14} className="stroke-[3]" />
+        <span>Vendas Criadas com Sucesso!</span>
+      </>
+    );
+  }
+  return (
+    <>
+      <RefreshCw size={14} className="stroke-[2.5]" />
+      <span>Criar 3 Vendas de Exemplo</span>
+    </>
+  );
+}
+
 export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void }) {
-  const { tenantId, role, loading: tenantLoading } = useTenant();
+  const { tenantId, role } = useTenant();
   const { activeBox } = useBox();
 
   const [activeTab, setActiveTab] = useState<'Vendas' | 'Coleção'>('Vendas');
-  const [drawerOpen, setDrawerOpen] = useState(false);
   
   // Search and Filter States matching the TryController screenshots
   const [search, setSearch] = useState('');
@@ -112,7 +108,6 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
   const [collections, setCollections] = useState<CollectionItem[]>([]);
   const [loadingSales, setLoadingSales] = useState(true);
   const [loadingCollections, setLoadingCollections] = useState(true);
-  const [syncing, setSyncing] = useState(false);
 
   // Dynamic dropdown values based on actual boxes loaded
   const [cnOptions, setCnOptions] = useState<string[]>([]);
@@ -223,7 +218,7 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
       setCnOptions(Array.from(cns));
       setUnitOptions(Array.from(units));
     }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'boxes');
+      logFirestoreError(error, 'list', 'boxes', { throwError: true, extraAuth: { userId: auth.currentUser?.uid || 'system_user' } });
     });
     return () => unsubscribe();
   }, [tenantId]);
@@ -273,7 +268,7 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
       }
     };
 
-    let unsubscribe = () => {};
+    let unsubscribe: (() => void) | null = null;
 
     const setupListener = (useOrderBy: boolean) => {
       const q = getSalesQuery(useOrderBy);
@@ -320,7 +315,7 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
     };
 
     unsubscribe = setupListener(true);
-    return () => unsubscribe();
+    return () => { unsubscribe?.(); };
   }, [tenantId, role, consultarPor, verTodasUnidades]);
 
   // Real-time synchronization of collections of today (Fully index-free with client-side filtering)
@@ -384,13 +379,6 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
 
     return () => unsubscribe();
   }, [tenantId, role, verTodasUnidades]);
-
-  const handleSync = () => {
-    setSyncing(true);
-    setTimeout(() => {
-      setSyncing(false);
-    }, 1000);
-  };
 
   // Client-side search and filters matching TryController screens
   const filteredSales = sales.filter(sale => {
@@ -479,22 +467,7 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
               disabled={seeding}
               className="w-full bg-[#6B21A8] hover:bg-[#581c87] text-white font-extrabold text-xs py-3 px-5 rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
-              {seeding ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" />
-                  <span>Semeando...</span>
-                </>
-              ) : seedSuccess ? (
-                <>
-                  <Check size={14} className="stroke-[3]" />
-                  <span>Vendas Criadas com Sucesso!</span>
-                </>
-              ) : (
-                <>
-                  <RefreshCw size={14} className="stroke-[2.5]" />
-                  <span>Criar 3 Vendas de Exemplo</span>
-                </>
-              )}
+              {seedExampleButtonContent(seeding, seedSuccess)}
             </button>
           </div>
         )}
@@ -678,10 +651,13 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
               <div className="col-span-6 py-2 uppercase tracking-wide">Id Cliente</div>
             </div>
 
-            {loadingSales ? (
-              // Skeletal load list
-              Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm animate-pulse flex space-x-4">
+            {listViewBody(
+              loadingSales,
+              filteredSales.length,
+              (
+              <>
+              {SKELETON_ROW_KEYS.map((key) => (
+                <div key={key} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm animate-pulse flex space-x-4">
                   <div className="w-1/2 space-y-2 border-r border-gray-100 pr-4">
                     <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                     <div className="h-3 bg-gray-200 rounded w-3/4"></div>
@@ -691,14 +667,18 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
                     <div className="h-4 bg-gray-200 rounded w-5/6"></div>
                   </div>
                 </div>
-              ))
-            ) : filteredSales.length === 0 ? (
+              ))}
+              </>
+            ),
+              (
               <div className="bg-white p-12 text-center rounded-xl border border-gray-200 shadow-md">
                 <Wallet className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-xs font-bold text-gray-500">Nenhuma venda ativa correspondente</p>
               </div>
-            ) : (
-              filteredSales.map(sale => {
+            ),
+              (
+              <>
+              {filteredSales.map(sale => {
                 const interest = Math.round(sale.amount * 0.20); // standard calculated interest
                 const totalWithInterest = sale.amount + interest;
 
@@ -832,28 +812,37 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
 
                   </div>
                 );
-              })
-            )}
+              })}
+              </>
+            ))}
           </div>
         )}
 
         {/* TAB COLEÇÃO CONTENT */}
         {activeTab === 'Coleção' && (
           <div className="space-y-3">
-            {loadingCollections ? (
-              Array.from({ length: 2 }).map((_, i) => (
-                <div key={i} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm animate-pulse space-y-2">
+            {listViewBody(
+              loadingCollections,
+              filteredCollections.length,
+              (
+              <>
+              {SKELETON_ROW_KEYS.map((key) => (
+                <div key={key} className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm animate-pulse space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-1/3"></div>
                   <div className="h-3 bg-gray-200 rounded w-1/2"></div>
                 </div>
-              ))
-            ) : filteredCollections.length === 0 ? (
+              ))}
+              </>
+            ),
+              (
               <div className="bg-white p-12 text-center rounded-xl border border-gray-200 shadow-md">
                 <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
                 <p className="text-xs font-bold text-gray-500">Nenhum recaudo registrado hoje</p>
               </div>
-            ) : (
-              filteredCollections.map(col => {
+            ),
+              (
+              <>
+              {filteredCollections.map(col => {
                 const hour = col.createdAt ? col.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '--:--';
                 return (
                   <div 
@@ -886,8 +875,9 @@ export function SalesList({ onNavigate }: { onNavigate?: (screen: Screen, params
                     </div>
                   </div>
                 );
-              })
-            )}
+              })}
+              </>
+            ))}
           </div>
         )}
 

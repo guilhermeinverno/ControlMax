@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, ReactNode, MouseEvent } from 'react';
 import { 
-  Menu, User, Home, TrendingUp, CircleDollarSign, Crosshair, 
+  Menu, User, Home, CircleDollarSign, Crosshair, 
   UserCog, Calculator, AlertOctagon, ChevronDown, ChevronRight, MessageCircle, LogOut, ShieldCheck, Check, Users,
   BarChart3, Download, Smartphone
 } from 'lucide-react';
@@ -10,22 +10,28 @@ import { signOut } from 'firebase/auth';
 import { useTenant } from '../../hooks/useTenant';
 import { useLocation } from '../../hooks/useLocation';
 import { AIVoiceAssistant } from './AIVoiceAssistant';
+import { layoutRoleLabel } from '../../utils/statusLabels';
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
 
 interface LayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
   currentScreen: Screen;
   onNavigate: (screen: Screen) => void;
   isSuperAdmin?: boolean;
 }
 
 export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: LayoutProps) {
-  const { role, userName, loading: tenantLoading } = useTenant();
+  const { role } = useTenant();
   useLocation(); // Rastreamento automático quando caixa aberta
   const userEmail = auth.currentUser?.email || '';
   const currentEmail = userEmail.toLowerCase();
   const isSuperByEmail = currentEmail === 'maildojg@gmail.com';
   const showSuperAdmin = isSuperAdmin || isSuperByEmail;
-  const displayRole = showSuperAdmin ? 'Super Admin' : role === 'admin' ? 'Administrador' : role === 'vendedor' ? 'Vendedor' : 'Cobrador';
+  const displayRole = layoutRoleLabel(role, showSuperAdmin);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     ventas: true,
@@ -61,7 +67,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
   }, []);
 
   // PWA Install Prompt tracking
-  const [deferredPrompt, setDeferredPrompt] = useState<unknown>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showInstallBanner, setShowInstallBanner] = useState(false);
   const [isAIAssistantOpen, setIsAIAssistantOpen] = useState(false);
 
@@ -70,7 +76,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
       // Prevent automatic prompt on mobile
       e.preventDefault();
       // Store event
-      setDeferredPrompt(e);
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
       // Show custom install UI
       setShowInstallBanner(true);
     };
@@ -99,7 +105,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
     setShowInstallBanner(false);
   };
 
-  const handleDropdownClick = (e: React.MouseEvent, menuId: string) => {
+  const handleDropdownClick = (e: MouseEvent, menuId: string) => {
     e.stopPropagation();
     setActiveDropdown(activeDropdown === menuId ? null : menuId);
   };

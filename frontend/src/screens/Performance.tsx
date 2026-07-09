@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
 import {
   collection,
@@ -7,9 +7,7 @@ import {
   limit,
   onSnapshot,
   getDocs,
-  Timestamp,
-  DocumentData,
-  QueryDocumentSnapshot
+  Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { Screen, Box } from '../types';
@@ -20,10 +18,7 @@ import {
   FileText,
   TrendingUp,
   Percent,
-  Calendar,
-  DollarSign,
-  Briefcase,
-  AlertCircle
+  Briefcase
 } from 'lucide-react';
 
 interface PerformanceProps {
@@ -50,14 +45,7 @@ interface CreditRequestRecord {
 export function Performance({ onNavigate }: PerformanceProps) {
   const { tenantId, loading: tenantLoading, userName } = useTenant();
 
-  // Selected date is today
-  const [todayDate] = useState(() => {
-    const d = new Date();
-    return d.toLocaleDateString('pt-BR');
-  });
-
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   // States for fetched data
   const [box, setBox] = useState<Box | null>(null);
@@ -76,7 +64,6 @@ export function Performance({ onNavigate }: PerformanceProps) {
     if (!tenantId) return;
 
     setLoading(true);
-    setError(null);
 
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -135,7 +122,6 @@ export function Performance({ onNavigate }: PerformanceProps) {
           }
 
           setBox(foundBox);
-          setError(null);
         },
         (err) => {
           console.error("Box query failed:", err);
@@ -143,8 +129,6 @@ export function Performance({ onNavigate }: PerformanceProps) {
             console.log("Retrying box query with fallback...");
             if (unsubscribeBox) unsubscribeBox();
             unsubscribeBox = setupBoxSync(true);
-          } else {
-            setError("Erro ao carregar dados do caixa diário.");
           }
         }
       );
@@ -281,7 +265,6 @@ export function Performance({ onNavigate }: PerformanceProps) {
   // Card 2 calculations
   const totalCollections = box.totalCollections || 0;
   const totalSales = box.totalSales || 0;
-  const totalIncomes = box.totalIncomes || 0;
 
   // Cartera calculations
   const carteraFinal = totalCollections + totalSales;

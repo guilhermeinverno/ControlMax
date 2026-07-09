@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db, auth } from '../lib/firebase';
 import { AIVoiceAssistant } from './components/AIVoiceAssistant';
 import {
   collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp
 } from 'firebase/firestore';
 import {
-  Building2, Users, UserCheck, TrendingUp, AlertTriangle,
-  ChevronRight, ShieldCheck, Plus, Mail, Check, X, ShieldAlert,
-  Search, Database, RefreshCw, Info, ExternalLink, Play, Lock, 
-  Unlock, Sliders, DollarSign, Terminal, Layers, FileCode2, Menu
+  Building2, Users, TrendingUp, AlertTriangle,
+  ChevronRight, ShieldCheck, Plus, Check, X,
+  Search, RefreshCw, ExternalLink, Play, Lock, 
+  Unlock, Sliders, DollarSign, Terminal, Layers, Menu
 } from 'lucide-react';
+import { SKELETON_CARD_KEYS } from '../constants/placeholders';
+import { superAdminRoleBadgeClasses, terminalLogTextClass } from '../utils/statusLabels';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- DATA SCHEMAS ---
@@ -74,10 +77,12 @@ interface TenantMetrics {
   isActiveToday: boolean;
 }
 
+type TerminalLogType = 'INFO' | 'SUCCESS' | 'WARN' | 'ALERT';
+
 interface TerminalLog {
   id: string;
   time: string;
-  type: 'INFO' | 'SUCCESS' | 'WARN' | 'ALERT';
+  type: TerminalLogType;
   message: string;
 }
 
@@ -108,7 +113,6 @@ export function SuperAdmin() {
 
   // Form states for adding new Tenant
   const [newTenantName, setNewTenantName] = useState('');
-  const [newTenantPlan, setNewTenantPlan] = useState<'Free' | 'Pro' | 'Enterprise' | 'Completo'>('Completo');
   const [newTenantPrice, setNewTenantPrice] = useState('199.00');
   const [submittingTenant, setSubmittingTenant] = useState(false);
 
@@ -121,7 +125,6 @@ export function SuperAdmin() {
 
   // Editing Tenant Plan
   const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
-  const [editPlan, setEditPlan] = useState<'Free' | 'Pro' | 'Enterprise' | 'Completo'>('Completo');
   const [editPrice, setEditPrice] = useState('199.00');
 
   // Interactive SaaS Goals Simulator
@@ -224,15 +227,16 @@ export function SuperAdmin() {
 
   const addNewSimulatedLog = () => {
     if (tenants.length === 0) return;
-    const randomTenant = tenants[Math.floor(Math.random() * tenants.length)];
+    const tenantIndex = Date.now() % tenants.length;
+    const selectedTenant = tenants[tenantIndex];
     const types: ('INFO' | 'SUCCESS' | 'WARN' | 'ALERT')[] = ['INFO', 'SUCCESS', 'WARN', 'ALERT'];
     const messages = [
-      `Leitura de documento realizada: users/auth para o tenant '${randomTenant.name}'`,
-      `Auditoria periódica: Nenhuma inconsistência encontrada em '${randomTenant.name}'`,
-      `Sincronização offline: Usuário do tenant '${randomTenant.name}' sincronizou 1 transação pendente`,
-      `Monitor de segurança: Limite operacional do tenant '${randomTenant.name}' verificado com sucesso`
+      `Leitura de documento realizada: users/auth para o tenant '${selectedTenant.name}'`,
+      `Auditoria periódica: Nenhuma inconsistência encontrada em '${selectedTenant.name}'`,
+      `Sincronização offline: Usuário do tenant '${selectedTenant.name}' sincronizou 1 transação pendente`,
+      `Monitor de segurança: Limite operacional do tenant '${selectedTenant.name}' verificado com sucesso`
     ];
-    const index = Math.floor(Math.random() * messages.length);
+    const index = (Date.now() + terminalLogs.length) % messages.length;
     const d = new Date();
     const newLog: TerminalLog = {
       id: `log_${Date.now()}`,
@@ -243,7 +247,7 @@ export function SuperAdmin() {
     setTerminalLogs(prev => [newLog, ...prev.slice(0, 25)]);
   };
 
-  const handleAddTenant = async (e: React.FormEvent) => {
+  const handleAddTenant = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!newTenantName.trim()) return;
     setSubmittingTenant(true);
@@ -278,7 +282,7 @@ export function SuperAdmin() {
     }
   };
 
-  const handleAddUser = async (e: React.FormEvent) => {
+  const handleAddUser = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
     if (!newUserEmail.trim() || !newUserTenant) return;
     setSubmittingUser(true);
@@ -691,8 +695,8 @@ export function SuperAdmin() {
           {loading && !refreshing ? (
             <div className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-[#0C1224] rounded-2xl border border-slate-800 p-6 h-32 animate-pulse flex flex-col justify-between" />
+                {SKELETON_CARD_KEYS.slice(0, 4).map((key) => (
+                  <div key={key} className="bg-[#0C1224] rounded-2xl border border-slate-800 p-6 h-32 animate-pulse flex flex-col justify-between" />
                 ))}
               </div>
               <div className="bg-[#0C1224] rounded-2xl border border-slate-800 p-8 h-96 animate-pulse" />
@@ -776,7 +780,7 @@ export function SuperAdmin() {
                         <div className="flex flex-wrap items-center gap-2.5">
                           <select
                             value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
+                            onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
                             className="bg-[#060913] border border-slate-800 text-slate-300 text-[11px] font-extrabold py-1.5 px-2.5 rounded-lg outline-none cursor-pointer hover:border-slate-700"
                           >
                             <option value="all">Status: Todos</option>
@@ -786,7 +790,7 @@ export function SuperAdmin() {
 
                           <select
                             value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
+                            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                             className="bg-[#060913] border border-slate-800 text-slate-300 text-[11px] font-extrabold py-1.5 px-2.5 rounded-lg outline-none cursor-pointer hover:border-slate-700"
                           >
                             <option value="recaudo">Ordenar: Recaudo</option>
@@ -896,11 +900,7 @@ export function SuperAdmin() {
                           {terminalLogs.map(log => (
                             <div key={log.id} className="flex gap-2">
                               <span className="text-slate-500">[{log.time}]</span>
-                              <span className={`font-bold shrink-0 ${
-                                log.type === 'SUCCESS' ? 'text-emerald-400' :
-                                log.type === 'ALERT' ? 'text-amber-400' :
-                                log.type === 'WARN' ? 'text-rose-400' : 'text-blue-400'
-                              }`}>
+                              <span className={`font-bold shrink-0 ${terminalLogTextClass(log.type)}`}>
                                 [{log.type}]
                               </span>
                               <span className="break-all">{log.message}</span>
@@ -1074,7 +1074,6 @@ export function SuperAdmin() {
                                     <button
                                       onClick={() => {
                                         setEditingTenantId(tenant.tenantId);
-                                        setEditPlan(tenant.plan);
                                         setEditPrice(tenant.monthlyPrice.toString());
                                       }}
                                       className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-lg cursor-pointer text-[10px] font-bold border border-slate-700/50"
@@ -1212,11 +1211,7 @@ export function SuperAdmin() {
                               <div className="min-w-0 flex-1 pr-4">
                                 <div className="flex items-center gap-2.5">
                                   <span className="font-extrabold text-white text-xs truncate">{u.name || u.userName || 'Sem Nome'}</span>
-                                  <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${
-                                    u.role === 'admin' ? 'bg-purple-950 text-purple-300 border border-purple-900/30' :
-                                    u.role === 'supervisor' ? 'bg-amber-950 text-amber-300 border border-amber-900/30' :
-                                    'bg-slate-900 text-slate-400 border border-slate-800/30'
-                                  }`}>
+                                  <span className={`px-1.5 py-0.2 rounded text-[8px] font-black uppercase tracking-wider ${superAdminRoleBadgeClasses(u.role)}`}>
                                     {u.role}
                                   </span>
                                 </div>
@@ -1379,11 +1374,7 @@ export function SuperAdmin() {
                       {terminalLogs.map(log => (
                         <div key={log.id} className="flex gap-3 leading-relaxed border-b border-slate-850/50 pb-2">
                           <span className="text-slate-500 shrink-0">[{log.time}]</span>
-                          <span className={`font-black shrink-0 ${
-                            log.type === 'SUCCESS' ? 'text-emerald-400' :
-                            log.type === 'ALERT' ? 'text-amber-400' :
-                            log.type === 'WARN' ? 'text-rose-400' : 'text-blue-400'
-                          }`}>
+                          <span className={`font-black shrink-0 ${terminalLogTextClass(log.type)}`}>
                             [{log.type}]
                           </span>
                           <span className="break-all">{log.message}</span>
