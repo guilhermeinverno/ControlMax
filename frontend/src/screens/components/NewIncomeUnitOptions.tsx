@@ -15,14 +15,12 @@ export function NewIncomeUnitOptions({ centers, selectedCnId }: NewIncomeUnitOpt
     return <option value="">Todas las unidades (0)</option>;
   }
 
-  return (
-    <>
-      <option value="">Todas las unidades ({cn.linkedUnits.length})</option>
-      {cn.linkedUnits.map((unit) => (
-        <option key={unit.id} value={unit.id}>
-          {unit.name}
-        </option>
-      ))}
-    </>
-  );
+  return [
+    <option key="__all_units__" value="">Todas las unidades ({cn.linkedUnits.length})</option>,
+    ...cn.linkedUnits.map((unit) => (
+      <option key={unit.id} value={unit.id}>
+        {String(unit.name ?? '')}
+      </option>
+    )),
+  ];
 }

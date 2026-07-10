@@ -198,12 +198,12 @@ export function UnitSelectors({
             {cns.length === 0 && !loadingCns ? (
               <option value="" disabled>Nenhum CN cadastrado</option>
             ) : (
-              <>
-                <option value="">Todos os Centros de Negocio</option>
-                {cns.map(cn => (
-                  <option key={cn.id} value={cn.id}>{cn.name}</option>
-                ))}
-              </>
+              [
+                <option key="__all_cn__" value="">Todos os Centros de Negocio</option>,
+                ...cns.map(cn => (
+                  <option key={cn.id} value={cn.id}>{String(cn.name ?? '')}</option>
+                )),
+              ]
             )}
           </select>
           {loadingCns && (
@@ -234,12 +234,12 @@ export function UnitSelectors({
             {units.length === 0 && !loadingUnits ? (
               <option value="" disabled>Nenhuma unidade</option>
             ) : (
-              <>
-                <option value="">Todas as unidades ({units.length})</option>
-                {units.map(u => (
-                  <option key={u.id} value={u.id}>{(u as { name: string }).name}</option>
-                ))}
-              </>
+              [
+                <option key="__all_units__" value="">Todas as unidades ({units.length})</option>,
+                ...units.map(u => (
+                  <option key={u.id} value={u.id}>{String(u.name ?? '')}</option>
+                )),
+              ]
             )}
           </select>
           {loadingUnits && (
