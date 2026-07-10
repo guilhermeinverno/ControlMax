@@ -3,7 +3,7 @@
 **Varredura inicial:** 09/07/2026  
 **Varredura final (pós-correções):** 09/07/2026 — 19:10 UTC  
 **Última varredura:** 09/07/2026 — 23:13 UTC (pós-rodada 22)  
-**Última rodada de código:** 09/07/2026 — rodada 25 (`Statistics`, `MassBoxOpening`, `Layout`, `BCTransfers`, `CompanyListCreateForm`)  
+**Última rodada de código:** 09/07/2026 — rodada 27 (`SaleDetail`, `DeviceList`, `BCIncomes`, `BCExpenses`, `useBox`)  
 **Ferramenta:** SonarQube Community 9.9.8  
 **Projeto:** `controlmax`  
 **Dashboard:** http://localhost:9000/dashboard?id=controlmax
@@ -1510,6 +1510,77 @@ Eliminar o S3776 residual em `useAIVoiceAssistant.ts` (complexidade 47) movendo 
 ### Próximos passos
 
 1. **S3776** — demais telas com 1 CRITICAL (`CreditRequests`, `Holidays`, `CollectionCleaning`, `TransferSales`, etc.).
+2. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
+3. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Rodada 26 — telas com 1 S3776 cada (09/07/2026)
+
+### S3776 — 5 arquivos refatorados
+
+| Arquivo | Extrações principais |
+|---------|---------------------|
+| `CreditRequests.tsx` | `useCreditRequestsData`, `creditRequestFilters`, `CreditRequestCard`, `CreditRequestCreateModal`, `CreditRequestsTabBar` |
+| `Holidays.tsx` | `useHolidaysData`, `holidayAggregates`, `HolidaysCalendarList`, `HolidaysUpcomingPanel`, `HolidaysAddForm` |
+| `CollectionCleaning.tsx` | `useCollectionCleaningData`, `collectionCleaningFilters`, `CollectionCleaningStatsBar`, `CollectionCancelModal`, `CollectionCleaningCard` |
+| `Finance.tsx` | `useFinanceData`, `financeMetrics`, `FinanceKpiGrid`, `FinanceMovementsTable`, `FinanceDistributionCard` |
+| `Dashboard.tsx` | `useDashboardBoxes`, `dashboardBoxFilters`, `DashboardBoxCard` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **~10 → ~5 issues** (−5 S3776). Varredura SonarQube pendente.
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| `DeviceList`, `BCIncomes`, `BCExpenses`, `TransferSales`, `SaleDetail`, `useBox.ts`, etc. | 1 cada |
+
+### Próximos passos
+
+1. **S3776** — demais telas com 1 CRITICAL (`DeviceList`, `BCIncomes`, `BCExpenses`, `TransferSales`, `SaleDetail`, `useBox.ts`).
+2. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
+3. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Rodada 27 — telas/hooks com 1 S3776 cada (09/07/2026)
+
+### S3776 — 5 arquivos refatorados
+
+| Arquivo | Extrações principais |
+|---------|---------------------|
+| `SaleDetail.tsx` | `useSaleDetailData`, `saleDetailDisplay`, `SaleDetailContent` |
+| `DeviceList.tsx` | `useDeviceListData`, `deviceListFilters`, `deviceTimeAgo`, `DeviceTable`, `DeviceBindModal` |
+| `BCIncomes.tsx` | `useBCIncomesData`, `bcIncomeFilters`, `firestoreDateSubscription`, `BCIncomeFormTab`, `BCIncomeHistoryTab` |
+| `BCExpenses.tsx` | `useBCExpensesData`, `bcExpenseFilters`, `BCExpenseNewModal`, `BCExpenseListSection` |
+| `useBox.ts` | `useActiveBoxSubscription`, `boxLifecycle` (open/close/confirm) |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **~5 → ~0 issues** (−5 S3776). Varredura SonarQube pendente.
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| `TransferSales.tsx` | 2 |
+| Demais telas menores | 1 cada |
+
+### Próximos passos
+
+1. **S3776** — `TransferSales.tsx` (2 CRITICAL) e resíduos menores.
 2. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
 3. **Cobertura Vitest** — meta ≥10% no Sonar.
 
