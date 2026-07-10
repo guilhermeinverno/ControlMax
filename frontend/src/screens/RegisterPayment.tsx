@@ -5,11 +5,12 @@ import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { Save, X, Loader2, AlertCircle } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
-import { db, auth } from '../lib/firebase';
-import { doc, collection, serverTimestamp, onSnapshot, runTransaction } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
+import { db } from '../lib/firebase';
 import { mapSaleFromSnapshot } from '../utils/saleMapper';
+import { executeRegisterPaymentTransaction } from '../utils/registerPaymentTransaction';
 
 interface RegisterPaymentProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
@@ -134,76 +135,19 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     setShowConfirm(false);
 
     try {
-      const saleRef = doc(db, 'sales', sale.id);
-      const boxRef = doc(db, 'boxes', activeBox.id);
-      const collectionRef = doc(collection(db, 'collections'));
-
-      await runTransaction(db, async (transaction) => {
-        // 1. Ler venda atual dentro da transação
-        const saleSnap = await transaction.get(saleRef);
-        if (!saleSnap.exists()) throw new Error('Venda não encontrada');
-
-        // 2. Ler caixa atual dentro da transação
-        const boxSnap = await transaction.get(boxRef);
-        if (!boxSnap.exists()) throw new Error('Caixa não encontrada');
-
-        const saleData = saleSnap.data();
-        const boxData = boxSnap.data();
-
-        // 3. Calcular novos valores atomicamente
-        const currentBalance = saleData.saldoPendienteCents || 0;
-        const computedNewBalance = Math.max(0, currentBalance - parsedAmountCents);
-
-        const newTotalCollections = (boxData.totalCollections || 0) + parsedAmountCents;
-        const newFinalAmount = (boxData.initialAmount || 0)
-          + newTotalCollections
-          + (boxData.totalIncomes || 0)
-          - (boxData.totalExpenses || 0)
-          - (boxData.totalSales || 0)
-          - (boxData.totalTransfers || 0);
-
-        // 4. Gravar pagamento
-        transaction.set(collectionRef, {
-          tenantId,
-          boxId: activeBox.id,
-          boxName: activeBox.userName || 'Caja',
-          userId: auth.currentUser?.uid || '',
-          userName: userName || auth?.currentUser?.email || 'Usuario',
-          clientId: saleData.clientId || '',
-          clientName: saleData.clientName || '',
-          saleId: sale.id,
-          amount: parsedAmountCents,
-          type: 'collection',
-          paymentMethod: paymentMethod,
-          comment: comment.trim(),
-          registeredBy: userName || auth?.currentUser?.email || 'Usuario',
-          registeredById: auth?.currentUser?.uid || 'test-user-id',
-          createdAt: serverTimestamp(),
-        });
-
-        // 5. Atualizar saldo da venda atomicamente
-        transaction.update(saleRef, {
-          saldoPendienteCents: computedNewBalance,
-          saldoPendiente: (computedNewBalance / 100).toFixed(2),
-          status: computedNewBalance <= 0 ? 'completed' : saleData.status,
-        });
-
-        // 6. Atualizar totais da caixa atomicamente
-        transaction.update(boxRef, {
-          totalCollections: newTotalCollections,
-          finalAmount: newFinalAmount,
-        });
+      await executeRegisterPaymentTransaction({
+        tenantId,
+        activeBox,
+        sale,
+        parsedAmountCents,
+        paymentMethod,
+        comment,
+        userName,
       });
-
-      // Sucesso
       setAmount('');
-      if (onNavigate) {
-        onNavigate('sale-detail', { saleId: sale.id });
-      }
-
+      onNavigate?.('sale-detail', { saleId: sale.id });
     } catch (err) {
-      const msg = getErrorMessage(err) || 'Erro ao registrar pagamento';
-      setSaveError(msg);
+      setSaveError(getErrorMessage(err) || 'Erro ao registrar pagamento');
     } finally {
       setSaving(false);
     }

@@ -1,12 +1,18 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
+
+const firebaseConfigFile = fs.existsSync(path.resolve(__dirname, 'firebase-applet-config.json'))
+  ? 'firebase-applet-config.json'
+  : 'firebase-applet-config.example.json';
 
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, '.'),
+      '@firebase-config': path.resolve(__dirname, firebaseConfigFile),
     },
   },
   test: {

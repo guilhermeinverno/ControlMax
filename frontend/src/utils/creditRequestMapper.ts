@@ -20,16 +20,17 @@ export interface CreditRequest {
   historyLogs: unknown[];
 }
 
-export function mapCreditRequestDoc(
-  docSnap: { id: string; data: () => Record<string, unknown> }
-): CreditRequest {
-  const data = docSnap.data();
+function readCreditRequestClientFields(data: Record<string, unknown>) {
   return {
-    id: docSnap.id,
     tenantId: String(data.tenantId || ''),
     clientId: String(data.clientId || ''),
     clientName: String(data.clientName || ''),
     clientDoc: String(data.clientDoc || ''),
+  };
+}
+
+function readCreditRequestRequestFields(data: Record<string, unknown>) {
+  return {
     amount: Number(data.amount || 0),
     requestedBy: String(data.requestedBy || ''),
     requestedById: String(data.requestedById || ''),
@@ -37,11 +38,28 @@ export function mapCreditRequestDoc(
     score: Number(data.score || 0),
     currentBalance: Number(data.currentBalance || 0),
     observations: String(data.observations || ''),
+  };
+}
+
+function readCreditRequestReviewFields(data: Record<string, unknown>) {
+  return {
     createdAt: (data.createdAt as Timestamp) || null,
     reviewedAt: (data.reviewedAt as Timestamp) || null,
     reviewedBy: String(data.reviewedBy || ''),
     reviewedById: String(data.reviewedById || ''),
     historyLogs: Array.isArray(data.historyLogs) ? data.historyLogs : [],
+  };
+}
+
+export function mapCreditRequestDoc(
+  docSnap: { id: string; data: () => Record<string, unknown> }
+): CreditRequest {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    ...readCreditRequestClientFields(data),
+    ...readCreditRequestRequestFields(data),
+    ...readCreditRequestReviewFields(data),
   };
 }
 

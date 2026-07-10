@@ -9,9 +9,17 @@ import {
   FirestoreLocalCache,
   Firestore
 } from 'firebase/firestore';
-import firebaseConfigJsonModule from '../../firebase-applet-config.json';
+import firebaseConfigJsonModule from '@firebase-config';
 
-const firebaseConfigJson = firebaseConfigJsonModule;
+const firebaseConfigJson = firebaseConfigJsonModule as {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+  firestoreDatabaseId?: string;
+};
 
 // Safely retrieve environment variables to prevent TypeError on import.meta or import.meta.env being undefined
 const env: Record<string, string | undefined> = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
@@ -74,6 +82,8 @@ try {
     localCacheSetting = memoryLocalCache();
   }
 
+  const firestoreDatabaseId = env.VITE_FIRESTORE_DATABASE_ID || firebaseConfigJson?.firestoreDatabaseId;
+
   try {
     const settings: { experimentalForceLongPolling?: boolean; localCache?: FirestoreLocalCache } = {
       experimentalForceLongPolling: true,
@@ -82,13 +92,13 @@ try {
       settings.localCache = localCacheSetting;
     }
     
-    firestoreDb = initializeFirestore(app, settings, firebaseConfigJson?.firestoreDatabaseId);
-    console.log("Firestore initialized successfully via initializeFirestore with database ID:", firebaseConfigJson?.firestoreDatabaseId);
+    firestoreDb = initializeFirestore(app, settings, firestoreDatabaseId);
+    console.log("Firestore initialized successfully via initializeFirestore with database ID:", firestoreDatabaseId);
   } catch (error) {
     console.error("Critical: initializeFirestore failed, falling back to getFirestore:", error);
     try {
-      firestoreDb = getFirestore(app, firebaseConfigJson?.firestoreDatabaseId);
-      console.log("Firestore fell back to getFirestore with database ID:", firebaseConfigJson?.firestoreDatabaseId);
+      firestoreDb = getFirestore(app, firestoreDatabaseId);
+      console.log("Firestore fell back to getFirestore with database ID:", firestoreDatabaseId);
     } catch (fallbackError) {
       console.error("Critical: getFirestore fallback failed too, trying default:", fallbackError);
       try {

@@ -7,7 +7,16 @@ interface CompanyListCreateBasicTabProps {
   activeUnitsList: BusinessCenterUnit[];
 }
 
+function gpsButtonLabel(gettingLocation: boolean, hasGpsCoordinates: boolean): string {
+  if (gettingLocation) return 'Obtendo Localização Atual...';
+  if (hasGpsCoordinates) return 'Atualizar Localização GPS';
+  return 'Adicionar Localização Atual';
+}
+
 export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyListCreateBasicTabProps) {
+  const { formLatitude, formLongitude } = fields;
+  const hasGpsCoordinates = formLatitude !== null && formLongitude !== null;
+
   return (
     <div className="space-y-4 animate-fadeIn">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -176,21 +185,17 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
             onClick={fields.handleGetCurrentLocation}
             disabled={fields.gettingLocation}
             className={`w-full sm:w-auto px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 border shadow-sm ${
-              fields.formLatitude && fields.formLongitude
+              hasGpsCoordinates
                 ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100'
                 : 'bg-[#8CC63F] text-white border-transparent hover:bg-[#7BB52F] active:scale-[0.98]'
             }`}
             title="Obter localização atual"
           >
             <MapPin className={`w-4 h-4 ${fields.gettingLocation ? 'animate-bounce text-white' : 'text-current'}`} />
-            {fields.gettingLocation
-              ? 'Obtendo Localização Atual...'
-              : fields.formLatitude && fields.formLongitude
-                ? 'Atualizar Localização GPS'
-                : 'Adicionar Localização Atual'}
+            {gpsButtonLabel(fields.gettingLocation, hasGpsCoordinates)}
           </button>
 
-          {fields.formLatitude && fields.formLongitude && (
+          {hasGpsCoordinates ? (
             <div className="flex-1 flex items-center justify-between px-3 py-1.5 bg-green-50 border border-green-100 rounded-xl text-[10px] text-green-800 font-mono">
               <div className="flex items-center gap-1.5">
                 <span className="relative flex h-2 w-2">
@@ -199,7 +204,7 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
                 </span>
                 <span className="font-extrabold uppercase text-[9px]">Coordenadas:</span>
                 <span>
-                  {fields.formLatitude.toFixed(6)}, {fields.formLongitude.toFixed(6)}
+                  {formLatitude.toFixed(6)}, {formLongitude.toFixed(6)}
                 </span>
               </div>
               <button
@@ -213,7 +218,7 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
                 Remover
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

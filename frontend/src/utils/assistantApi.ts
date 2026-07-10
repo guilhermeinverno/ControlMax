@@ -36,6 +36,11 @@ async function parseAssistantResponse(response: Response): Promise<GeminiAssista
   return response.json().catch(() => ({}));
 }
 
+export function resolveAssistantApiUrl(path = '/api/gemini/assistant'): string {
+  const base = import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? '';
+  return base ? `${base}${path}` : path;
+}
+
 export async function callGeminiAssistant(params: CallGeminiAssistantParams): Promise<GeminiAssistantResult> {
   const controller = new AbortController();
   const timeoutId = window.setTimeout(() => controller.abort(), ASSISTANT_FETCH_TIMEOUT_MS);
@@ -43,7 +48,7 @@ export async function callGeminiAssistant(params: CallGeminiAssistantParams): Pr
   try {
     const clientOperationalContext = await loadOperationalContext(params.tenantId);
 
-    const response = await fetch('/api/gemini/assistant', {
+    const response = await fetch(resolveAssistantApiUrl(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: controller.signal,
