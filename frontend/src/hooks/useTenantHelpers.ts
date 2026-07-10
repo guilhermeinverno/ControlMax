@@ -16,6 +16,7 @@ export const ADMIN_BYPASS_EMAILS = [
   'maildojg@gmail.com',
   'legnotebooks@gmail.com',
   'brasiloficina40@gmail.com',
+  'qa@controlmax.dev',
 ] as const;
 
 export function isAdminBypassEmail(emailLower: string): boolean {
@@ -49,6 +50,9 @@ export function getAdminBypassConfig(emailLower: string): AdminBypassConfig | nu
       isSuperAdmin: true,
     };
   }
+  if (emailLower === 'qa@controlmax.dev') {
+    return { tenantId: 'tenant_qa', role: 'admin', userName: 'QA Admin', isSuperAdmin: false };
+  }
   return null;
 }
 
@@ -56,6 +60,7 @@ export function resolveDefaultTenantId(emailLower: string, impersonated: string 
   if (impersonated) return impersonated;
   if (emailLower === 'legnotebooks@gmail.com') return 'leg_notebooks';
   if (emailLower === 'brasiloficina40@gmail.com') return 'brasil_oficina';
+  if (emailLower === 'qa@controlmax.dev') return 'tenant_qa';
   return 'tenant_demo';
 }
 
@@ -105,6 +110,12 @@ const BYPASS_PROVISIONING: Record<
     userName: 'Super Admin',
     role: 'superadmin',
     isSuperAdmin: true,
+  },
+  'qa@controlmax.dev': {
+    tenantId: 'tenant_qa',
+    tenantName: 'ControlMax QA',
+    userName: 'QA Admin',
+    role: 'admin',
   },
 };
 

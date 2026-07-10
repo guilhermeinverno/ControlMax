@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "tsx server.ts",
     "build": "esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
-    "start": "node dist/server.js"
+    "start": "node dist/server.js",
+    "seed:qa-user": "tsx scripts/seedQaUser.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

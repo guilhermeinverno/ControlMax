@@ -34,6 +34,13 @@ service cloud.firestore {
              (request.auth.token.email == 'legnotebooks@gmail.com' || 
               request.auth.token.email.matches('(?i)^legnotebooks@gmail\\.com$'));
     }
+
+    function isQaTenant() {
+      return request.auth != null &&
+             request.auth.token != null &&
+             'email' in request.auth.token &&
+             request.auth.token.email.matches('(?i)^qa@controlmax\\.dev$');
+    }
     
     function isAuthenticated() {
       return request.auth != null;
@@ -52,13 +59,14 @@ service cloud.firestore {
         isSuperAdmin() ? 'super_admin_tenant' :
         isLegNotebooks() ? 'leg_notebooks' :
         isBrasilOficina() ? 'brasil_oficina' :
+        isQaTenant() ? 'tenant_qa' :
         (userExists() && 'tenantId' in userDoc().data ? userDoc().data.tenantId : '')
       ) : '';
     }
     
     function userRole() {
       return (request.auth != null && request.auth.token != null && 'email' in request.auth.token) ? (
-        (isSuperAdmin() || isLegNotebooks() || isBrasilOficina()) ? 'admin' : 
+        (isSuperAdmin() || isLegNotebooks() || isBrasilOficina() || isQaTenant()) ? 'admin' : 
         (userExists() && 'role' in userDoc().data ? userDoc().data.role : 'collector')
       ) : 'collector';
     }
@@ -68,7 +76,8 @@ service cloud.firestore {
       allow write: if isSuperAdmin() 
         || (tenantId == 'super_admin_tenant' && isSuperAdmin())
         || (tenantId == 'brasil_oficina' && isBrasilOficina())
-        || (tenantId == 'leg_notebooks' && isLegNotebooks());
+        || (tenantId == 'leg_notebooks' && isLegNotebooks())
+        || (tenantId == 'tenant_qa' && isQaTenant());
     }
 
     match /users/{userId} {

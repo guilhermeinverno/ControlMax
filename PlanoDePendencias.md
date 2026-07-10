@@ -76,7 +76,12 @@ Checklist derivado de [`documentation/Divergências.md`](documentation/Divergên
 
 ### Teste manual no browser (pendente — você)
 
-Abra `http://localhost:5173`, faça login e valide interativamente os itens `[~]` acima. Marque `[x]` conforme confirmar.
+Abra `http://localhost:5173/login` com o usuário de QA (seção 0 em `QA_DOCUMENTATION.md`):
+
+- **E-mail:** `qa@controlmax.dev`
+- **Senha:** `ControlMax-QA-2026!`
+
+Valide interativamente os itens `[~]` acima. Marque `[x]` conforme confirmar.
 
 ---
 
@@ -125,6 +130,7 @@ Fase 4  →  limpeza final
 | 10/07/2026 | Comparação com `controlmax.old`: campos de cadastro preservados; lógica migrada para hooks. Forms/Feriados estavam sem link no menu — corrigido. |
 | 10/07/2026 | SonarQube parado no Docker; última varredura com 0 issues, gate bloqueado só por cobertura. |
 | 10/07/2026 | QA pré-deploy: lint/test/build OK; servidores locais frontend :5173 e backend :3000; checklist Fase 2 parcialmente verificado (falta browser). |
+| 10/07/2026 | Usuário de homologação `qa@controlmax.dev` documentado em `QA_DOCUMENTATION.md` + script `backend/scripts/seedQaUser.ts`. |
 | | _Adicionar notas abaixo conforme o trabalho avançar_ |
 
 ---
