@@ -16,7 +16,7 @@ Objetivo: deixar o repositório pronto para o colaborador fazer pull e deploy.
 | 0.1 | Criar este plano (`PlanoDePendencias.md`) | Agente | [x] |
 | 0.2 | Excluir `controlmax.old/` do versionamento (referência local) | Agente | [x] |
 | 0.3 | Commit de refatoração SonarQube (rodada 30), recuperação e docs | Agente | [x] |
-| 0.4 | Push para `origin/main` | Agente | [ ] |
+| 0.4 | Push para `origin/main` | Agente | [x] |
 | 0.5 | Colaborador faz `git pull` | Deploy | [ ] |
 
 **Arquivos entregues nesta rodada:**
