@@ -2,8 +2,8 @@
 
 Documento vivo de acompanhamento. Atualize o status (`[ ]` / `[~]` / `[x]`) conforme cada item for concluído.
 
-**Última atualização:** 10/07/2026  
-**Contexto:** SonarQube pausado no Docker (0 issues na última varredura; Quality Gate em ERROR por cobertura ~3,1%). Recuperação funcional comparada com `controlmax.old` concluída. Próximo responsável: colaborador de deploy após `git pull`.
+**Última atualização:** 10/07/2026 — QA pré-deploy iniciado  
+**Contexto:** SonarQube **pausado** no Docker desde 10/07/2026 (foco em deploy; última varredura com **0 issues**, Quality Gate em ERROR por cobertura ~3,1%). Recuperação funcional comparada com `controlmax.old` concluída. Próximo responsável: colaborador de deploy após `git pull`.
 
 ---
 
@@ -49,16 +49,34 @@ Referência principal: [`Configuração vercel.txt`](Configuração%20vercel.txt
 
 Checklist derivado de [`documentation/Divergências.md`](documentation/Divergências.md).
 
-| # | Tela / fluxo | Status |
-|---|--------------|--------|
-| 2.1 | `/company-list` — criar cliente (abas basic, locations, references, photos) | [ ] |
-| 2.2 | `/company-list` — editar cliente no modal (salvar básico, endereço, foto) | [ ] |
-| 2.3 | `/forms` — criar formulário, preencher, ver respostas | [ ] |
-| 2.4 | `/holidays` — adicionar e excluir feriado | [ ] |
-| 2.5 | `/platform-management` — salvar configurações | [ ] |
-| 2.6 | `NewIncome` / `NewExpense` — upload e remoção de anexo | [ ] |
-| 2.7 | Menu **Administración** — links Formularios e Feriados visíveis (admin/supervisor) | [ ] |
-| 2.8 | Modo claro e escuro nas telas alteradas | [ ] |
+**Legenda:** `[x]` concluído · `[~]` verificado em código/servidor, falta teste no browser · `[ ]` pendente · `[n/a]` não aplicável
+
+| # | Tela / fluxo | Status | Notas (10/07 QA pré-deploy) |
+|---|--------------|--------|-----------------------------|
+| 2.1 | `/company-list` — criar cliente (abas basic, locations, references, photos) | [~] | 4 abas + hook `useCustomerCreateForm` presentes |
+| 2.2 | `/company-list` — editar cliente no modal (salvar básico, endereço, foto) | [~] | 7 componentes no `customerModal/*` |
+| 2.3 | `/forms` — criar formulário, preencher, ver respostas | [~] | Builder + modal + hooks OK; rota HTTP 200 |
+| 2.4 | `/holidays` — adicionar e excluir feriado | [~] | `HolidaysAddForm` + `useHolidaysData`; rota HTTP 200 |
+| 2.5 | `/platform-management` — salvar configurações | [~] | `usePlatformSettings` + 20 campos tipados |
+| 2.6 | `NewIncome` / `NewExpense` — upload e remoção de anexo | [~] | `fileUrl` + `onRemoveFile` em ambas as telas |
+| 2.7 | Menu **Administración** — links Formularios e Feriados visíveis (admin/supervisor) | [~] | Links em desktop e mobile nav |
+| 2.8 | Modo claro e escuro nas telas alteradas | [n/a] | App não implementa tema escuro (`dark:` / ThemeProvider ausentes) |
+
+### Verificações automatizadas (10/07/2026)
+
+| Verificação | Resultado |
+|-------------|-----------|
+| `npm run lint` (frontend) | OK |
+| `npm run test` (frontend) | 39/39 OK |
+| `npm run build` (frontend) | OK |
+| `npm run build` (backend) | OK |
+| Frontend dev `http://localhost:5173` | HTTP 200 |
+| Rotas SPA `/forms`, `/holidays` | HTTP 200 |
+| Backend `POST /api/gemini/assistant` | Responde (400 sem payload — esperado) |
+
+### Teste manual no browser (pendente — você)
+
+Abra `http://localhost:5173`, faça login e valide interativamente os itens `[~]` acima. Marque `[x]` conforme confirmar.
 
 ---
 
@@ -68,7 +86,7 @@ SonarQube Docker **pausado** até deploy estável.
 
 | # | Tarefa | Status |
 |---|--------|--------|
-| 3.1 | Anotar em `Varredura.md`: data da pausa e motivo (foco em deploy) | [ ] |
+| 3.1 | Anotar em `Varredura.md`: data da pausa e motivo (foco em deploy) | [x] |
 | 3.2 | Religar SonarQube apenas para validar que nenhuma issue regressou | [ ] |
 | 3.3 | Aumentar cobertura nos módulos críticos (meta inicial: 15–20%) | [ ] |
 | 3.4 | Testes prioritários: `customerCreate`, `formsHelpers`, `platformSettings`, `assistantApi` | [ ] |
@@ -106,6 +124,7 @@ Fase 4  →  limpeza final
 |------|------|
 | 10/07/2026 | Comparação com `controlmax.old`: campos de cadastro preservados; lógica migrada para hooks. Forms/Feriados estavam sem link no menu — corrigido. |
 | 10/07/2026 | SonarQube parado no Docker; última varredura com 0 issues, gate bloqueado só por cobertura. |
+| 10/07/2026 | QA pré-deploy: lint/test/build OK; servidores locais frontend :5173 e backend :3000; checklist Fase 2 parcialmente verificado (falta browser). |
 | | _Adicionar notas abaixo conforme o trabalho avançar_ |
 
 ---

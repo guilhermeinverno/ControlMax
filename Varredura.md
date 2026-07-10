@@ -3,6 +3,7 @@
 **Varredura inicial:** 09/07/2026  
 **Varredura final (pós-correções):** 09/07/2026 — 19:10 UTC  
 **Última varredura:** 10/07/2026 — 03:52 UTC (pós-rodada 30 — **0 issues**)  
+**SonarQube Docker:** **PAUSADO** desde 10/07/2026 — foco em deploy e validação funcional; religar após deploy estável em produção.  
 **Última rodada de código:** 10/07/2026 — rodada 30 (zerar 12 S3776)  
 **Ferramenta:** SonarQube Community 9.9.8  
 **Projeto:** `controlmax`  
