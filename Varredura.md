@@ -3,6 +3,7 @@
 **Varredura inicial:** 09/07/2026  
 **Varredura final (pós-correções):** 09/07/2026 — 19:10 UTC  
 **Última varredura:** 09/07/2026 — 23:13 UTC (pós-rodada 22)  
+**Última rodada de código:** 09/07/2026 — rodada 25 (`Statistics`, `MassBoxOpening`, `Layout`, `BCTransfers`, `CompanyListCreateForm`)  
 **Ferramenta:** SonarQube Community 9.9.8  
 **Projeto:** `controlmax`  
 **Dashboard:** http://localhost:9000/dashboard?id=controlmax
@@ -1373,5 +1374,142 @@ Eliminar o S3776 residual em `useAIVoiceAssistant.ts` (complexidade 47) movendo 
 
 1. **S3776** — `useTenant.ts`; `backend/server.ts`; `Forms.tsx`.
 2. **Opcional** — subdividir `CompanyListCreateForm` por aba (1 S3776 residual).
+3. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Rodada 23 — `useTenant.ts`, `backend/server.ts`, `Forms.tsx` (09/07/2026)
+
+### S3776 — prioridade crítica (ordem natural)
+
+| Arquivo | Antes | Depois |
+|---------|------:|-------:|
+| `useTenant.ts` (complexidade ~191) | 1 S3776 | **0** — extraídos `useTenantLink.ts`, `useTenantSubscription.ts` |
+| `backend/server.ts` (complexidade ~58) | 1 S3776 | **0** — extraídos `assistantRoute.ts`, `assistantPrompts.ts`, `geminiAssistant.ts` |
+| `Forms.tsx` (2× S3776) | 2 | **0** — extraídos `useFormsData.ts`, `formsHelpers.ts`, `FormsFillingModal`, `FormFieldInput` |
+
+### Arquivos criados
+
+| Módulo | Arquivos |
+|--------|----------|
+| Tenant | `useTenantLink.ts`, `useTenantSubscription.ts` |
+| Backend assistant | `assistantRoute.ts`, `assistantPrompts.ts`, `geminiAssistant.ts` |
+| Forms | `useFormsData.ts`, `formsHelpers.ts`, `components/forms/FormFieldInput.tsx`, `FormsFillingModal.tsx` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` (frontend) | OK |
+| `npm run test` (frontend) | 39/39 |
+| `npm run build` (backend) | OK |
+
+> Varredura SonarQube pendente (container `sonarqube` parado). Estimativa: **25 → ~21 issues** (−4 S3776).
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| `Performance.tsx`, `PlatformManagement.tsx`, `SalesList.tsx` | 2 cada |
+| `CompanyListCreateForm.tsx` e demais telas/hooks | 1 cada |
+
+### Próximos passos
+
+1. **S3776** — `Performance.tsx`, `PlatformManagement.tsx`, `SalesList.tsx` (2 cada).
+2. **Opcional** — `CompanyListCreateForm.tsx` (1 residual).
+3. **SonarQube** — `docker start sonarqube` + scanner para confirmar métricas.
+
+---
+
+## Rodada 25 — `Statistics`, `MassBoxOpening`, `BCTransfers`, `Layout`, `CompanyListCreateForm` (09/07/2026)
+
+### S3776 — modularização de telas restantes
+
+| Arquivo | Extrações principais |
+|---------|----------------------|
+| `Statistics.tsx` | `utils/statisticsAggregates.ts`, `components/statistics/SymmetricDualAxisChart.tsx`, uso de `useStatisticsData` + `types/statistics.ts` |
+| `MassBoxOpening.tsx` | `hooks/useMassBoxOpeningData.ts`, `utils/massBoxOpening.ts`, `components/massBoxOpening/CollectorAmountSection.tsx` |
+| `BCTransfers.tsx` | `hooks/useBCTransfersHistory.ts`, `utils/bcTransferFilters.ts` |
+| `Layout.tsx` | `hooks/useLayoutUi.ts`, `components/layout/LayoutMobileDrawer.tsx` |
+| `CompanyListCreateForm.tsx` | `create/CompanyListCreateTabBar.tsx`, `CompanyListCreateBasicTab.tsx`, `CompanyListCreateLocationsTab.tsx`, `CompanyListCreateReferencesTab.tsx`, `CompanyListCreatePhotosTab.tsx` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `cd frontend && npm run lint` | OK (`tsc --noEmit`) |
+
+### Observações
+
+- Sem alteração de comportamento funcional intencional; apenas separação de responsabilidades e redução de complexidade.
+- Ajuste adicional aplicado em `Performance.tsx` para corrigir import quebrado pré-existente e permitir lint verde.
+4. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Rodada 24 — `Performance.tsx`, `PlatformManagement.tsx`, `SalesList.tsx` (09/07/2026)
+
+### S3776 — 6 CRITICAL eliminados (2 por arquivo)
+
+| Arquivo | Antes | Depois |
+|---------|------:|-------:|
+| `Performance.tsx` | 2 S3776 | **0** — `usePerformanceData.ts`, `performanceMetrics.ts`, cards em `components/performance/` |
+| `PlatformManagement.tsx` | 2 S3776 | **0** — `usePlatformSettings.ts`, `types/platformSettings.ts`, 4 tabs em `components/platform/` |
+| `SalesList.tsx` | 2 S3776 | **0** — `useSalesListData.ts`, `salesListMapper.ts`, `salesListFilters.ts`, `salesSeed.ts` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **~21 → ~15 issues** (−6 S3776). Varredura SonarQube pendente.
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| `CompanyListCreateForm.tsx` e demais telas/hooks/utils | 1 cada |
+
+### Próximos passos
+
+1. **S3776** — telas com 1 CRITICAL cada (`Statistics`, `MassBoxOpening`, `Layout`, `BCTransfers`, etc.).
+2. **Opcional** — `CompanyListCreateForm.tsx` (1 residual).
+3. **SonarQube** — `docker start sonarqube` + scanner para confirmar métricas.
+
+---
+
+## Rodada 25 — telas com 1 S3776 cada (09/07/2026)
+
+### S3776 — 5 arquivos refatorados
+
+| Arquivo | Extrações principais |
+|---------|---------------------|
+| `Statistics.tsx` | `useStatisticsData`, `statisticsAggregates`, `SymmetricDualAxisChart` |
+| `MassBoxOpening.tsx` | `useMassBoxOpeningData`, `massBoxOpening`, `CollectorAmountSection` |
+| `BCTransfers.tsx` | `useBCTransfersHistory`, `bcTransferFilters` |
+| `Layout.tsx` | `useLayoutUi`, `LayoutMobileDrawer` |
+| `CompanyListCreateForm.tsx` | 4 subtabs + `CompanyListCreateTabBar` em `companyList/create/` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **~15 → ~10 issues** (−5 S3776). Varredura SonarQube pendente.
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| `CreditRequests`, `Holidays`, `Finance`, `Dashboard`, `DeviceList`, etc. | 1 cada |
+
+### Próximos passos
+
+1. **S3776** — demais telas com 1 CRITICAL (`CreditRequests`, `Holidays`, `CollectionCleaning`, `TransferSales`, etc.).
+2. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
 3. **Cobertura Vitest** — meta ≥10% no Sonar.
 

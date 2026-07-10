@@ -1,14 +1,11 @@
 import { getErrorMessage } from '../utils/errorMessage';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
-import { db } from '../lib/firebase';
-import {
-  collection, query, where, onSnapshot,
-  writeBatch, doc, serverTimestamp, Timestamp
-} from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { useMassBoxOpeningData } from '../hooks/useMassBoxOpeningData';
 import { ConfirmModal } from './components/ConfirmModal';
+import { CollectorAmountSection } from './components/massBoxOpening/CollectorAmountSection';
 import { 
   Calculator, Search, ShieldAlert, CheckCircle2, 
   AlertCircle, ChevronLeft
@@ -18,42 +15,10 @@ import {
   autocompleteCurrencyBRL, 
   parseCurrencyBRLToCents 
 } from '../utils/currency';
+import { filterCollectors, openBoxesBatch, toggleSelectAll } from '../utils/massBoxOpening';
 
 interface MassBoxOpeningProps {
   onNavigate?: (screen: Screen) => void;
-}
-
-export interface AppUser {
-  id: string;
-  tenantId: string;
-  userName: string;
-  role: 'admin' | 'supervisor' | 'collector';
-  email: string;
-  active: boolean;
-  defaultUnitId?: string;
-  defaultUnitName?: string;
-  defaultCnId?: string;
-  defaultCnName?: string;
-}
-
-export interface Box {
-  id: string;
-  tenantId: string;
-  unitId: string;
-  unitName: string;
-  cnId: string;
-  cnName: string;
-  userId: string;
-  userName: string;
-  status: 'open' | 'closed' | 'confirmed';
-  openedAt: Timestamp;
-  initialAmount: number;
-  totalIncomes: number;
-  totalExpenses: number;
-  totalSales: number;
-  totalCollections: number;
-  totalTransfers: number;
-  finalAmount: number;
 }
 
 const fmt = (cents: number) =>
@@ -61,37 +26,6 @@ const fmt = (cents: number) =>
     minimumFractionDigits: 2, 
     maximumFractionDigits: 2 
   });
-
-function collectorAmountSection(
-  hasOpenBox: boolean,
-  useIndividualAmounts: boolean,
-  collectorId: string,
-  amount: string,
-  onAmountChange: (id: string, value: string) => void,
-  onAmountBlur: (id: string) => void,
-) {
-  if (hasOpenBox) {
-    return (
-      <span className="bg-yellow-100 text-yellow-800 text-[10px] font-bold px-2 py-1 rounded border border-yellow-200 whitespace-nowrap uppercase tracking-wider">
-        Já aberta hoje
-      </span>
-    );
-  }
-  if (!useIndividualAmounts) return null;
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className="text-xs text-gray-400 font-bold">$</span>
-      <input
-        type="text"
-        value={amount}
-        placeholder="0,00"
-        onChange={(e) => onAmountChange(collectorId, e.target.value)}
-        onBlur={() => onAmountBlur(collectorId)}
-        className="w-28 text-right border border-gray-300 rounded text-xs p-1.5 focus:ring-1 focus:ring-[#6B21A8] outline-none font-bold text-gray-800 shadow-sm bg-white"
-      />
-    </div>
-  );
-}
 
 export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
@@ -102,9 +36,6 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   const [individualAmounts, setIndividualAmounts] = useState<Record<string, string>>({});
   const [generalObservation, setGeneralObservation] = useState<string>('');
 
-  // Lists and loading states
-  const [collectors, setCollectors] = useState<AppUser[]>([]);
-  const [activeBoxes, setActiveBoxes] = useState<Box[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -112,125 +43,30 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   const [cnFilter, setCnFilter] = useState<string>('all');
 
   // Page operation status states
-  const [loading, setLoading] = useState<boolean>(true);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
 
+  const {
+    collectors,
+    activeBoxes,
+    loading,
+    loadError,
+  } = useMassBoxOpeningData(tenantId);
+
   useEffect(() => {
-    if (!tenantId) return;
-    setLoading(true);
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    let active = true;
-    let unsubUsers: (() => void) | null = null;
-    let unsubBoxes: (() => void) | null = null;
-
-    const startUsersListener = () => {
-      const q = query(
-        collection(db, 'users'),
-        where('tenantId', '==', tenantId),
-        where('role', '==', 'collector'),
-        where('active', '==', true)
-      );
-
-      try {
-        unsubUsers = onSnapshot(q, (snapshot) => {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as unknown as AppUser));
-          if (active) {
-            setCollectors(list);
-            setLoading(false);
-          }
-        }, (err) => {
-          console.error("Users onSnapshot failed:", err);
-          if (active) {
-            setErrorMsg(getErrorMessage(err) || 'Error al cargar cobradores');
-            setLoading(false);
-          }
-        });
-      } catch (err) {
-        console.error("Error starting users snapshot listener:", err);
-        if (active) {
-          setLoading(false);
-        }
-      }
-    };
-
-    const startBoxesListener = () => {
-      const startOfToday = new Date();
-      startOfToday.setHours(0, 0, 0, 0);
-
-      const q = query(
-        collection(db, 'boxes'),
-        where('tenantId', '==', tenantId),
-        where('status', '==', 'open'),
-        where('openedAt', '>=', Timestamp.fromDate(startOfToday))
-      );
-
-      try {
-        unsubBoxes = onSnapshot(q, (snapshot) => {
-          const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Box));
-          if (active) {
-            setActiveBoxes(list);
-          }
-        }, (err) => {
-          console.warn("MassBoxOpening active boxes primary onSnapshot failed (possibly index missing), trying fallback:", err);
-          
-          // Fallback: fetch all open boxes for the tenant and filter client-side
-          const fallbackQ = query(
-            collection(db, 'boxes'),
-            where('tenantId', '==', tenantId),
-            where('status', '==', 'open')
-          );
-          
-          unsubBoxes = onSnapshot(fallbackQ, (snapshot) => {
-            const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as unknown as Box));
-            const filtered = list.filter(box => {
-              if (!box.openedAt) return false;
-              const date = typeof box.openedAt.toDate === 'function' 
-                ? box.openedAt.toDate() 
-                : new Date((box.openedAt as unknown as { seconds: number }).seconds * 1000);
-              return date >= startOfToday;
-            });
-            if (active) {
-              setActiveBoxes(filtered);
-            }
-          }, (fallbackErr) => {
-            console.error("MassBoxOpening fallback onSnapshot failed:", fallbackErr);
-          });
-        });
-      } catch (err) {
-        console.error("Error setting up active boxes listener:", err);
-      }
-    };
-
-    startUsersListener();
-    startBoxesListener();
-
-    return () => {
-      active = false;
-      if (unsubUsers) unsubUsers();
-      if (unsubBoxes) unsubBoxes();
-    };
-  }, [tenantId]);
+    setErrorMsg(loadError);
+  }, [loadError]);
 
   const isAuthorized = role === 'admin' || role === 'supervisor' || isSuperAdmin;
 
   // Check if a collector already has an open box today
-  const getHasOpenBox = (collectorId: string) => {
-    return activeBoxes.some(box => box.userId === collectorId);
-  };
+  const getHasOpenBox = (collectorId: string) => activeBoxes.some((box) => box.userId === collectorId);
 
-  // Filter collectors list dynamically
-  const filteredCollectors = collectors.filter(collector => {
-    const matchesSearch = collector.userName?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
-  });
+  const filteredCollectors = filterCollectors(collectors, searchQuery);
 
-  // Calculate selected metrics
-  const selectedCollectors = collectors.filter(c => selectedIds.includes(c.id));
+  const selectedCollectors = collectors.filter((collector) => selectedIds.includes(collector.id));
   const defaultAmountCents = parseCurrencyBRLToCents(defaultAmount);
 
   const totalSumCents = selectedCollectors.reduce((sum, collector) => {
@@ -241,19 +77,14 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   }, 0);
 
   // Toggle select all eligible collectors
-  const toggleSelectAll = () => {
-    const eligibleIds = filteredCollectors
-      .filter(c => !getHasOpenBox(c.id))
-      .map(c => c.id);
-
-    const allEligibleSelected = eligibleIds.length > 0 && eligibleIds.every(id => selectedIds.includes(id));
-    if (allEligibleSelected) {
-      // Unselect all of these
-      setSelectedIds(prev => prev.filter(id => !eligibleIds.includes(id)));
-    } else {
-      // Select all of these
-      setSelectedIds(prev => Array.from(new Set([...prev, ...eligibleIds])));
-    }
+  const handleToggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      toggleSelectAll({
+        filteredCollectors,
+        activeBoxes,
+        selectedIds: prev,
+      })
+    );
   };
 
   // Safe input handler for default single amount
@@ -287,43 +118,18 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
     setSuccessMsg(null);
 
     try {
-      const batchSize = 500;
-      const collectorsToOpen = selectedCollectors;
-      
-      for (let i = 0; i < collectorsToOpen.length; i += batchSize) {
-        const chunk = collectorsToOpen.slice(i, i + batchSize);
-        const batch = writeBatch(db);
-        const boxesRef = collection(db, 'boxes');
-        
-        chunk.forEach((collector) => {
-          const newBoxRef = doc(boxesRef);
-          const amount = useIndividualAmounts 
-            ? parseCurrencyBRLToCents(individualAmounts[collector.id] || '0,00')
-            : defaultAmountCents;
-          
-          batch.set(newBoxRef, {
-            tenantId,
-            unitId: collector.defaultUnitId || '',
-            unitName: collector.defaultUnitName || 'Sin asignar',
-            cnId: collector.defaultCnId || '',
-            cnName: collector.defaultCnName || 'Sin asignar',
-            userId: collector.id,
-            userName: collector.userName,
-            status: 'open',
-            openedAt: serverTimestamp(),
-            initialAmount: amount,
-            observation: generalObservation,
-            totalIncomes: 0,
-            totalExpenses: 0,
-            totalSales: 0,
-            totalCollections: 0,
-            totalTransfers: 0,
-            finalAmount: amount,
-          });
-        });
-        
-        await batch.commit();
+      if (!tenantId) {
+        throw new Error('ID do inquilino não configurado.');
       }
+
+      await openBoxesBatch({
+        tenantId,
+        selectedCollectors,
+        useIndividualAmounts,
+        individualAmounts,
+        defaultAmountCents,
+        generalObservation,
+      });
 
       setSuccessMsg(`¡${selectedCollectors.length} cajas abiertas con éxito!`);
       setSelectedIds([]);
@@ -561,7 +367,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
                         .filter(c => !getHasOpenBox(c.id))
                         .every(c => selectedIds.includes(c.id))
                     }
-                    onChange={toggleSelectAll}
+                    onChange={handleToggleSelectAll}
                     className="w-4.5 h-4.5 text-[#6B21A8] border-gray-300 rounded focus:ring-[#6B21A8]"
                   />
                   <span className="text-xs font-bold text-[#333333] uppercase">Seleccionar todos los elegibles</span>
@@ -622,14 +428,14 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
                         </div>
 
                         <div className="flex items-center gap-2 self-end sm:self-auto">
-                          {collectorAmountSection(
-                            hasOpenBox,
-                            useIndividualAmounts,
-                            collector.id,
-                            individualAmounts[collector.id] || '',
-                            handleIndividualAmountChange,
-                            handleIndividualAmountBlur,
-                          )}
+                          <CollectorAmountSection
+                            hasOpenBox={hasOpenBox}
+                            useIndividualAmounts={useIndividualAmounts}
+                            collectorId={collector.id}
+                            amount={individualAmounts[collector.id] || ''}
+                            onAmountChange={handleIndividualAmountChange}
+                            onAmountBlur={handleIndividualAmountBlur}
+                          />
                         </div>
                       </div>
                     );

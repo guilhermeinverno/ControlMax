@@ -1,20 +1,17 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
-import { db, auth } from '../lib/firebase';
+import { auth, db } from '../lib/firebase';
 import {
   collection,
-  query,
-  where,
-  orderBy,
-  onSnapshot,
   addDoc,
   updateDoc,
   doc,
   serverTimestamp,
-  Timestamp
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { useBCTransfersHistory } from '../hooks/useBCTransfersHistory';
+import type { BCTransfer } from '../hooks/useBCTransfersHistory';
 import { ConfirmModal } from './components/ConfirmModal';
 import {
   formatCurrencyBRL,
@@ -22,6 +19,7 @@ import {
 } from '../utils/currency';
 import { transferStatusLabel, transferStatusBadgeClasses } from '../utils/statusLabels';
 import { toJsDate } from '../utils/firestoreTimestamp';
+import { computeTransferTotals, filterTransfers } from '../utils/bcTransferFilters';
 import { loadingErrorEmptyContent } from '../utils/listViewBody';
 import {
   Calendar,
@@ -43,23 +41,6 @@ import {
 
 interface BCTransfersProps {
   onNavigate?: (screen: Screen) => void;
-}
-
-interface BCTransfer {
-  id: string;
-  tenantId: string;
-  fromType: 'collector' | 'cn';   // quem envia
-  fromId: string;                  // userId ou cnId
-  fromName: string;
-  toCnId: string;                  // CN destino
-  toCnName: string;
-  amount: number;                  // centavos
-  description: string;
-  status: 'pending' | 'confirmed' | 'rejected';
-  confirmedBy?: string;
-  confirmedAt?: any; // FIXED_BY_SCRIPT
-  boxId?: string;                  // se veio de uma caixa
-  createdAt?: any; // FIXED_BY_SCRIPT
 }
 
 const fmt = (cents: number) =>
@@ -85,11 +66,6 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
 
-  // History State
-  const [transfers, setTransfers] = useState<BCTransfer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   // Filters
   const getTodayString = () => {
     const d = new Date();
@@ -109,7 +85,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const [transferToReject, setTransferToReject] = useState<BCTransfer | null>(null);
   const [actionInProgress, setActionInProgress] = useState(false);
 
-  const unsubRef = useRef<(() => void) | null>(null);
+  const { transfers, loading, error } = useBCTransfersHistory(tenantId, selectedDate);
 
   // Sync fromName default value on load/fromType change
   useEffect(() => {
@@ -119,112 +95,6 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
       setFromName('CN Filial Principal');
     }
   }, [fromType, userName]);
-
-  // Real-time listener with fallback query
-  const fetchHistory = () => {
-    if (!tenantId) return;
-
-    setLoading(true);
-    setError(null);
-
-    const startOfDay = new Date(selectedDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(selectedDate);
-    endOfDay.setHours(23, 59, 59, 999);
-
-    const qWithOrder = query(
-      collection(db, 'bc_transfers'),
-      where('tenantId', '==', tenantId),
-      where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
-      where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
-      orderBy('createdAt', 'desc')
-    );
-
-    try {
-      unsubRef.current = onSnapshot(qWithOrder, (snapshot) => {
-        const list = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as BCTransfer[];
-        setTransfers(list);
-        setLoading(false);
-      }, (err) => {
-        console.warn("Index build required for transfers, trying query without orderBy:", err);
-        
-        // Fallback 1: Date range, no orderBy
-        const qNoOrder = query(
-          collection(db, 'bc_transfers'),
-          where('tenantId', '==', tenantId),
-          where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
-          where('createdAt', '<=', Timestamp.fromDate(endOfDay))
-        );
-
-        unsubRef.current = onSnapshot(qNoOrder, (snapshot) => {
-          const list = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          })) as BCTransfer[];
-          
-          // Sort client-side desc
-          list.sort((a, b) => {
-            const timeA = a.createdAt?.seconds || 0;
-            const timeB = b.createdAt?.seconds || 0;
-            return timeB - timeA;
-          });
-          setTransfers(list);
-          setLoading(false);
-        }, (fallbackErr) => {
-          console.warn("Date index failing for transfers, fallback to general tenant query:", fallbackErr);
-
-          // Fallback 2: General query for tenant, filtering date on client side
-          const qTenantOnly = query(
-            collection(db, 'bc_transfers'),
-            where('tenantId', '==', tenantId)
-          );
-
-          unsubRef.current = onSnapshot(qTenantOnly, (snapshot) => {
-            const list = snapshot.docs.map(doc => ({
-              id: doc.id,
-              ...doc.data()
-            })) as BCTransfer[];
-
-            // Filter by date client-side
-            const filteredList = list.filter(item => {
-              if (!item.createdAt) return false;
-              const date = toJsDate(item.createdAt);
-              return date >= startOfDay && date <= endOfDay;
-            });
-
-            // Sort descending client-side
-            filteredList.sort((a, b) => {
-              const timeA = a.createdAt?.seconds || 0;
-              const timeB = b.createdAt?.seconds || 0;
-              return timeB - timeA;
-            });
-
-            setTransfers(filteredList);
-            setLoading(false);
-          }, (errFinal) => {
-            console.error("Critical: BCTransfers fetch failed:", errFinal);
-            setError("Erro ao carregar os dados de transferências.");
-            setLoading(false);
-          });
-        });
-      });
-    } catch (e) {
-      console.error("Immediate error setting up bc_transfers snapshot:", e);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchHistory();
-    return () => {
-      if (unsubRef.current) {
-        unsubRef.current();
-      }
-    };
-  }, [tenantId, selectedDate]);
 
   // Form input formatter
   const handleAmountChange = (e: HtmlInputChangeEvent) => {
@@ -335,42 +205,12 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
     }
   };
 
-  // Computed totalizers based on selected day's transfers
-  const totalConfirmed = transfers
-    .filter(t => t.status === 'confirmed')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  const pendingTransfers = transfers.filter(t => t.status === 'pending');
-  const pendingCount = pendingTransfers.length;
-  const totalPending = pendingTransfers.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  const totalDay = transfers.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  // Filter list client-side
-  const filteredTransfers = transfers.filter(t => {
-    // 1. Status Filter
-    if (statusFilter !== 'all' && t.status !== statusFilter) return false;
-
-    // 2. Type Filter
-    if (typeFilter !== 'all' && t.fromType !== typeFilter) return false;
-
-    // 3. Target CN Filter
-    if (targetCnFilter !== 'all' && t.toCnId !== targetCnFilter) return false;
-
-    // 4. Search query
-    if (searchQuery.trim() !== '') {
-      const q = searchQuery.toLowerCase();
-      const matchFromName = (t.fromName || '').toLowerCase().includes(q);
-      const matchToName = (t.toCnName || '').toLowerCase().includes(q);
-      const matchDesc = (t.description || '').toLowerCase().includes(q);
-      const matchAmount = String(t.amount / 100).includes(q);
-      
-      if (!matchFromName && !matchToName && !matchDesc && !matchAmount) {
-        return false;
-      }
-    }
-
-    return true;
+  const { totalConfirmed, totalPending, totalDay, pendingCount } = computeTransferTotals(transfers);
+  const filteredTransfers = filterTransfers(transfers, {
+    statusFilter,
+    typeFilter,
+    targetCnFilter,
+    searchQuery,
   });
 
   if (tenantLoading) {
