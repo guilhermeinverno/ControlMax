@@ -1,7 +1,14 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import fs from 'fs';
 import path from 'path';
 import {defineConfig} from 'vite';
+
+const firebaseConfigPath = fs.existsSync(path.resolve(__dirname, 'firebase-applet-config.json'))
+  ? path.resolve(__dirname, 'firebase-applet-config.json')
+  : fs.existsSync(path.resolve(__dirname, '..', 'firebase-applet-config.json'))
+    ? path.resolve(__dirname, '..', 'firebase-applet-config.json')
+    : path.resolve(__dirname, 'firebase-applet-config.example.json');
 
 export default defineConfig(() => {
   return {
@@ -9,6 +16,8 @@ export default defineConfig(() => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Build na Vercel não tem firebase-applet-config.json (gitignored); usa o example como stub.
+        '@firebase-config': firebaseConfigPath,
       },
       dedupe: ['react', 'react-dom'],
     },

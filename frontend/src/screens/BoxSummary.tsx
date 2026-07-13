@@ -4,22 +4,11 @@ import { Screen, Box } from '../types';
 import { Search, ChevronLeft, ChevronRight, Download, AlertCircle } from 'lucide-react';
 import { boxStatusLabel, boxStatusBadgeBorderClasses } from '../utils/statusLabels';
 import { useTenant } from '../hooks/useTenant';
-import { db, auth } from '../lib/firebase';
-import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
+import { getBoxSummaryUserId, searchBoxSummaryForDate, type BoxTransaction } from '../utils/boxSummarySearch';
 import * as XLSX from 'xlsx';
 
 interface BoxSummaryProps {
   onNavigate?: (screen: Screen) => void;
-}
-
-interface BoxTransaction {
-  id: string;
-  type: 'income' | 'expense' | 'sale' | 'collection' | 'transfer';
-  description: string;
-  amount: number;       // em centavos
-  userId: string;
-  userName: string;
-  createdAt: Timestamp;
 }
 
 export function BoxSummary({ onNavigate }: BoxSummaryProps) {
@@ -62,7 +51,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
   const itemsPerPage = 20;
 
   const handleSearch = async () => {
-    const uid = auth?.currentUser?.uid;
+    const uid = getBoxSummaryUserId();
     if (!uid || !tenantId) return;
 
     setIsSearching(true);
@@ -72,80 +61,13 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
     setHasSearched(true);
 
     try {
-      const [year, month, day] = selectedDate.split('-').map(Number);
-      const startOfDay = new Date(year, month - 1, day, 0, 0, 0, 0);
-      const endOfDay = new Date(year, month - 1, day, 23, 59, 59, 999);
-
-      const boxesRef = collection(db, 'boxes');
-      const q = query(
-        boxesRef,
-        where('tenantId', '==', tenantId),
-        where('openedAt', '>=', Timestamp.fromDate(startOfDay)),
-        where('openedAt', '<=', Timestamp.fromDate(endOfDay))
-      );
-
-      const querySnapshot = await getDocs(q);
-      
-      const foundBoxDoc = querySnapshot.docs.find(doc => doc.data().userId === uid) || querySnapshot.docs[0];
-
-      if (foundBoxDoc) {
-        const data = foundBoxDoc.data();
-        const foundBox: Box = {
-          id: foundBoxDoc.id,
-          tenantId: data.tenantId,
-          unitId: data.unitId,
-          unitName: data.unitName,
-          cnId: data.cnId,
-          cnName: data.cnName,
-          userId: data.userId,
-          userName: data.userName,
-          status: data.status,
-          openedAt: data.openedAt,
-          closedAt: data.closedAt,
-          confirmedAt: data.confirmedAt,
-          confirmedBy: data.confirmedBy,
-          initialAmount: data.initialAmount,
-          observation: data.observation,
-          totalIncomes: data.totalIncomes || 0,
-          totalExpenses: data.totalExpenses || 0,
-          totalSales: data.totalSales || 0,
-          totalCollections: data.totalCollections || 0,
-          totalTransfers: data.totalTransfers || 0,
-          finalAmount: data.finalAmount || 0,
-        };
-
-        setBox(foundBox);
-
-        // Fetch subcollection "transactions"
-        const txsRef = collection(db, 'boxes', foundBox.id, 'transactions');
-        const txsSnap = await getDocs(txsRef);
-        
-        const txsList = txsSnap.docs.map(docSnap => {
-          const txData = docSnap.data();
-          return {
-            id: docSnap.id,
-            type: txData.type,
-            description: txData.description || '',
-            amount: txData.amount || 0,
-            userId: txData.userId || '',
-            userName: txData.userName || '',
-            createdAt: txData.createdAt,
-          } as BoxTransaction;
-        });
-
-        // Sort descending by createdAt
-        txsList.sort((a, b) => {
-          const aMs = a.createdAt?.toMillis() || 0;
-          const bMs = b.createdAt?.toMillis() || 0;
-          return bMs - aMs;
-        });
-
-        setTransactions(txsList);
-        setCurrentPage(1);
-      }
+      const result = await searchBoxSummaryForDate(tenantId, selectedDate, uid);
+      setBox(result.box);
+      setTransactions(result.transactions);
+      if (result.box) setCurrentPage(1);
     } catch (err: unknown) {
       console.error(err);
-      setSearchError((getErrorMessage(err)) || 'Error al buscar la caja.');
+      setSearchError(getErrorMessage(err) || 'Error al buscar la caja.');
     } finally {
       setIsSearching(false);
     }

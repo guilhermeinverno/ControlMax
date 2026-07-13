@@ -42,12 +42,12 @@ export function CompanyListCreatePhotosTab({ fields }: CompanyListCreatePhotosTa
           <div className="text-xs text-gray-400 italic text-center py-4">Ninguna foto cargada aún.</div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {fields.formPhotos.map((photo, idx) => (
-              <div key={idx} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-xs group">
-                <img src={photo} referrerPolicy="no-referrer" alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" />
+            {fields.formPhotos.map((photo) => (
+              <div key={photo} className="relative aspect-square rounded-2xl overflow-hidden border border-gray-100 shadow-xs group">
+                <img src={photo} referrerPolicy="no-referrer" alt="Foto del cliente" className="w-full h-full object-cover" />
                 <button
                   type="button"
-                  onClick={() => fields.setFormPhotos(fields.formPhotos.filter((_, i) => i !== idx))}
+                  onClick={() => fields.setFormPhotos(fields.formPhotos.filter((p) => p !== photo))}
                   className="absolute top-2 right-2 bg-red-500/80 hover:bg-red-600 text-white p-1.5 rounded-xl backdrop-blur-xs transition-all opacity-100 sm:opacity-0 sm:group-hover:opacity-100 cursor-pointer"
                 >
                   <Trash2 className="w-4 h-4" />

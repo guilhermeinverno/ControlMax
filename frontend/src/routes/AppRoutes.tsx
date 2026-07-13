@@ -1,8 +1,8 @@
 import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react';
 import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-import { auth } from '../lib/firebase';
+import { auth, onAuthStateChanged } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
 import { useNavigation } from '../context/NavigationContext';
 import { Layout } from '../screens/components/Layout';
@@ -144,7 +144,7 @@ function PrivateLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'maildojg@gmail.com';
+  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
 
   return (
     <Layout currentScreen={navState.screen} onNavigate={navigate} isSuperAdmin={isSuperAdmin || isSuperByEmail}>
@@ -186,7 +186,7 @@ function PublicRoute() {
   }
 
   if (fbUser) {
-    const isSuperByEmail = fbUser?.email?.toLowerCase() === 'maildojg@gmail.com';
+    const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
     return <Navigate to={(isSuperAdmin || isSuperByEmail) ? "/superadmin" : "/dashboard"} replace />;
   }
 
@@ -231,7 +231,7 @@ function SuperAdminRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'maildojg@gmail.com';
+  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
 
   return (isSuperAdmin || isSuperByEmail) ? (
     <Suspense fallback={

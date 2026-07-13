@@ -2,26 +2,30 @@
 
 **Varredura inicial:** 09/07/2026  
 **Varredura final (pós-correções):** 09/07/2026 — 19:10 UTC  
-**Última varredura:** 09/07/2026 — 23:13 UTC (pós-rodada 22)  
-**Última rodada de código:** 09/07/2026 — rodada 27 (`SaleDetail`, `DeviceList`, `BCIncomes`, `BCExpenses`, `useBox`)  
+**Última varredura:** 10/07/2026 — 03:52 UTC (pós-rodada 30 — **0 issues**)  
+**SonarQube Docker:** **PAUSADO** desde 10/07/2026 — foco em deploy e validação funcional; religar após deploy estável em produção.  
+**Última rodada de código:** 10/07/2026 — rodada 30 (zerar 12 S3776)  
 **Ferramenta:** SonarQube Community 9.9.8  
 **Projeto:** `controlmax`  
 **Dashboard:** http://localhost:9000/dashboard?id=controlmax
 
 ---
 
-## Resumo executivo (atual — pós-rodada 22)
+## Resumo executivo (atual — pós-rodada 30)
 
-| Métrica | Inicial (09/07) | Atual (23:13 UTC) | Δ |
+| Métrica | Inicial (09/07) | Atual (10/07 03:52 UTC) | Δ |
 |---|---:|---:|---|
-| **Total de issues** | **359** | **25** | **−334 (−93,0%)** |
+| **Total de issues** | **359** | **0** | **−359 (−100%)** |
 | Bugs | 14 | **0** | −14 |
 | Vulnerabilidades | 1 | **0** | −1 |
-| Code smells | 344 | **25** | −319 |
-| Cobertura de testes (Sonar) | 0,0% | **3,5%** | +3,5 pp |
-| Cobertura Vitest (local) | — | **~13,6%** | — |
-| Duplicação de linhas | 4,4% | **2,4%** | −2,0 pp |
-| Dívida técnica estimada | ~2.675 min | **~391 min** | −2.284 min |
+| Code smells | 344 | **0** | −344 |
+| S3776 CRITICAL | 58 | **0** | −58 |
+| Cobertura de testes (Sonar) | 0,0% | **3,1%** | +3,1 pp |
+| Cobertura Vitest (local) | — | **~7,2%** | — |
+| Duplicação de linhas | 4,4% | **0,8%** | −3,6 pp |
+| Dívida técnica estimada | ~2.675 min | **0 min** | −2.675 min |
+| Security hotspots | 17 | **10** | −7 |
+| LOC analisadas | — | **32.616** | — |
 
 ### Ratings de qualidade (atual)
 
@@ -32,19 +36,89 @@
 | Manutenibilidade | A (1.0) | **A (1.0)** |
 | Quality Gate | ERROR | ERROR* |
 
-\*O Quality Gate permanece em ERROR por **cobertura de testes baixa** (3,5% no Sonar) — não por bugs ou vulnerabilidades.
+\*O Quality Gate permanece em ERROR **apenas por cobertura de testes baixa** (3,1% no Sonar).
 
 ### Distribuição por severidade (atual)
 
 | Severidade | Inicial | Atual | Δ |
 |---|---:|---:|---:|
 | BLOCKER | 1 | **0** | −1 |
-| CRITICAL | 58 | **25** | −33 |
+| CRITICAL | 58 | **0** | −58 |
 | MAJOR | 163 | **0** | −163 |
 | MINOR | 129 | **0** | −129 |
 | INFO | 8 | **0** | −8 |
 
+**Nenhuma issue aberta.** Todas as regras SonarWay passaram.
+
 ---
+
+## Resumo executivo (referência — pós-quick wins 03:06 UTC)
+
+| Métrica | Inicial (09/07) | Atual (10/07 03:06 UTC) | Δ |
+|---|---:|---:|---|
+| **Total de issues** | **359** | **12** | **−347 (−96,7%)** |
+| Bugs | 14 | **0** | −14 |
+| Vulnerabilidades | 1 | **0** | −1 |
+| Code smells | 344 | **12** | −332 |
+| S3776 CRITICAL | 58 | **12** | −46 |
+| Cobertura de testes (Sonar) | 0,0% | **3,2%** | +3,2 pp |
+| Cobertura Vitest (local) | — | **8,4%** | — |
+| Duplicação de linhas | 4,4% | **0,8%** | −3,6 pp |
+| Dívida técnica estimada | ~2.675 min | **~126 min** | −2.549 min |
+| Security hotspots | 17 | **10** | −7 |
+| LOC analisadas | — | **31.776** | — |
+
+### Ratings de qualidade (atual)
+
+| Rating | Inicial | Atual |
+|---|---|---|
+| Confiabilidade (bugs) | C (3.0) | **A (1.0)** |
+| Segurança | E (5.0) | **A (1.0)** |
+| Manutenibilidade | A (1.0) | **A (1.0)** |
+| Quality Gate | ERROR | ERROR* |
+
+\*O Quality Gate permanece em ERROR **apenas por cobertura de testes baixa** (3,2% no Sonar).
+
+### Distribuição por severidade (atual)
+
+| Severidade | Inicial | Atual | Δ |
+|---|---:|---:|---:|
+| BLOCKER | 1 | **0** | −1 |
+| CRITICAL | 58 | **12** | −46 |
+| MAJOR | 163 | **0** | −163 |
+| MINOR | 129 | **0** | −129 |
+| INFO | 8 | **0** | −8 |
+
+### Regra remanescente (100% das 12 issues)
+
+| Regra | Qtd. | Descrição |
+|---|---:|---|
+| `typescript:S3776` | **12** | Complexidade cognitiva acima do limite |
+
+### S3776 remanescentes por arquivo (varredura 10/07/2026 03:06 UTC)
+
+| Arquivo | Linha |
+|---------|------:|
+| `useMassBoxOpeningData.ts` | 45 |
+| `RegisterPayment.tsx` | 125 |
+| `SuperAdmin.tsx` | 92 |
+| `statisticsAggregates.ts` | 86 |
+| `Layout.tsx` | 24 |
+| `BoxSummary.tsx` | 64 |
+| `BusinessCenters.tsx` | 103 |
+| `deviceTimeAgo.ts` | 1 |
+| `useActiveBoxSubscription.ts` | 40 |
+| `creditRequestMapper.ts` | 23 |
+| `useCollectionCleaningData.ts` | 53 |
+| `currencyUtils.ts` | 12 |
+
+---
+
+## Resumo executivo (referência — pós-rodada 29 / varredura 02:56 UTC)
+
+## Resumo executivo (referência — pós-rodada 28 / varredura 02:33 UTC)
+
+## Resumo executivo (atual — pós-rodada 22)
 
 ## Resumo executivo (varredura final — referência intermediária)
 
@@ -1583,4 +1657,223 @@ Eliminar o S3776 residual em `useAIVoiceAssistant.ts` (complexidade 47) movendo 
 1. **S3776** — `TransferSales.tsx` (2 CRITICAL) e resíduos menores.
 2. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
 3. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Rodada 28 — TransferSales (2 S3776) (09/07/2026)
+
+### S3776 — 1 arquivo refatorado
+
+| Arquivo | Extrações principais |
+|---------|---------------------|
+| `TransferSales.tsx` | `useTransferSalesData`, `transferSalesOperations`, `transferSalesFormat`, `TransferSalesHeader`, `TransferSalesTransferTab`, `TransferSalesAcceptTab`, `TransferSalesHistoryTab` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **~2 → ~0 issues S3776** (dívida cognitiva zerada). Varredura SonarQube pendente.
+
+### Próximos passos
+
+1. **SonarQube** — subir container e rodar scanner para confirmar métricas finais.
+2. **Cobertura Vitest** — meta ≥10% no Sonar.
+3. **Opcional** — revisar security hotspots remanescentes (geolocalização, IP hardcoded).
+
+---
+
+## Varredura SonarQube — pós-rodada 28 (10/07/2026 02:33 UTC)
+
+Scanner executado com sucesso após `npm run test:coverage` (Vitest 8,5% local / Sonar 3,3%).
+
+| Métrica | Valor |
+|---------|------:|
+| Issues abertas | **25** |
+| Todas `S3776` CRITICAL | 25 |
+| Bugs | 2 (`S6439`) |
+| Vulnerabilidades | 0 |
+| Security hotspots | 10 |
+| Cobertura Sonar | 3,3% |
+| Duplicação | 0,8% |
+| LOC analisadas | 31.480 |
+| Dívida técnica | ~147 min |
+| Quality Gate | ERROR |
+
+**Eliminados desde a última varredura (23:13 UTC):** `TransferSales.tsx` (2 S3776), `BCIncomes`, `BCExpenses`, `BCTransfers`, `AIVoiceAssistant`, `backend/server.ts`, etc.
+
+**Ainda pendentes:** complexidade residual em telas já refatoradas (hooks/shells ainda acima do limite Sonar) + 2 bugs em `CompanyListCreateBasicTab.tsx`.
+
+### Próximos passos
+
+1. **Rodada 29** — atacar S3776 residual nos hooks/utils das telas já refatoradas (`Forms`, `Performance`, `SalesList`, etc.).
+2. ~~**Corrigir bugs** — `S6439` em `CompanyListCreateBasicTab.tsx`.~~ ✅ **Feito** (checagem `hasGpsCoordinates` + ternário).
+3. **Cobertura** — ampliar testes Vitest para ≥10% no Sonar.
+
+---
+
+## Rodada 29 — S3776 residual (4 arquivos × 2 CRITICAL) (09/07/2026)
+
+### S3776 — 4 arquivos refatorados
+
+| Arquivo | Antes → Depois | Extrações principais |
+|---------|---------------:|---------------------|
+| `Forms.tsx` | 553 → **98** | `useFormsActions`, `FormsHeader`, `FormsAlerts`, `FormsTabNav`, `FormsListTab`, `FormsResponsesTab`, `FormsBuilderTab` |
+| `SalesList.tsx` | 568 → **131** | `SalesListTabBar`, `SalesListSeedPanel`, `SalesListUnitFilters`, `SalesListFiltersPanel`, `SalesListSalesGrid`, `SalesListSaleCard`, `SalesListCollectionsTab`, `salesListFormat` |
+| `PlatformManagement.tsx` | 226 → **101** | `PlatformManagementHeader`, `PlatformManagementAlerts`, `PlatformManagementSidebar`, `PlatformUnauthorizedView` |
+| `Performance` (hook) | — | `performanceBoxSubscription`, `performanceSupplementaryQueries` (shell já enxuto em 64 linhas) |
+
+### Correção de bugs (pré-rodada 29)
+
+| Arquivo | Regra | Correção |
+|---------|-------|----------|
+| `CompanyListCreateBasicTab.tsx` | `S6439` (2×) | `hasGpsCoordinates` com checagem `!== null` + ternário `? … : null` |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Estimativa acumulada: **25 → 18 issues** (−7; S3776 **25 → 12**). Confirmado na varredura 02:56 UTC.
+
+### Principais S3776 CRITICAL remanescentes (estimado)
+
+| Arquivo | Qtd. |
+|---------|-----:|
+| Demais telas/hooks com 1 CRITICAL cada | 17 |
+
+### Próximos passos
+
+1. ~~**SonarQube** — rodar scanner para confirmar redução real (bugs 0 + S3776).~~ ✅ **Feito** (varredura 02:56 UTC).
+2. **Rodada 30** — atacar os 12 S3776 remanescentes + 6 issues menores (S1128, S3358, etc.).
+3. **Cobertura Vitest** — meta ≥10% no Sonar.
+
+---
+
+## Varredura SonarQube — pós-rodada 29 (10/07/2026 02:56 UTC)
+
+Scanner executado após `npm run test:coverage` (Vitest 8,4% local / Sonar 3,2%).
+
+| Métrica | Varredura 02:33 | Atual 02:56 | Δ |
+|---------|---------------:|------------:|---|
+| Issues abertas | 25 | **18** | −7 |
+| S3776 CRITICAL | 25 | **12** | −13 |
+| Bugs | 2 | **0** | −2 |
+| Vulnerabilidades | 0 | **0** | — |
+| Security hotspots | 10 | **10** | — |
+| Cobertura Sonar | 3,3% | **3,2%** | −0,1 pp |
+| Duplicação | 0,8% | **0,8%** | — |
+| LOC analisadas | 31.480 | **31.777** | +297 |
+| Dívida técnica | ~147 min | **~143 min** | −4 min |
+| Quality Gate | ERROR | **ERROR** | — |
+| Rating confiabilidade | C | **A** | ↑ |
+
+**Confirmado:** rodada 29 eliminou `Forms`, `SalesList`, `PlatformManagement`, `Performance` da lista S3776; correção `S6439` zerou bugs.
+
+**Issues não-S3776 (6):** `S1128` (3), `S3358` ternário em `CompanyListCreateBasicTab`, `S3863` import duplicado em `useTransferSalesData`, `S6479` key em `CompanyListCreatePhotosTab`.
+
+### Próximos passos
+
+1. **Rodada 30** — 12 S3776 (`useMassBoxOpeningData`, `RegisterPayment`, `SuperAdmin`, etc.).
+2. ~~**Quick wins** — remover imports não usados (S1128), ternário aninhado (S3358).~~ ✅ **Feito** (ver abaixo).
+3. **Cobertura** — ampliar testes Vitest para ≥10% no Sonar.
+
+---
+
+## Quick wins — 6 issues menores (10/07/2026)
+
+| Regra | Arquivo | Correção |
+|-------|---------|----------|
+| `S1128` | `Layout.tsx` | Removido import `AlertOctagon` não usado |
+| `S1128` | `useDeviceListData.ts` | Removidos imports `limit` e `auth` não usados |
+| `S3863` | `useTransferSalesData.ts` | Imports `firebase` unificados em uma linha |
+| `S3358` | `CompanyListCreateBasicTab.tsx` | Função `gpsButtonLabel()` no lugar do ternário aninhado |
+| `S6479` | `CompanyListCreatePhotosTab.tsx` | `key={photo}` + remoção por valor (não por índice) |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+> Confirmado na varredura 03:06 UTC: **18 → 12 issues** (−6). Restam apenas S3776.
+
+---
+
+## Varredura SonarQube — pós-quick wins (10/07/2026 03:06 UTC)
+
+| Métrica | Varredura 02:56 | Atual 03:06 | Δ |
+|---------|---------------:|------------:|---|
+| Issues abertas | 18 | **12** | −6 |
+| S3776 CRITICAL | 12 | **12** | — |
+| Bugs | 0 | **0** | — |
+| Issues menores (S1128/S3358/S3863/S6479) | 6 | **0** | −6 |
+| Cobertura Sonar | 3,2% | **3,2%** | — |
+| Dívida técnica | ~143 min | **~126 min** | −17 min |
+| Quality Gate | ERROR | **ERROR** | — (cobertura) |
+
+**Quick wins confirmados eliminados:** `S1128` (3), `S3358`, `S3863`, `S6479`.
+
+### Próximos passos
+
+1. **Cobertura Vitest** — meta ≥10% no Sonar (único bloqueio do Quality Gate).
+2. **Security hotspots** — revisar os 10 hotspots remanescentes no dashboard Sonar.
+
+---
+
+## Rodada 30 — zerar 12 S3776 (10/07/2026)
+
+Refatoração dos 12 S3776 remanescentes + extrações de suporte.
+
+| Arquivo original | Ação |
+|---|---|
+| `deviceTimeAgo.ts` | Extraído `timestampParsing.ts` |
+| `currencyUtils.ts` | Extraído `currencyParse.ts` |
+| `creditRequestMapper.ts` | Funções `readCreditRequest*Fields()` |
+| `useActiveBoxSubscription.ts` | Shell + `activeBoxSubscription.ts` |
+| `useCollectionCleaningData.ts` | Shell + `collectionCleaningSubscription.ts` / `collectionCleaningCancel.ts` |
+| `useMassBoxOpeningData.ts` | Shell + `massBoxOpeningListeners.ts` |
+| `statisticsAggregates.ts` | `statisticsDashboardBucket.ts` + `statisticsDateFilters.ts` |
+| `RegisterPayment.tsx` | `registerPaymentTransaction.ts` + `registerPaymentHelpers.ts` |
+| `BoxSummary.tsx` | `boxSummarySearch.ts` |
+| `BusinessCenters.tsx` | `useBusinessCentersData.ts` + `businessCenterSubscription.ts` |
+| `Layout.tsx` | `LayoutDesktopNav.tsx` |
+| `SuperAdmin.tsx` | `useSuperAdminData.ts` + `SuperAdminShell` + tabs/sidebar/drawer |
+
+### Verificação local
+
+| Check | Resultado |
+|-------|-----------|
+| `npm run lint` | OK |
+| `npm run test` | 39/39 |
+
+---
+
+## Varredura SonarQube — pós-rodada 30 (10/07/2026 03:52 UTC)
+
+Scanner executado após `npm run test:coverage`.
+
+| Métrica | Varredura 03:06 | Atual 03:52 | Δ |
+|---------|---------------:|------------:|---|
+| Issues abertas | 12 | **0** | −12 |
+| S3776 CRITICAL | 12 | **0** | −12 |
+| Bugs | 0 | **0** | — |
+| Code smells | 12 | **0** | −12 |
+| Cobertura Sonar | 3,2% | **3,1%** | −0,1 pp |
+| Duplicação | 0,8% | **0,8%** | — |
+| LOC analisadas | 31.776 | **32.616** | +840 |
+| Dívida técnica | ~126 min | **0 min** | −126 min |
+| Quality Gate | ERROR | **ERROR** | — (cobertura) |
+
+**Confirmado:** rodada 30 eliminou todos os S3776. Último fix: `S3863` (imports duplicados em `SuperAdminSidebar.tsx`).
+
+### Próximos passos
+
+1. **Cobertura Vitest** — meta ≥10% no Sonar (único bloqueio do Quality Gate).
+2. **Security hotspots** — revisar os 10 hotspots no dashboard.
 

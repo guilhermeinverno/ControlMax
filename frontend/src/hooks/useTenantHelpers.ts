@@ -13,9 +13,11 @@ import { db } from '../lib/firebase';
 import { UserRole } from '../types';
 
 export const ADMIN_BYPASS_EMAILS = [
-  'maildojg@gmail.com',
+  'gringoeletronica@gmail.com',
+  'controlmaxia@gmail.com',
   'legnotebooks@gmail.com',
   'brasiloficina40@gmail.com',
+  'qa@controlmax.dev',
 ] as const;
 
 export function isAdminBypassEmail(emailLower: string): boolean {
@@ -31,7 +33,7 @@ export interface AdminBypassConfig {
 
 export function getAdminBypassConfig(emailLower: string): AdminBypassConfig | null {
   const impersonated =
-    emailLower === 'maildojg@gmail.com'
+    (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com')
       ? localStorage.getItem('controlmax_impersonated_tenant')
       : null;
 
@@ -41,13 +43,16 @@ export function getAdminBypassConfig(emailLower: string): AdminBypassConfig | nu
   if (emailLower === 'legnotebooks@gmail.com') {
     return { tenantId: 'leg_notebooks', role: 'admin', userName: 'Leg Notebooks', isSuperAdmin: false };
   }
-  if (emailLower === 'maildojg@gmail.com') {
+  if (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com') {
     return {
       tenantId: impersonated || 'super_admin_tenant',
       role: 'admin',
       userName: impersonated ? `Super Admin (${impersonated})` : 'Super Admin',
       isSuperAdmin: true,
     };
+  }
+  if (emailLower === 'qa@controlmax.dev') {
+    return { tenantId: 'tenant_qa', role: 'admin', userName: 'QA Admin', isSuperAdmin: false };
   }
   return null;
 }
@@ -56,6 +61,7 @@ export function resolveDefaultTenantId(emailLower: string, impersonated: string 
   if (impersonated) return impersonated;
   if (emailLower === 'legnotebooks@gmail.com') return 'leg_notebooks';
   if (emailLower === 'brasiloficina40@gmail.com') return 'brasil_oficina';
+  if (emailLower === 'qa@controlmax.dev') return 'tenant_qa';
   return 'tenant_demo';
 }
 
@@ -69,7 +75,8 @@ export function mapRoleFromFirestore(
     r === 'superadmin' ||
     roleRaw === 'superadmin' ||
     isSuperAdminFlag === true ||
-    emailLower === 'maildojg@gmail.com';
+    emailLower === 'gringoeletronica@gmail.com' ||
+    emailLower === 'controlmaxia@gmail.com';
 
   let role: UserRole = 'collector';
   if (r.includes('admin') || isSuper) {
@@ -99,12 +106,25 @@ const BYPASS_PROVISIONING: Record<
     userName: 'Leg Notebooks',
     role: 'admin',
   },
-  'maildojg@gmail.com': {
+  'gringoeletronica@gmail.com': {
     tenantId: 'super_admin_tenant',
     tenantName: 'Super Admin',
     userName: 'Super Admin',
     role: 'superadmin',
     isSuperAdmin: true,
+  },
+  'controlmaxia@gmail.com': {
+    tenantId: 'super_admin_tenant',
+    tenantName: 'Super Admin',
+    userName: 'Super Admin',
+    role: 'superadmin',
+    isSuperAdmin: true,
+  },
+  'qa@controlmax.dev': {
+    tenantId: 'tenant_qa',
+    tenantName: 'ControlMax QA',
+    userName: 'QA Admin',
+    role: 'admin',
   },
 };
 

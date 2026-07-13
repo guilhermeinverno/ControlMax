@@ -23,7 +23,7 @@ export function applyExistingUserDoc(
   setters: TenantSetters
 ): void {
   const impersonated =
-    emailLower === 'maildojg@gmail.com' ? localStorage.getItem('controlmax_impersonated_tenant') : null;
+    (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com') ? localStorage.getItem('controlmax_impersonated_tenant') : null;
   const hasAdminBypass = isAdminBypassEmail(emailLower);
   const { role: userRole, isSuperAdmin: isSuper } = mapRoleFromFirestore(
     data.role,
@@ -68,11 +68,11 @@ export function applyGuestState(
   setters: TenantSetters
 ): void {
   const impersonated =
-    emailLower === 'maildojg@gmail.com' ? localStorage.getItem('controlmax_impersonated_tenant') : null;
+    (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com') ? localStorage.getItem('controlmax_impersonated_tenant') : null;
 
   setters.setTenantId(resolveDefaultTenantId(emailLower, impersonated));
   setters.setRole(hasAdminBypass ? 'admin' : 'collector');
-  setters.setIsSuperAdmin(emailLower === 'maildojg@gmail.com');
+  setters.setIsSuperAdmin(emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com');
   setters.setUserName(
     impersonated ? `Super Admin (${impersonated})` : (user.displayName || user.email?.split('@')[0] || '')
   );

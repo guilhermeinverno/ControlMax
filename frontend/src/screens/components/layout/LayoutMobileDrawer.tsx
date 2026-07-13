@@ -2,9 +2,11 @@ import {
   AlertOctagon,
   BarChart3,
   Calculator,
+  CalendarDays,
   Check,
   ChevronDown,
   CircleDollarSign,
+  ClipboardList,
   Crosshair,
   Home,
   ShieldCheck,
@@ -185,6 +187,18 @@ export function LayoutMobileDrawer({
                   )}
                   <button onClick={() => nav('device-list')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Dispositivos</button>
                   <button onClick={() => nav('company-list')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Clientes / Clientes</button>
+                  {(role === 'admin' || role === 'supervisor') && (
+                    <>
+                      <button onClick={() => nav('forms')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] flex items-center gap-2">
+                        <ClipboardList className="w-3.5 h-3.5" />
+                        Formularios Dinámicos
+                      </button>
+                      <button onClick={() => nav('holidays')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] flex items-center gap-2">
+                        <CalendarDays className="w-3.5 h-3.5" />
+                        Feriados / Calendario
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

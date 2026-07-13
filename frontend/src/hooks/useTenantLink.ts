@@ -8,7 +8,7 @@ import {
 import { applyExistingUserDoc, applyGuestState, TenantSetters } from './useTenantState';
 
 function getImpersonatedTenant(emailLower: string): string | null {
-  return emailLower === 'maildojg@gmail.com'
+  return (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com')
     ? localStorage.getItem('controlmax_impersonated_tenant')
     : null;
 }

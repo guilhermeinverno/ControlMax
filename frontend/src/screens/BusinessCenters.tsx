@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import type { FormOrButtonEvent } from '../types/reactEvents';
 import { Screen } from '../types';
 import { db } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
-import { collection, query, where, onSnapshot, doc, addDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { useBusinessCentersData } from '../hooks/useBusinessCentersData';
+import type { BusinessCenter, BusinessCenterUnit } from '../types/businessCenter';
+import { doc, setDoc, deleteDoc, addDoc, collection } from 'firebase/firestore';
 import { 
   Briefcase, 
   Plus, 
@@ -23,137 +25,9 @@ interface BusinessCentersProps {
   onNavigate?: (screen: Screen) => void;
 }
 
-interface Unit {
-  id: string;
-  name: string;
-  location: string;
-  active: boolean;
-}
-
-interface FinancialParams {
-  maxAmountPerCredit: number;
-  annualInterestRate: number;
-  lateFeePercentage: number;
-  allowRefinance: boolean;
-  minCapitalRequirement: number;
-}
-
-interface BusinessCenter {
-  id: string;
-  name: string;
-  code: string;
-  status: 'Activo' | 'Inactivo';
-  unitCount: number;
-  responsible: string;
-  observations: string;
-  linkedUnits: Unit[];
-  financialParams: FinancialParams;
-}
-
-const DEFAULT_CENTERS: Omit<BusinessCenter, 'id'>[] = [
-  {
-    name: 'Centro Metropolitano Norte',
-    code: 'CN-MET-NOR',
-    status: 'Activo',
-    unitCount: 4,
-    responsible: 'Humberto De la Calle',
-    observations: 'Atiende la zona comercial norte alta densidad. Mayor flujo de créditos Express diaria.',
-    linkedUnits: [
-      { id: 'U-01', name: 'Oficina Central Kennedy', location: 'Av. Kennedy #45-12', active: true },
-      { id: 'U-02', name: 'Ruta 10 - Chapinero Local', location: 'Barrio Chapinero', active: true },
-      { id: 'U-03', name: 'Punto Express Suba Alianza', location: 'Calle 116 con 45', active: true },
-      { id: 'U-04', name: 'Ruta 14 - Minutos de Dios', location: 'Minuto de Dios', active: false }
-    ],
-    financialParams: {
-      maxAmountPerCredit: 10000000,
-      annualInterestRate: 24,
-      lateFeePercentage: 4,
-      allowRefinance: true,
-      minCapitalRequirement: 50000000
-    }
-  },
-  {
-    name: 'Centro Sur Comercial Pacífico',
-    code: 'CN-SUR-PAC',
-    status: 'Activo',
-    unitCount: 3,
-    responsible: 'Clara Luz Roldán',
-    observations: 'Foco comercial en microcréditos rurales y semiurbanos del Pacífico.',
-    linkedUnits: [
-      { id: 'U-05', name: 'Sede Principal Cali Sur', location: 'Calle 5 #78-20', active: true },
-      { id: 'U-06', name: 'Ruta 31 - Jamundí Semilla', location: 'Jamundí', active: true },
-      { id: 'U-07', name: 'Ruta 33 - Palmira Centro', location: 'Palmira', active: true }
-    ],
-    financialParams: {
-      maxAmountPerCredit: 15000000,
-      annualInterestRate: 22,
-      lateFeePercentage: 5,
-      allowRefinance: false,
-      minCapitalRequirement: 75000000
-    }
-  }
-];
-
 export function BusinessCenters({ onNavigate }: BusinessCentersProps) {
   const { tenantId, loading: tenantLoading } = useTenant();
-  const [centers, setCenters] = useState<BusinessCenter[]>([]);
-  const [loadingCenters, setLoadingCenters] = useState(true);
-
-  // Load real-time Business Centers
-  useEffect(() => {
-    if (!tenantId) return;
-
-    const collectionRef = collection(db, 'business_centers');
-    const q = query(collectionRef, where('tenantId', '==', tenantId));
-
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      if (snapshot.empty) {
-        // Seed default centers if empty
-        setLoadingCenters(true);
-        try {
-          for (const item of DEFAULT_CENTERS) {
-            await addDoc(collectionRef, {
-              ...item,
-              tenantId
-            });
-          }
-        } catch (err) {
-          console.error("Error seeding default business centers:", err);
-        }
-        setLoadingCenters(false);
-        return;
-      }
-
-      const loaded: BusinessCenter[] = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name || '',
-          code: data.code || '',
-          status: data.status || 'Activo',
-          unitCount: data.unitCount || 0,
-          responsible: data.responsible || '',
-          observations: data.observations || '',
-          linkedUnits: data.linkedUnits || [],
-          financialParams: data.financialParams || {
-            maxAmountPerCredit: 5000000,
-            annualInterestRate: 20,
-            lateFeePercentage: 5,
-            allowRefinance: true,
-            minCapitalRequirement: 10000000
-          }
-        };
-      });
-
-      setCenters(loaded);
-      setLoadingCenters(false);
-    }, (error) => {
-      console.error("Error loading business centers:", error);
-      setLoadingCenters(false);
-    });
-
-    return () => unsubscribe();
-  }, [tenantId]);
+  const { centers, loadingCenters } = useBusinessCentersData(tenantId);
 
   // Main UI state
   const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -171,7 +45,7 @@ export function BusinessCenters({ onNavigate }: BusinessCentersProps) {
   const [formTab, setFormTab] = useState<'general' | 'units' | 'financial'>('general');
 
   // Child Form arrays
-  const [formLinkedUnits, setFormLinkedUnits] = useState<Unit[]>([]);
+  const [formLinkedUnits, setFormLinkedUnits] = useState<BusinessCenterUnit[]>([]);
   const [formFinMaxAmount, setFormFinMaxAmount] = useState('10000000');
   const [formFinInterest, setFormFinInterest] = useState('24');
   const [formFinLateFee, setFormFinLateFee] = useState('4');
@@ -238,7 +112,7 @@ export function BusinessCenters({ onNavigate }: BusinessCentersProps) {
       alert('Por favor ingrese el nombre de la unidad.');
       return;
     }
-    const nUnit: Unit = {
+    const nUnit: BusinessCenterUnit = {
       id: `U-${Date.now().toString().slice(-4)}`,
       name: newUnitName,
       location: newUnitLocation || 'No Especificada',

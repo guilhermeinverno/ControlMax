@@ -1,6 +1,6 @@
-import { auth, db } from '../lib/firebase';
+import { auth, db, onAuthStateChanged } from '../lib/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import { User } from 'firebase/auth';
 import { logFirestoreError } from '../utils/firestoreError';
 import { getErrorMessage } from '../utils/errorMessage';
 import { provisionBypassAccount } from './useTenantHelpers';
@@ -58,6 +58,17 @@ export function createTenantSubscription(setters: TenantSetters) {
     }
 
     const emailLower = user.email?.toLowerCase() || '';
+    if (typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true') {
+      const isSuperDemo = emailLower === 'controlmaxia@gmail.com' || emailLower === 'gringoeletronica@gmail.com';
+      setters.setTenantId('tenant_demo');
+      setters.setRole('admin');
+      setters.setUserName(isSuperDemo ? 'Super Admin Demo' : 'Admin Demo');
+      setters.setIsSuperAdmin(isSuperDemo);
+      setters.setError(null);
+      setters.setLoading(false);
+      return;
+    }
+
     if (applyBypassState(emailLower, setters)) {
       provisionBypassAccount(emailLower, user);
       return;

@@ -53,7 +53,7 @@ export function useLayoutUi() {
 
   const handleExitImpersonation = () => {
     localStorage.removeItem('controlmax_impersonated_tenant');
-    window.location.href = '/superadmin';
+    window.location.href = '/#/superadmin';
   };
 
   return {

@@ -3,7 +3,6 @@ import {
   addDoc,
   collection,
   doc,
-  limit,
   onSnapshot,
   orderBy,
   query,
@@ -11,7 +10,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { db } from '../lib/firebase';
 import { DEFAULT_DEVICE_APP_VERSION } from '../constants/device';
 import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { Device, AppUser } from '../types';

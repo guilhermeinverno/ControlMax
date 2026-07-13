@@ -4,6 +4,71 @@ Este documento descreve a infraestrutura de engenharia, os padrões de consistê
 
 ---
 
+## 0. Credenciais de Homologação (usuário de teste)
+
+Conta dedicada para QA local e homologação pré-deploy. **Não usar em produção.**
+
+### 0.1 Dados de login
+
+| Campo | Valor |
+|-------|-------|
+| **URL local** | http://localhost:5173/login |
+| **E-mail** | `qa@controlmax.dev` |
+| **Senha** | `ControlMax-QA-2026!` |
+| **Tenant ID** | `tenant_qa` |
+| **Role** | `admin` (acesso a Forms, Feriados, Platform Management, etc.) |
+| **Nome exibido** | QA Admin |
+
+### 0.2 Como criar o usuário (escolha um método)
+
+#### Método A — Script automatizado (recomendado)
+
+Requer a **service account** do Firebase (JSON baixado no console).
+
+```bash
+# 1. Baixe a chave em: Firebase Console → Configurações → Contas de serviço → Gerar nova chave privada
+export GOOGLE_APPLICATION_CREDENTIALS="/caminho/para/service-account.json"
+
+# 2. Execute o seed (cria Auth + tenant + perfil Firestore)
+cd backend
+npm run seed:qa-user
+```
+
+#### Método B — Firebase Console (sem service account)
+
+1. Abra [Firebase Console](https://console.firebase.google.com) → projeto do ControlMax → **Authentication** → **Users**.
+2. Clique em **Add user** e cadastre:
+   - E-mail: `qa@controlmax.dev`
+   - Senha: `ControlMax-QA-2026!`
+3. Publique as regras do Firestore atualizadas (incluem permissão para `tenant_qa`):
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+4. Inicie o app (`cd frontend && npm run dev`) e faça login.
+5. No **primeiro login**, o sistema provisiona automaticamente `tenants/tenant_qa` e `users/{uid}` (bypass de QA em `useTenantHelpers.ts`).
+
+### 0.3 Verificação pós-login
+
+Após autenticar com o usuário de QA, confirme:
+
+- [ ] Dashboard carrega sem erro de permissão no console
+- [ ] Menu **Administración** exibe Formularios e Feriados
+- [ ] `tenantId` no contexto da sessão = `tenant_qa`
+- [ ] Centros de negócio são criados automaticamente na primeira visita a telas que os utilizam
+
+### 0.4 Perfis adicionais (opcional)
+
+Com o usuário QA (`admin`), é possível criar cobradores e supervisores em **Gestión de Usuarios** (`/user-list`) para testar restrições de role (CT-01.2).
+
+### 0.5 Segurança
+
+- Credenciais **apenas para homologação** — rotacionar ou desativar antes de ambiente produtivo com dados reais.
+- Não commitar `service-account.json` (já coberto pelo `.gitignore` via `.env*`).
+
+---
+
 ## 1. Visão Geral e Arquitetura do Sistema
 
 O ControlMax foi projetado sob os mais estritos princípios de escalabilidade e confiabilidade financeira, assegurando a gestão de volumes elevados de transações diárias.
@@ -93,7 +158,7 @@ O engenheiro de QA deve realizar os seguintes testes de homologação antes do d
 #### **CT-01.1: Validação de Fronteira Multi-Tenant**
 - **Objetivo**: Garantir que um usuário de uma empresa parceira A jamais consiga ver registros da empresa parceira B.
 - **Procedimento**:
-  1. Efetue login com o perfil associado ao inquilino `Tenant-Alpha`.
+  1. Efetue login com o perfil associado ao inquilino `tenant_qa` (usuário `qa@controlmax.dev` — ver seção 0).
   2. Abra uma aba de depuração no navegador e monitore a aba *Network*.
   3. Verifique se os dados apresentados no Dashboard trazem exclusivamente dados deste `tenantId`.
   4. Force a alteração manual do `tenantId` via console de desenvolvimento para `Tenant-Beta`.
