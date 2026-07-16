@@ -44,6 +44,8 @@ export function useSuperAdminData() {
 
   const [newTenantName, setNewTenantName] = useState('');
   const [newTenantPrice, setNewTenantPrice] = useState('199.00');
+  const [newTenantAdminName, setNewTenantAdminName] = useState('');
+  const [newTenantAdminEmail, setNewTenantAdminEmail] = useState('');
   const [submittingTenant, setSubmittingTenant] = useState(false);
 
   const [newUserName, setNewUserName] = useState('');
@@ -103,21 +105,43 @@ export function useSuperAdminData() {
     setError(null);
     try {
       const priceInCents = Math.round(parseFloat(newTenantPrice) * 100) || 0;
-      await addDoc(collection(db, 'tenants'), {
+      const tenantRef = await addDoc(collection(db, 'tenants'), {
         name: newTenantName.trim(),
         active: true,
         createdAt: Timestamp.now(),
         plan: 'Completo',
         monthlyPrice: priceInCents,
       });
+
+      // Create primary administrator account if email is provided
+      if (newTenantAdminEmail.trim()) {
+        await addDoc(collection(db, 'users'), {
+          email: newTenantAdminEmail.trim().toLowerCase(),
+          name: newTenantAdminName.trim() || 'Administrador',
+          userName: newTenantAdminName.trim() || 'Administrador',
+          role: 'admin',
+          tenantId: tenantRef.id,
+          active: true,
+          createdAt: Timestamp.now(),
+        });
+      }
+
       setTerminalLogs((prev) =>
         prependTerminalLog(
           prev,
-          createActionTerminalLog('log_tenant', 'SUCCESS', `Nova empresa criada: '${newTenantName.trim()}' (Acesso Completo)`)
+          createActionTerminalLog(
+            'log_tenant',
+            'SUCCESS',
+            `Nova empresa criada: '${newTenantName.trim()}'${
+              newTenantAdminEmail.trim() ? ` com administrador '${newTenantAdminEmail.trim().toLowerCase()}'` : ''
+            }`
+          )
         )
       );
       setNewTenantName('');
       setNewTenantPrice('199.00');
+      setNewTenantAdminName('');
+      setNewTenantAdminEmail('');
       await loadData();
     } catch (err: unknown) {
       console.error('Error adding tenant:', err);
@@ -287,6 +311,10 @@ export function useSuperAdminData() {
     setNewTenantName,
     newTenantPrice,
     setNewTenantPrice,
+    newTenantAdminName,
+    setNewTenantAdminName,
+    newTenantAdminEmail,
+    setNewTenantAdminEmail,
     submittingTenant,
     newUserName,
     setNewUserName,
