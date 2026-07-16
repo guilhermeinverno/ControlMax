@@ -27,6 +27,10 @@ export function SuperAdminTabPanels({
   setNewTenantName,
   newTenantPrice,
   setNewTenantPrice,
+  newTenantAdminName,
+  setNewTenantAdminName,
+  newTenantAdminEmail,
+  setNewTenantAdminEmail,
   submittingTenant,
   newUserName,
   setNewUserName,
@@ -91,6 +95,10 @@ export function SuperAdminTabPanels({
           setNewTenantName={setNewTenantName}
           newTenantPrice={newTenantPrice}
           setNewTenantPrice={setNewTenantPrice}
+          newTenantAdminName={newTenantAdminName}
+          setNewTenantAdminName={setNewTenantAdminName}
+          newTenantAdminEmail={newTenantAdminEmail}
+          setNewTenantAdminEmail={setNewTenantAdminEmail}
           submittingTenant={submittingTenant}
           handleAddTenant={handleAddTenant}
           editingTenantId={editingTenantId}

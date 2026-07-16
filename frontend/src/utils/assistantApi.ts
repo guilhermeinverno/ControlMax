@@ -37,8 +37,9 @@ async function parseAssistantResponse(response: Response): Promise<GeminiAssista
 }
 
 export function resolveAssistantApiUrl(path = '/api/gemini/assistant'): string {
-  const base = import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? '';
-  return base ? `${base}${path}` : path;
+  const base = import.meta.env.VITE_API_URL?.trim() ?? '';
+  const isAbsolute = base.startsWith('http://') || base.startsWith('https://');
+  return isAbsolute ? `${base.replace(/\/$/, '')}${path}` : path;
 }
 
 export async function callGeminiAssistant(params: CallGeminiAssistantParams): Promise<GeminiAssistantResult> {
@@ -47,6 +48,9 @@ export async function callGeminiAssistant(params: CallGeminiAssistantParams): Pr
 
   try {
     const clientOperationalContext = await loadOperationalContext(params.tenantId);
+    const clientApiKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined) || 
+                         (typeof window !== 'undefined' ? window.localStorage.getItem('gemini_api_key') : null) || 
+                         undefined;
 
     const response = await fetch(resolveAssistantApiUrl(), {
       method: 'POST',
@@ -60,6 +64,7 @@ export async function callGeminiAssistant(params: CallGeminiAssistantParams): Pr
         userName: params.userName,
         tenantId: params.tenantId,
         clientOperationalContext,
+        clientApiKey,
       }),
     });
 

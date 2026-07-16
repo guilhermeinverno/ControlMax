@@ -1,6 +1,6 @@
 {
   "name": "ControlMax",
-  "description": "Enterprise management application exact match from try controller reference",
+  "description": "Enterprise management application exact match from ControlMax reference",
   "requestFramePermissions": ["geolocation", "microphone"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

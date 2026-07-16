@@ -36,6 +36,18 @@ export interface SalesListCollection {
   createdAt: Timestamp;
 }
 
+function ensureTimestamp(val: any): Timestamp {
+  if (!val) return Timestamp.now();
+  if (val instanceof Timestamp) return val;
+  if (typeof val.toDate === 'function') return val;
+  if (val.seconds !== undefined) return new Timestamp(val.seconds, val.nanoseconds || 0);
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    return Timestamp.fromDate(d);
+  }
+  return Timestamp.now();
+}
+
 export function mapSalesListSale(
   id: string,
   data: Record<string, unknown>
@@ -57,9 +69,9 @@ export function mapSalesListSale(
     installmentAmount: Number(data.installmentAmount || 0),
     paidInstallments: Number(data.paidInstallments || 0),
     status: (data.status as SalesListSale['status']) || 'active',
-    lastPaymentAt: data.lastPaymentAt as Timestamp | undefined,
+    lastPaymentAt: data.lastPaymentAt ? ensureTimestamp(data.lastPaymentAt) : undefined,
     lastPaymentAmount: data.lastPaymentAmount as number | undefined,
-    createdAt: data.createdAt as Timestamp,
+    createdAt: ensureTimestamp(data.createdAt),
   };
 }
 
@@ -78,6 +90,6 @@ export function mapSalesListCollection(
     clientName: String(data.clientName || ''),
     userName: String(data.userName || ''),
     userId: String(data.userId || ''),
-    createdAt: data.createdAt as Timestamp,
+    createdAt: ensureTimestamp(data.createdAt),
   };
 }

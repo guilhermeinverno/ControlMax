@@ -42,6 +42,7 @@ const PeriodSummary = lazy(() => import('../screens/PeriodSummary').then(m => ({
 const PlatformManagement = lazy(() => import('../screens/PlatformManagement').then(m => ({ default: m.PlatformManagement })));
 const AIAssistant = lazy(() => import('../screens/AIAssistant').then(m => ({ default: m.AIAssistant })));
 const CollectorMap = lazy(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
+const WorkerProfile = lazy(() => import('../screens/WorkerProfile').then(m => ({ default: m.WorkerProfile })));
 
 const BCIncomes = lazy(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
 const BCExpenses = lazy(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
@@ -285,6 +286,7 @@ export function AppRoutes() {
         <Route path="/period-summary" element={<ScreenWrapper Component={PeriodSummary} />} />
         <Route path="/platform-management" element={<ScreenWrapper Component={PlatformManagement} />} />
         <Route path="/ai-assistant" element={<ScreenWrapper Component={AIAssistant} />} />
+        <Route path="/worker-profile" element={<ScreenWrapper Component={WorkerProfile} />} />
 
         {/* Business Center Specifics */}
         <Route path="/bc-incomes" element={<ScreenWrapper Component={BCIncomes} />} />

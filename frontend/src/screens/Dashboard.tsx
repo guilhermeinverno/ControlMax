@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AlertCircle, Calculator } from 'lucide-react';
 import { auth } from '../lib/firebase';
 import { SKELETON_SINGLE_KEY } from '../constants/placeholders';
@@ -16,6 +16,12 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate: _onNavigate }: DashboardProps) {
   const { tenantId, role, loading: tenantLoading } = useTenant();
+
+  useEffect(() => {
+    if (role === 'collector' && _onNavigate) {
+      _onNavigate('sales');
+    }
+  }, [role, _onNavigate]);
   const { boxes, loading: loadingBoxes, error } = useDashboardBoxes(tenantId);
 
   const [selectedCnId, setSelectedCnId] = useState('');
@@ -23,9 +29,12 @@ export function Dashboard({ onNavigate: _onNavigate }: DashboardProps) {
   const [verTodas, setVerTodas] = useState(false);
   const [searchPillActive, setSearchPillActive] = useState(true);
 
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
+  const targetUserId = (isDemo && role === 'collector') ? (auth.currentUser?.uid || 'col_1') : auth.currentUser?.uid;
+
   const filteredBoxes = filterDashboardBoxes(boxes, {
     role,
-    currentUserId: auth.currentUser?.uid,
+    currentUserId: targetUserId,
     verTodas,
     selectedCnId,
     selectedUnitId,

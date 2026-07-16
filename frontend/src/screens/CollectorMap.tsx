@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
@@ -24,14 +24,26 @@ interface CollectorLocation {
   createdAt?: Timestamp;
 }
 
-// Map Controller component to handle programmatically flying/panning to coordinates
-function MapFlyController({ selectedLocation }: { selectedLocation: [number, number] | null }) {
+// Map Controller component to handle programmatically flying/panning to coordinates without locking the zoom/pan
+function MapFlyController({ 
+  selectedLocation
+}: { 
+  selectedLocation: [number, number] | null; 
+}) {
   const map = useMap();
+  const lastFlownRef = useRef<string | null>(null);
+
+  // Fly to selected locations (e.g. clicked collector or explicit centring)
   useEffect(() => {
     if (selectedLocation) {
-      map.flyTo(selectedLocation, 16, { duration: 1.5 });
+      const coordKey = `selected-${selectedLocation[0].toFixed(5)},${selectedLocation[1].toFixed(5)}`;
+      if (lastFlownRef.current !== coordKey) {
+        lastFlownRef.current = coordKey;
+        map.flyTo(selectedLocation, 16, { duration: 1.5 });
+      }
     }
   }, [selectedLocation, map]);
+
   return null;
 }
 
@@ -394,8 +406,9 @@ export function CollectorMap() {
       {/* RIGHT SIDE: LEAFLET MAP CONTAINER */}
       <div className="flex-1 min-h-[300px] h-[calc(100vh-464px)] lg:h-[calc(100vh-64px)] relative z-0">
         <MapContainer
-          center={mapCenter}
-          zoom={12}
+          key={userLatLng ? 'located' : 'default'}
+          center={userLatLng || mapCenter}
+          zoom={userLatLng ? 13 : 12}
           style={{ height: '100%', width: '100%' }}
         >
           <TileLayer

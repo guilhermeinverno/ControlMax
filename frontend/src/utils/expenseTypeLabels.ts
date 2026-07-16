@@ -9,7 +9,7 @@ const EXPENSE_TYPE_LABELS: Record<string, string> = {
   'arreglo moto': 'Arreglo Moto',
   'almuerzo trabajador': 'Almuerzo Trabajador',
   'recarga telefono': 'Recarga Teléfono',
-  'factura trycontroller': 'Factura Trycontroller',
+  'factura controlmax': 'Factura ControlMax',
   'pago internet oficina': 'Pago Internet Oficina',
   'pago cel jf': 'Pago Cel JF',
   descuadre: 'Descuadre',

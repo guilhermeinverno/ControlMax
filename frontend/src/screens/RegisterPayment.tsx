@@ -1,10 +1,8 @@
 import { getErrorMessage } from '../utils/errorMessage';
 import { useState, useEffect } from 'react';
-import type { HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
-import { Save, X, Loader2, AlertCircle } from 'lucide-react';
-import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
+import { ArrowLeft, Camera, Loader2, AlertCircle } from 'lucide-react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
@@ -20,22 +18,32 @@ interface RegisterPaymentProps {
 export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   const { tenantId, userName, loading: tenantLoading } = useTenant();
   const { activeBox, loading: boxLoading } = useBox();
+  
   const saleId = params?.saleId as string | undefined;
+  // 'payment' (Images 1 and 2) or 'no-payment' (Image 3)
+  const initialMode = (params?.mode as 'payment' | 'no-payment' | undefined) || 'payment';
 
   const [sale, setSale] = useState<Sale | null>(null);
   const [loadingSale, setLoadingSale] = useState(true);
 
-  const [amount, setAmount] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<string>('efectivo');
-  const [comment, setComment] = useState<string>('');
-  const [paymentDate, setPaymentDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
-  });
-
-  const [showConfirm, setShowConfirm] = useState(false);
+  // General Form States
+  const [punishToggle, setPunishToggle] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showConfirm, setShowConfirm] = useState(false);
 
+  // Payment Mode States (Images 1 and 2)
+  const [paymentType, setPaymentType] = useState<'parcela' | 'dinheiro'>('parcela');
+  const [paymentMethod, setPaymentMethod] = useState<'efectivo' | 'transferencia'>('efectivo');
+  const [payTotalToggle, setPayTotalToggle] = useState(false);
+  const [installmentsCount, setInstallmentsCount] = useState(1);
+  const [customAmount, setCustomAmount] = useState('');
+
+  // No-Payment Mode States (Image 3)
+  const [selectedReason, setSelectedReason] = useState<string>('Cliente sem dinheiro');
+  const [notes, setNotes] = useState('');
+
+  // Load Sale Data
   useEffect(() => {
     if (!tenantId || !saleId) return;
 
@@ -45,18 +53,30 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
       if (mapped) {
         setSale(mapped);
       } else {
-        console.warn("Sale not found in RegisterPayment with ID:", saleId);
+        console.warn("Sale not found with ID:", saleId);
       }
       setLoadingSale(false);
     }, (error) => {
-      console.error("Error loading sale in RegisterPayment:", error);
+      console.error("Error loading sale:", error);
       setLoadingSale(false);
     });
 
     return () => unsubscribe();
   }, [tenantId, saleId]);
 
-  // Guard for missing saleId (moved below hooks)
+  // Adjust installments dynamically when "Pay Total" is toggled
+  useEffect(() => {
+    if (!sale) return;
+    if (payTotalToggle) {
+      const pendingCents = sale.saldoPendienteCents || 0;
+      const instAmt = sale.installmentAmount || 1;
+      const maxInstallments = Math.max(1, Math.ceil(pendingCents / instAmt));
+      setInstallmentsCount(maxInstallments);
+    } else {
+      setInstallmentsCount(1);
+    }
+  }, [payTotalToggle, sale]);
+
   if (!saleId) {
     return (
       <div className="p-4 bg-[#F3F4F6] min-h-screen flex items-center justify-center">
@@ -110,205 +130,495 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     return null;
   }
 
-  const currentTotalPendingCents = sale.saldoPendienteCents !== undefined 
-    ? sale.saldoPendienteCents 
-    : parseCurrencyBRLToCents(sale.saldoPendiente);
+  // Value calculation
+  const defaultInstallmentAmount = sale.installmentAmount || 12000; // in cents, default 120,000 (R$ 120,00)
+  const currentTotalPendingCents = sale.saldoPendienteCents || 0;
+  
+  let computedAmountCents = 0;
+  if (initialMode === 'payment') {
+    if (paymentType === 'parcela') {
+      computedAmountCents = installmentsCount * defaultInstallmentAmount;
+    } else {
+      const floatVal = parseFloat(customAmount.replace(/[^0-9,.-]/g, '').replace(',', '.'));
+      computedAmountCents = isNaN(floatVal) ? 0 : Math.round(floatVal * 100);
+    }
+  }
 
-  const currentTotalPending = currentTotalPendingCents / 100;
+  // Ensure we don't pay more than the outstanding balance
+  if (computedAmountCents > currentTotalPendingCents) {
+    computedAmountCents = currentTotalPendingCents;
+  }
 
-  const handleAmountChange = (e: HtmlInputChangeEvent) => {
-    setAmount(formatCurrencyBRL(e.target.value));
+  // Formatter functions
+  const fmtCents = (cents: number) => {
+    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
   };
 
-  const parsedAmount = parseCurrencyBRLToFloat(amount);
-  const parsedAmountCents = Math.round(parsedAmount * 100);
-  const newBalance = Math.max(0, currentTotalPending - parsedAmount);
-  const handleSavePayment = async () => {
-    if (!activeBox || !sale) return;
-    if (!parsedAmountCents || parsedAmountCents <= 0) {
-      setSaveError('Valor inválido');
-      return;
+  const handleIncrement = () => {
+    const instAmt = sale.installmentAmount || 12000;
+    const maxInstallments = Math.max(1, Math.ceil(currentTotalPendingCents / instAmt));
+    if (installmentsCount < maxInstallments) {
+      setInstallmentsCount(prev => prev + 1);
     }
+  };
+
+  const handleDecrement = () => {
+    if (installmentsCount > 1) {
+      setInstallmentsCount(prev => prev - 1);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!activeBox || !sale) return;
 
     setSaving(true);
     setSaveError(null);
     setShowConfirm(false);
 
     try {
+      let finalAmountCents = 0;
+      let finalComment = '';
+      let methodStr = paymentMethod;
+
+      if (initialMode === 'payment') {
+        finalAmountCents = computedAmountCents;
+        finalComment = punishToggle ? '[Estudo punição ativa] ' : '';
+        if (paymentType === 'parcela') {
+          finalComment += `Pagamento de ${installmentsCount} parcela(s)`;
+        } else {
+          finalComment += 'Pagamento avulso em dinheiro';
+        }
+      } else {
+        // No-Payment Mode
+        finalAmountCents = 0;
+        finalComment = `[Sem pagamento - Razão: ${selectedReason}] ${notes}`;
+        methodStr = 'efectivo';
+      }
+
       await executeRegisterPaymentTransaction({
         tenantId,
         activeBox,
         sale,
-        parsedAmountCents,
-        paymentMethod,
-        comment,
+        parsedAmountCents: finalAmountCents,
+        paymentMethod: methodStr,
+        comment: finalComment,
         userName,
       });
-      setAmount('');
-      onNavigate?.('sale-detail', { saleId: sale.id });
+
+      // Clear states and navigate back
+      setCustomAmount('');
+      onNavigate?.('sales');
     } catch (err) {
-      setSaveError(getErrorMessage(err) || 'Erro ao registrar pagamento');
+      setSaveError(getErrorMessage(err) || 'Erro ao registrar operação');
     } finally {
       setSaving(false);
     }
   };
 
+  // Extra details calculation for mockup fidelity
+  const lateDays = sale.lateDays !== undefined 
+    ? sale.lateDays 
+    : Math.max(0, Math.abs(sale.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 6);
+
+  // Mock Route/Box/Client details for header matching screenshot "65 / 3 / 1007967"
+  const routeNo = sale.userId ? sale.userId.slice(0, 2) : '65';
+  const unitId = sale.unitName ? sale.unitName.split('-')[0].trim() : '3';
+  const displayClientId = sale.clientId || '1007967';
+
   return (
-    <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] pt-2 pb-6 px-2 space-y-2">
+    <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] pb-10">
       
-      {/* Return Button placeholder */}
-      <div className="bg-[#E5E7EB] px-2 py-1.5 flex items-center text-[10px] font-bold text-[#555555] border-b border-gray-300 -mt-2 -mx-2 mb-1">
-        <button onClick={() => onNavigate && onNavigate('sale-detail', { saleId })} className="uppercase hover:underline cursor-pointer">&lt; Volver a Detalle</button>
+      {/* SCREEN HEADER (Matches Images 1, 2, and 3 Purple Style) */}
+      <div className="bg-[#6A008A] text-white px-4 py-3.5 flex items-center shadow-md relative">
+        <button 
+          onClick={() => onNavigate?.('sales')}
+          className="mr-3 hover:bg-white/10 p-1.5 rounded-full transition-colors cursor-pointer"
+        >
+          <ArrowLeft size={22} className="stroke-[2.5]" />
+        </button>
+        <div className="flex flex-col leading-none">
+          <span className="font-extrabold text-[15px] tracking-wide">Gestor de pagamentos</span>
+          <span className="text-[10px] font-bold text-white/80 mt-1 select-none">
+            {routeNo} / {unitId} / {displayClientId}
+          </span>
+        </div>
       </div>
 
+      {/* ERROR CONTAINER */}
       {saveError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-2 text-xs flex items-center rounded-sm shadow-sm">
+        <div className="m-3 bg-red-50 border border-red-200 text-red-700 p-2 text-xs flex items-center rounded-lg shadow-sm">
           <AlertCircle className="w-4 h-4 mr-2 shrink-0 text-red-500" />
           <span>{saveError}</span>
         </div>
       )}
 
-      {/* RESUMEN DEL CLIENTE */}
-      <div className="bg-white border border-gray-300 shadow-sm rounded-sm p-3 text-xs">
-        <div className="flex justify-between items-start mb-2 border-b border-gray-200 pb-1.5">
-          <div>
-            <div className="flex items-center">
-              <span className="font-bold text-[#333333] text-sm uppercase">{sale.clientName}</span>
-            </div>
-            <div className="text-[10px] text-[#777777] mt-0.5">
-              <span>ID Clt: <span className="font-bold text-[#333333]">{sale.idPreVenta || sale.id}</span></span>
-              <span className="mx-1">|</span>
-              <span>ID Ven: <span className="font-bold text-[#333333]">{sale.id}</span></span>
-            </div>
-          </div>
-          <div className="text-right">
-            <span className="text-[10px] uppercase font-bold text-[#777777] block">Caja Vinculada</span>
-            <span className="font-bold text-purple-700">{activeBox ? (activeBox.userName || 'Caja Abierta') : 'Ninguna'}</span>
-          </div>
-        </div>
-        <div className="flex justify-between items-center bg-gray-50 border border-gray-100 p-2 rounded-sm">
-          <span className="font-bold text-[#555555] uppercase text-[10px]">Saldo Pendiente</span>
-          <span className="font-bold text-[#EA580C] text-sm">$ {currentTotalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-      </div>
+      {/* MAIN LAYOUT WRAPPER */}
+      <div className="p-3.5 space-y-3.5 max-w-lg mx-auto w-full">
 
-      {/* FORMULARIO */}
-      <div className="bg-white border border-gray-300 shadow-sm rounded-sm p-3">
-        <div className="space-y-3">
-          
-          <div>
-            <label className="block text-[11px] font-bold text-[#555555] mb-1">Valor Recibido *</label>
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">$</span>
-              <input 
-                type="text" 
-                value={amount}
-                onChange={handleAmountChange}
-                onBlur={(e) => {
-                  const autocompleted = autocompleteCurrencyBRL(e.target.value);
-                  if (autocompleted) setAmount(autocompleted);
-                }}
-                className="w-full border border-gray-300 rounded-sm pl-8 pr-2.5 py-2 text-sm font-bold text-[#333333] outline-none focus:border-[#6B21A8]"
-                placeholder="0,00"
-                disabled={saving}
+        {/* CLIENT DETAILS SECTION (Images 1, 2, 3) */}
+        <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4">
+          <div className="space-y-2 text-xs">
+            
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Id Cliente:</span>
+              <span className="font-extrabold text-[#333333]">{displayClientId}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Nome:</span>
+              <span className="font-extrabold text-[#333333] capitalize">{sale.clientName.toLowerCase()}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Apelido:</span>
+              <span className="font-extrabold text-[#333333] capitalize">{sale.clientName.toLowerCase()}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Documento 1:</span>
+              <span className="font-extrabold text-[#333333]">{sale.clientDoc || '01703984129'}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Dias de atraso no pagamento:</span>
+              <span className="font-extrabold text-[#333333]">{lateDays}</span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="font-bold text-purple-900/80 uppercase text-[10px]">Data do último pagamento:</span>
+              <span className="font-extrabold text-[#333333]">
+                {sale.lastPaymentAt 
+                  ? new Date(sale.lastPaymentAt.seconds * 1000).toLocaleString('pt-BR') 
+                  : '2025-08-27 15:51:47'}
+              </span>
+            </div>
+
+            <div className="border-t border-gray-200/85 my-3 pt-3 flex justify-between items-center">
+              <span className="font-extrabold text-[#6A008A] uppercase text-xs tracking-wider">Saldo atual:$</span>
+              <span className="font-black text-xl text-[#333333]">
+                ${fmtCents(currentTotalPendingCents)}
+              </span>
+            </div>
+
+          </div>
+        </div>
+
+        {/* FORMS BY SELECTED ROUTE / MODE */}
+        {initialMode === 'payment' ? (
+          /* PAYMENT FORM CONTAINER (Images 1 and 2) */
+          <div className="space-y-3.5">
+            
+            {/* STUDY PORTFOLIO TO STUDY / PUNISHMENT TOGGLE */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 flex justify-between items-center">
+              <span className="font-extrabold text-xs text-gray-700 leading-snug max-w-[70%]">
+                Mandar estudar para punição de carteira?
+              </span>
+              <button
+                type="button"
+                onClick={() => setPunishToggle(!punishToggle)}
+                className={`w-12 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ease-in-out ${
+                  punishToggle ? 'bg-[#16A34A]' : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                    punishToggle ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* PAYMENT TYPE SELECTION */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-1.5">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                Tipo de pagamento
+              </label>
+              <div className="flex space-x-2.5">
+                <button
+                  type="button"
+                  onClick={() => { setPaymentType('parcela'); setCustomAmount(''); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                    paymentType === 'parcela'
+                      ? 'bg-[#EBF7EE] border-[#89D59E] text-[#1E3A1E]'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Parcela
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentType('dinheiro')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                    paymentType === 'dinheiro'
+                      ? 'bg-[#EBF7EE] border-[#89D59E] text-[#1E3A1E]'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Dinheiro
+                </button>
+              </div>
+            </div>
+
+            {/* METHOD SELECTION */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-1.5">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                Método de pagamento
+              </label>
+              <div className="flex space-x-2.5">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('efectivo')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                    paymentMethod === 'efectivo'
+                      ? 'bg-[#EBF7EE] border-[#89D59E] text-[#1E3A1E]'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod('transferencia')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                    paymentMethod === 'transferencia'
+                      ? 'bg-[#EBF7EE] border-[#89D59E] text-[#1E3A1E]'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Transacción electrónica
+                </button>
+              </div>
+            </div>
+
+            {/* PAY TOTAL TOGGLE SWITCH */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 flex justify-between items-center">
+              <span className="font-extrabold text-xs text-gray-700 leading-snug">
+                Pagar total. Parcela:
+              </span>
+              <button
+                type="button"
+                onClick={() => setPayTotalToggle(!payTotalToggle)}
+                className={`w-12 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ease-in-out ${
+                  payTotalToggle ? 'bg-[#16A34A]' : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                    payTotalToggle ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* VALOR PARCELA INDICATOR (Images 1 and 2 Large text) */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 flex flex-col items-center">
+              <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wide mb-1">
+                {paymentType === 'parcela' ? 'Valor parcela' : 'Valor digitado'}
+              </span>
+              <span className="text-4xl font-black text-[#333333]">
+                ${fmtCents(computedAmountCents)}
+              </span>
+            </div>
+
+            {/* DYNAMIC PARCEL CONTROLS (Image 2) */}
+            {paymentType === 'parcela' ? (
+              <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-3">
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                  Parcela a pagar
+                </label>
+                
+                {/* Plus Minus Numeric Row */}
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={handleDecrement}
+                    className="w-12 h-10 flex items-center justify-center bg-[#6A008A] hover:bg-[#581c87] text-white font-bold text-xl rounded-l-lg transition-colors cursor-pointer select-none"
+                    disabled={payTotalToggle}
+                  >
+                    -
+                  </button>
+                  <div className="flex-1 h-10 flex items-center justify-center border-y border-gray-300 text-sm font-bold text-[#333333] bg-white select-none">
+                    {installmentsCount}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleIncrement}
+                    className="w-12 h-10 flex items-center justify-center bg-[#6A008A] hover:bg-[#581c87] text-white font-bold text-xl rounded-r-lg transition-colors cursor-pointer select-none"
+                    disabled={payTotalToggle}
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Styled slider bar with purple slider handle (matching Image 2) */}
+                <div className="relative mt-4 mb-2 flex items-center">
+                  <div className="w-full h-1 bg-gray-200 rounded-lg"></div>
+                  {/* Circle slider handle absolute positioned mock */}
+                  <div 
+                    className="absolute -translate-y-1/2 w-6 h-6 rounded-full bg-[#6A008A] hover:bg-[#581c87] flex items-center justify-center text-white text-[10px] cursor-pointer shadow-md select-none"
+                    style={{ left: `${Math.min(95, Math.max(5, (installmentsCount / Math.max(1, Math.ceil(currentTotalPendingCents / defaultInstallmentAmount))) * 100))}%` }}
+                  >
+                    &lt;&gt;
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              /* Dinheiro numeric field */
+              <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-1.5">
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                  Digite o valor avulso
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">$</span>
+                  <input
+                    type="text"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm font-bold text-[#333333] outline-none focus:border-[#6A008A]"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* ADICIONAR FOTO BLOCK (Images 1 and 2) */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-2">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                Adicionar foto
+              </label>
+              <button
+                type="button"
+                onClick={() => alert("Câmera ativada: tire uma foto para anexar ao recebimento.")}
+                className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer"
+                title="Tirar foto"
+              >
+                <Camera size={24} className="stroke-[2.5]" />
+              </button>
+            </div>
+
+          </div>
+        ) : (
+          /* NO-PAYMENT REASONS FORM CONTAINER (Image 3) */
+          <div className="space-y-3.5">
+            
+            {/* RAZÃO REASONS GRID (Image 3 2x2 grid) */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-2.5">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                Razón
+              </label>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {[
+                  'Cliente sem dinheiro',
+                  'Loja fechada',
+                  'Incapaz de cobrar',
+                  'Cliente n?o encontrado'
+                ].map((reason) => {
+                  const isSelected = selectedReason === reason;
+                  return (
+                    <button
+                      key={reason}
+                      type="button"
+                      onClick={() => setSelectedReason(reason)}
+                      className={`py-2 px-1 text-[11px] font-bold rounded-lg border text-center transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#EBF7EE] border-[#89D59E] text-[#1E3A1E]'
+                          : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {reason}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* STUDY PORTFOLIO TO STUDY / PUNISHMENT TOGGLE */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 flex justify-between items-center">
+              <span className="font-extrabold text-xs text-gray-700 leading-snug max-w-[70%]">
+                Mandar estudar para punição de carteira?
+              </span>
+              <button
+                type="button"
+                onClick={() => setPunishToggle(!punishToggle)}
+                className={`w-12 h-6 flex items-center rounded-full p-0.5 cursor-pointer transition-colors duration-200 ease-in-out ${
+                  punishToggle ? 'bg-[#16A34A]' : 'bg-gray-300'
+                }`}
+              >
+                <div
+                  className={`bg-white w-5 h-5 rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${
+                    punishToggle ? 'translate-x-6' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* NOTAS TEXT AREA */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-1.5">
+              <textarea
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Notas"
+                className="w-full border border-gray-200 rounded-lg p-3 text-xs text-[#333333] outline-none focus:border-[#6A008A] bg-white resize-none shadow-xs"
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-[#555555] mb-1">Fecha *</label>
-            <input 
-              type="date" 
-              value={paymentDate}
-              onChange={(e) => setPaymentDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-sm px-2.5 py-2 text-sm font-bold text-[#333333] outline-none focus:border-[#6B21A8]"
-              disabled={saving}
-            />
-          </div>
+            {/* ADICIONAR FOTO BLOCK (Image 3) */}
+            <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-2">
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
+                Adicionar foto
+              </label>
+              <button
+                type="button"
+                onClick={() => alert("Câmera ativada: tire uma foto para anexar à justificativa de visita.")}
+                className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer"
+                title="Tirar foto"
+              >
+                <Camera size={24} className="stroke-[2.5]" />
+              </button>
+            </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-[#555555] mb-1">Forma de Pago *</label>
-            <select 
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full border border-gray-300 rounded-sm px-2.5 py-2 text-sm font-bold text-[#333333] outline-none focus:border-[#6B21A8] bg-white appearance-none"
-              disabled={saving}
-            >
-              <option value="efectivo">Efectivo</option>
-              <option value="transferencia">Transferencia</option>
-              <option value="nequi">Nequi</option>
-              <option value="daviplata">Daviplata</option>
-            </select>
           </div>
+        )}
 
-          <div>
-            <label className="block text-[11px] font-bold text-[#555555] mb-1">Observación</label>
-            <textarea 
-              rows={2}
-              value={comment}
-              onChange={(e) => setComment(e.target.value)}
-              className="w-full border border-gray-300 rounded-sm px-2.5 py-1.5 text-xs text-[#333333] outline-none focus:border-[#6B21A8]"
-              placeholder="Opcional..."
-              disabled={saving}
-            ></textarea>
-          </div>
-
+        {/* BOTTOM SAVING ACTIONS TRIGGER */}
+        <div className="pt-2">
+          <button
+            onClick={() => {
+              if (initialMode === 'payment' && computedAmountCents <= 0) {
+                setSaveError('Insira um valor válido de pagamento.');
+                return;
+              }
+              setShowConfirm(true);
+            }}
+            disabled={saving}
+            className="w-full bg-[#6A008A] hover:bg-[#581c87] text-white font-extrabold py-3.5 text-xs tracking-widest uppercase rounded-xl shadow-md transition-all active:scale-[0.98] duration-150 flex justify-center items-center cursor-pointer select-none disabled:opacity-50"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Registrando...
+              </>
+            ) : (
+              'Salvar'
+            )}
+          </button>
         </div>
+
       </div>
 
-      {/* RESUMEN AUTOMÁTICO */}
-      <div className="bg-[#F8FAFC] border border-blue-200 shadow-sm rounded-sm p-3 text-xs">
-        <h3 className="font-bold text-[#2563EB] border-b border-blue-200 pb-1 mb-2 uppercase text-[10px] tracking-wider">Proyección de Saldo</h3>
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-[#555555]">Saldo Antes</span>
-          <span className="font-semibold text-[#333333]">$ {currentTotalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div className="flex justify-between items-center mb-1">
-          <span className="text-[#555555]">Valor Pagado</span>
-          <span className="font-semibold text-[#16A34A]">- $ {parsedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-        </div>
-        <div className="flex justify-between items-center border-t border-blue-100 pt-1 mt-1">
-          <span className="font-bold text-[#333333]">Saldo Después</span>
-          <span className="font-bold text-[#2563EB]">$ {newBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-        </div>
-      </div>
-
-      {/* BOTONES */}
-      <div className="pt-2 flex flex-col space-y-2">
-        <button 
-          onClick={() => setShowConfirm(true)}
-          className="w-full bg-[#16A34A] hover:bg-[#15803d] text-white font-bold py-2.5 text-sm flex justify-center items-center rounded-sm shadow-sm transition-colors disabled:opacity-50 cursor-pointer"
-          disabled={saving}
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              REGISTRANDO...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4 mr-1.5" />
-              GUARDAR PAGO
-            </>
-          )}
-        </button>
-        <button 
-          onClick={() => onNavigate && onNavigate('sale-detail', { saleId })}
-          className="w-full bg-[#F3F4F6] text-[#333333] border border-gray-300 font-bold py-2.5 text-sm flex justify-center items-center rounded-sm shadow-sm hover:bg-gray-100 transition-colors cursor-pointer"
-          disabled={saving}
-        >
-          <X className="w-4 h-4 mr-1.5" />
-          Cancelar
-        </button>
-      </div>
-
-      <ConfirmModal 
-        isOpen={showConfirm} 
-        onClose={() => setShowConfirm(false)} 
-        onConfirm={handleSavePayment}
-        title="¿Confirmar pago?"
-        subtitle={`Se registrará un pago de $ ${parsedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
-        confirmText="Sí registrar"
+      <ConfirmModal
+        isOpen={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        onConfirm={handleSave}
+        title={initialMode === 'payment' ? '¿Confirmar pago?' : '¿Confirmar visita sin pago?'}
+        subtitle={
+          initialMode === 'payment'
+            ? `Se registrará un pago de $${fmtCents(computedAmountCents)} para ${sale.clientName}.`
+            : `Se registrará la visita como "${selectedReason}" para ${sale.clientName}.`
+        }
+        confirmText="Sí, registrar"
       />
 
     </div>

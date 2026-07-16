@@ -37,7 +37,10 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(__dirname, '../frontend/dist');
+    const isCompiled = __dirname.endsWith("dist");
+    const distPath = isCompiled
+      ? path.resolve(__dirname, "../../frontend/dist")
+      : path.resolve(__dirname, "../frontend/dist");
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));

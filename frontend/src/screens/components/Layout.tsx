@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { 
-  Menu, User, LogOut, Check, MessageCircle, Download, Smartphone
+  Menu, User, LogOut, Check, MessageCircle, Download, Smartphone, ClipboardList
 } from 'lucide-react';
 import { Screen } from '../../types';
-import { auth } from '../../lib/firebase';
+import { auth, db, getDemoUser, triggerAuthListeners } from '../../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useTenant } from '../../hooks/useTenant';
 import { useLocation } from '../../hooks/useLocation';
@@ -12,6 +12,7 @@ import { AIVoiceAssistant } from './AIVoiceAssistant';
 import { LayoutMobileDrawer } from './layout/LayoutMobileDrawer';
 import { LayoutDesktopNav } from './layout/LayoutDesktopNav';
 import { layoutRoleLabel } from '../../utils/statusLabels';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,14 +22,96 @@ interface LayoutProps {
 }
 
 export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: LayoutProps) {
-  const { role } = useTenant();
+  const { tenantId, role } = useTenant();
+  const shouldHideGlobalHeader = currentScreen === 'bc-transfers' || currentScreen === 'transfer-sales' || currentScreen === 'sale-detail' || currentScreen === 'new-expense' || currentScreen === 'new-income' || (currentScreen === 'sales' && role === 'collector');
   useLocation(); // Rastreamento automático quando caixa aberta
+  const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
+
+  const [collectorStats, setCollectorStats] = useState({ clients: 65, paid: 1, balance: 1007951 });
+
+  useEffect(() => {
+    if (role !== 'collector' || !tenantId) return;
+
+    const targetUserId = (tenantId === 'tenant_demo') ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    const q = query(
+      collection(db, 'sales'),
+      where('tenantId', '==', tenantId),
+      where('userId', '==', targetUserId),
+      where('status', '==', 'active')
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const activeSales = snapshot.docs.map(d => d.data());
+      const clientsCount = activeSales.length || 65;
+      const totalBal = activeSales.reduce((sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)), 0) || 1007951;
+
+      setCollectorStats(prev => ({
+        ...prev,
+        clients: clientsCount,
+        balance: totalBal
+      }));
+    }, (err) => {
+      console.warn("Error loading collector stats for layout header, using defaults:", err);
+    });
+
+    return unsub;
+  }, [tenantId, role]);
+
+  useEffect(() => {
+    if (role !== 'collector' || !tenantId) return;
+
+    const targetUserId = (tenantId === 'tenant_demo') ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const q = query(
+      collection(db, 'collections'),
+      where('tenantId', '==', tenantId),
+      where('userId', '==', targetUserId)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const todayCollections = snapshot.docs.filter(docSnap => {
+        const data = docSnap.data();
+        const createdAtDate = data.createdAt?.toDate() || null;
+        return createdAtDate ? createdAtDate.getTime() >= startOfToday.getTime() : true;
+      });
+
+      setCollectorStats(prev => ({
+        ...prev,
+        paid: todayCollections.length || 1
+      }));
+    }, (err) => {
+      console.warn("Error loading collector collection stats for layout header, using defaults:", err);
+    });
+
+    return unsub;
+  }, [tenantId, role]);
+
+  const handleDemoRoleChange = (newRole: 'admin' | 'collector') => {
+    localStorage.setItem('controlmax_demo_role', newRole);
+    const demoUser = getDemoUser();
+    triggerAuthListeners(demoUser);
+    if (newRole === 'collector') {
+      onNavigate('sales');
+    } else {
+      onNavigate('dashboard');
+    }
+  };
   const userEmail = auth.currentUser?.email || '';
   const currentEmail = userEmail.toLowerCase();
   const isSuperByEmail = currentEmail === 'gringoeletronica@gmail.com' || currentEmail === 'controlmaxia@gmail.com';
   const showSuperAdmin = isSuperAdmin || isSuperByEmail;
   const displayRole = layoutRoleLabel(role, showSuperAdmin);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    const handleOpenDrawer = () => setDrawerOpen(true);
+    window.addEventListener('controlmax_open_drawer', handleOpenDrawer);
+    return () => {
+      window.removeEventListener('controlmax_open_drawer', handleOpenDrawer);
+    };
+  }, []);
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     ventas: true,
   });
@@ -79,7 +162,8 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
       )}
       
       {/* HEADER: Desktop-first, fully responsive with TRY Controller styling */}
-      <header className="h-[64px] flex items-stretch bg-[#6A008A] shrink-0 z-50 relative shadow-md">
+      {!shouldHideGlobalHeader && (
+        <header className="h-[64px] flex items-stretch bg-[#6A008A] shrink-0 z-50 relative shadow-md">
         
         {/* Left Section: Logo & Mobile Hamburger */}
         <div className="bg-[#6A008A] flex items-center px-4 lg:px-6 shrink-0 border-r border-white/10">
@@ -93,18 +177,28 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
           {/* Logo themed elegantly like TRY Controller but with ControlMax */}
           <div 
-            onClick={() => onNavigate('dashboard')}
+            onClick={() => onNavigate(role === 'collector' ? 'sales' : 'dashboard')}
             className="flex items-center cursor-pointer select-none"
           >
-            <div className="flex flex-col items-start leading-tight">
-              <span className="text-white font-black text-sm lg:text-base uppercase tracking-wider">Control</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[#8CC63F] font-black text-lg tracking-tight uppercase leading-none">Max</span>
-                <span className="bg-[#8CC63F] rounded-full p-0.5 flex items-center justify-center shadow-sm w-3.5 h-3.5 border border-white">
-                  <Check className="w-2.5 h-2.5 text-white stroke-[4.5]" />
-                </span>
+            {role === 'collector' ? (
+              <div className="flex flex-col items-start leading-none py-1">
+                <span className="text-white font-black text-sm lg:text-base tracking-wide uppercase">ControlMax</span>
+                <div className="flex items-center space-x-1.5 text-[10px] font-bold text-gray-200 mt-1">
+                  <ClipboardList className="w-3.5 h-3.5 text-[#8CC63F]" />
+                  <span>{collectorStats.clients} / {collectorStats.paid} / {collectorStats.balance}</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="flex flex-col items-start leading-tight">
+                <span className="text-white font-black text-sm lg:text-base uppercase tracking-wider">Control</span>
+                <div className="flex items-center gap-1">
+                  <span className="text-[#8CC63F] font-black text-lg tracking-tight uppercase leading-none">Max</span>
+                  <span className="bg-[#8CC63F] rounded-full p-0.5 flex items-center justify-center shadow-sm w-3.5 h-3.5 border border-white">
+                    <Check className="w-2.5 h-2.5 text-white stroke-[4.5]" />
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -120,6 +214,35 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
         {/* Right Section: Stretches purple background and holds profile */}
         <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-4 lg:px-6 space-x-4">
+          {isDemo && (
+            <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/20 gap-1 mr-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => handleDemoRoleChange('admin')}
+                className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  role === 'admin'
+                    ? 'bg-[#8CC63F] text-white shadow-sm'
+                    : 'text-white/80 hover:text-white hover:bg-white/5'
+                }`}
+                title="Alternar para Painel do Gestor"
+              >
+                Gestor
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDemoRoleChange('collector')}
+                className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                  role === 'collector'
+                    ? 'bg-[#8CC63F] text-white shadow-sm'
+                    : 'text-white/80 hover:text-white hover:bg-white/5'
+                }`}
+                title="Alternar para Painel do Vendedor"
+              >
+                Vendedor
+              </button>
+            </div>
+          )}
+
           <div className="hidden xl:flex flex-col text-right">
             <span className="text-white text-xs font-bold uppercase">{displayRole}</span>
             <span className="text-white/70 text-[10px]">{userEmail}</span>
@@ -141,6 +264,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
         </div>
 
       </header>
+      )}
 
       {/* BODY CONTENT: Spans the full viewport width on desktop */}
       <main className="flex-1 flex flex-col relative bg-[#F4F4F4] w-full min-h-0">
@@ -156,7 +280,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
         />
 
         {/* Outer content padding and center alignments */}
-        <div className="w-full flex-1 overflow-y-auto px-4 py-6 md:px-8 max-w-[1600px] mx-auto">
+        <div className={`w-full flex-1 overflow-y-auto ${shouldHideGlobalHeader ? ((currentScreen === 'sales' && role === 'collector') ? 'p-0' : 'p-4 md:p-8') : 'px-4 py-6 md:px-8'} max-w-[1600px] mx-auto`}>
           {children}
         </div>
 

@@ -193,7 +193,7 @@ export function NewIncomeFormPanel({
               <option value="venda">venda</option>
               <option value="inversion">inversion</option>
               <option value="inversion odu">inversion odu</option>
-              <option value="factura trycontroller">factura trycontroller</option>
+              <option value="factura controlmax">factura controlmax</option>
               <option value="descuadre">descuadre</option>
               <option value="varios">varios</option>
               <option value="prestamo otros">prestamo otros</option>

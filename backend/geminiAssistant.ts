@@ -23,11 +23,11 @@ export async function generateAssistantText(
   } catch (primaryErr: unknown) {
     const message = primaryErr instanceof Error ? primaryErr.message : String(primaryErr);
     console.warn(
-      'Primary model gemini-2.5-flash failed or busy. Falling back to gemini-3.1-flash-lite. Error:',
+      'Primary model gemini-2.5-flash failed or busy. Falling back to gemini-2.5-pro. Error:',
       message
     );
     const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-lite',
+      model: 'gemini-2.5-pro',
       contents: userContentParts,
       config: { systemInstruction, temperature: 0.7 },
     });

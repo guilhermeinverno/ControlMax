@@ -163,7 +163,7 @@ export function NewExpenseFormPanel({
                 <option value="arreglo moto">Arreglo Moto</option>
                 <option value="almuerzo trabajador">Almuerzo Trabajador</option>
                 <option value="recarga telefono">Recarga Teléfono</option>
-                <option value="factura trycontroller">Factura Trycontroller</option>
+                <option value="factura controlmax">Factura ControlMax</option>
                 <option value="pago internet oficina">Pago Internet Oficina</option>
                 <option value="pago cel jf">Pago Cel JF</option>
                 <option value="descuadre">Descuadre</option>

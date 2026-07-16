@@ -11,6 +11,10 @@ export interface SuperAdminTenantsTabProps {
   setNewTenantName: (name: string) => void;
   newTenantPrice: string;
   setNewTenantPrice: (price: string) => void;
+  newTenantAdminName: string;
+  setNewTenantAdminName: (name: string) => void;
+  newTenantAdminEmail: string;
+  setNewTenantAdminEmail: (email: string) => void;
   submittingTenant: boolean;
   handleAddTenant: (e: HtmlFormSubmitEvent) => void;
   editingTenantId: string | null;
@@ -29,6 +33,10 @@ export function SuperAdminTenantsTab({
   setNewTenantName,
   newTenantPrice,
   setNewTenantPrice,
+  newTenantAdminName,
+  setNewTenantAdminName,
+  newTenantAdminEmail,
+  setNewTenantAdminEmail,
   submittingTenant,
   handleAddTenant,
   editingTenantId,
@@ -67,6 +75,37 @@ export function SuperAdminTenantsTab({
                 onChange={(e) => setNewTenantName(e.target.value)}
                 className="w-full bg-[#060913] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition-all font-bold placeholder-slate-600"
               />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                Nome do Administrador (Cliente)
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Carlos Oliveira"
+                required
+                value={newTenantAdminName}
+                onChange={(e) => setNewTenantAdminName(e.target.value)}
+                className="w-full bg-[#060913] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition-all font-bold placeholder-slate-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">
+                E-mail Google do Administrador
+              </label>
+              <input
+                type="email"
+                placeholder="Ex: carlos.oliveira@gmail.com"
+                required
+                value={newTenantAdminEmail}
+                onChange={(e) => setNewTenantAdminEmail(e.target.value)}
+                className="w-full bg-[#060913] border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-indigo-500 transition-all font-bold placeholder-slate-600"
+              />
+              <span className="text-[9px] text-indigo-400 font-bold mt-1 block uppercase leading-tight">
+                * Esta conta Google dará acesso imediato ao painel corporativo do cliente.
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

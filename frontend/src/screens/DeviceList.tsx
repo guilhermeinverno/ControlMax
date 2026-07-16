@@ -5,6 +5,13 @@ import {
   Search,
   AlertCircle,
   Loader2,
+  Download,
+  RefreshCw,
+  Key,
+  Shield,
+  Info,
+  Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { SKELETON_CARD_KEYS } from '../constants/placeholders';
 import { useTenant } from '../hooks/useTenant';
@@ -25,6 +32,20 @@ export function DeviceList() {
   const isAdmin = hasAdminAccess(role, isSuperAdmin);
   const isCollector = role === 'collector';
 
+  // State for simulated loading animations of collector configuration screen
+  const [loadingStates, setLoadingStates] = useState<Record<string, 'idle' | 'loading' | 'success'>>({});
+
+  const handleSimulateAction = (key: string) => {
+    setLoadingStates(prev => ({ ...prev, [key]: 'loading' }));
+    setTimeout(() => {
+      setLoadingStates(prev => ({ ...prev, [key]: 'success' }));
+      // revert back to idle after some time so they can run it again
+      setTimeout(() => {
+        setLoadingStates(prev => ({ ...prev, [key]: 'idle' }));
+      }, 3000);
+    }, 1500);
+  };
+
   const data = useDeviceListData(tenantId, isAdmin);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -35,6 +56,243 @@ export function DeviceList() {
       <div className="flex flex-col items-center justify-center py-12 text-gray-500 space-y-2 min-h-screen bg-[#F3F4F6]">
         <Loader2 className="w-8 h-8 animate-spin text-[#84CC16]" />
         <p className="text-xs font-medium">Carregando dados do inquilino...</p>
+      </div>
+    );
+  }
+
+  // COLLECTOR VIEW: Matches the "Configuração" screenshot (First reference image)
+  if (isCollector) {
+    return (
+      <div className="flex flex-col bg-[#F5F5F7] min-h-screen text-[#333333] -m-4 pb-16">
+        {/* Purple header with Back Arrow and Unit Code Subtitle */}
+        <div className="bg-[#6A008A] text-white pt-4 pb-5 px-4 shadow-sm flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => navigate('dashboard')}
+              className="text-white hover:bg-white/10 p-2 rounded-full transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="w-6 h-6" />
+            </button>
+            <div>
+              <h1 className="text-lg font-black tracking-wide">Configuração</h1>
+              <span className="text-xs text-purple-200 block font-semibold mt-0.5">
+                65 / 3 / 1007967
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 max-w-md mx-auto w-full space-y-6">
+          {/* Section: Baixar */}
+          <div className="space-y-3">
+            <h2 className="text-base font-black text-slate-800 tracking-tight px-1">Baixar</h2>
+
+            {/* Item 1: Baixe todas as informações da Unidade */}
+            <button
+              onClick={() => handleSimulateAction('all_info')}
+              disabled={loadingStates['all_info'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['all_info'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['all_info'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <Download className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Baixe todas as informações da Unidade
+                </span>
+              </div>
+              {loadingStates['all_info'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">Salvo</span>
+              )}
+            </button>
+
+            {/* Item 2: Baixar configuração */}
+            <button
+              onClick={() => handleSimulateAction('config')}
+              disabled={loadingStates['config'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['config'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['config'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <Download className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Baixar configuração
+                </span>
+              </div>
+              {loadingStates['config'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">Salvo</span>
+              )}
+            </button>
+
+            {/* Item 3: Baixar clientes da UGI */}
+            <button
+              onClick={() => handleSimulateAction('clients')}
+              disabled={loadingStates['clients'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['clients'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['clients'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <Download className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Baixar clientes da UGI
+                </span>
+              </div>
+              {loadingStates['clients'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">Salvo</span>
+              )}
+            </button>
+          </div>
+
+          {/* Section: Outras opções */}
+          <div className="space-y-3 pt-2">
+            <h2 className="text-base font-black text-slate-800 tracking-tight px-1">Outras opções</h2>
+
+            {/* Item 4: Sincronizar aplicativo */}
+            <button
+              onClick={() => handleSimulateAction('sync_app')}
+              disabled={loadingStates['sync_app'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['sync_app'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['sync_app'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <RefreshCw className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Sincronizar aplicativo
+                </span>
+              </div>
+              {loadingStates['sync_app'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">Ativo</span>
+              )}
+            </button>
+
+            {/* Item 5: Gerar novas chaves */}
+            <button
+              onClick={() => handleSimulateAction('keys')}
+              disabled={loadingStates['keys'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['keys'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['keys'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <Key className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Gerar novas chaves
+                </span>
+              </div>
+              {loadingStates['keys'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">Pronto</span>
+              )}
+            </button>
+
+            {/* Item 6: Gerar copia de segurança */}
+            <button
+              onClick={() => handleSimulateAction('backup')}
+              disabled={loadingStates['backup'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['backup'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['backup'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <RefreshCw className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Gerar copia de segurança
+                </span>
+              </div>
+              {loadingStates['backup'] === 'success' && (
+                <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded">OK</span>
+              )}
+            </button>
+
+            {/* Item 7: Reiniciar dados */}
+            <button
+              onClick={() => handleSimulateAction('reset')}
+              disabled={loadingStates['reset'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['reset'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['reset'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <RefreshCw className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Reiniciar dados
+                </span>
+              </div>
+              {loadingStates['reset'] === 'success' && (
+                <span className="text-[10px] bg-red-100 text-red-800 font-extrabold px-2 py-0.5 rounded">Limpo</span>
+              )}
+            </button>
+
+            {/* Item 8: Acerca de */}
+            <button
+              onClick={() => handleSimulateAction('about')}
+              disabled={loadingStates['about'] === 'loading'}
+              className="w-full bg-white rounded-2xl p-4.5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all border border-slate-100 flex items-center justify-between text-left cursor-pointer group active:scale-99"
+            >
+              <div className="flex items-center space-x-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-[#6A008A] shrink-0 group-hover:scale-105 transition-transform">
+                  {loadingStates['about'] === 'loading' ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : loadingStates['about'] === 'success' ? (
+                    <Check className="w-5 h-5 text-green-600" strokeWidth={3} />
+                  ) : (
+                    <Info className="w-5 h-5 text-[#6A008A]" />
+                  )}
+                </div>
+                <span className="text-xs font-black text-slate-800 leading-snug">
+                  Acerca de
+                </span>
+              </div>
+              {loadingStates['about'] === 'success' && (
+                <span className="text-[10px] bg-purple-100 text-[#6A008A] font-extrabold px-2 py-0.5 rounded">ControlMax v1.2</span>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

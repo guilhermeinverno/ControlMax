@@ -34,7 +34,9 @@ function buildSalesQuery(
   const constraints = [where('tenantId', '==', tenantId), where('status', '==', queryStatus)];
 
   if (role === 'collector' && !verTodasUnidades) {
-    constraints.push(where('userId', '==', auth.currentUser?.uid || ''));
+    const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
+    const targetUserId = isDemo ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    constraints.push(where('userId', '==', targetUserId));
   }
 
   return useOrderBy ? query(baseRef, ...constraints, orderBy('clientName', 'asc')) : query(baseRef, ...constraints);
@@ -129,10 +131,12 @@ export function useSalesListData({
 
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
+          const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
           const createdAtDate = data.createdAt?.toDate() || null;
-          const isToday = createdAtDate ? createdAtDate.getTime() >= startOfToday.getTime() : true;
+          const isToday = isDemo ? true : (createdAtDate ? createdAtDate.getTime() >= startOfToday.getTime() : true);
+          const targetUserId = isDemo ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
           const matchesCollector =
-            role !== 'collector' || verTodasUnidades || data.userId === auth.currentUser?.uid;
+            role !== 'collector' || verTodasUnidades || data.userId === targetUserId;
 
           if (isToday && matchesCollector) {
             loaded.push(mapSalesListCollection(docSnap.id, data));

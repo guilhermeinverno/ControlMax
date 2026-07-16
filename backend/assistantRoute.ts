@@ -16,6 +16,7 @@ interface AssistantRequestBody {
   userName?: string;
   tenantId?: string;
   clientOperationalContext?: string;
+  clientApiKey?: string;
 }
 
 async function resolveOperationalContext(
@@ -33,12 +34,33 @@ async function resolveOperationalContext(
   }
 }
 
-export function createAssistantHandler(ai: GoogleGenAI, apiKey?: string) {
+export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: string) {
   return async (req: Request, res: Response) => {
     try {
       const body = req.body as AssistantRequestBody;
-      const { message, audio, language, role, userName, tenantId, clientOperationalContext } = body;
+      const { message, audio, language, role, userName, tenantId, clientOperationalContext, clientApiKey } = body;
       const isPt = isPortugueseLanguage(language, role);
+
+      // Dynamically resolve apiKey (try client-passed first, then headers, then process.env, then fallback to initialApiKey)
+      const resolvedApiKey = clientApiKey || 
+                            req.headers['x-gemini-api-key'] as string || 
+                            process.env.GEMINI_API_KEY || 
+                            initialApiKey;
+
+      if (!resolvedApiKey) {
+        return res.json(noApiKeyResponse(isPt));
+      }
+
+      // Lazily instantiate GoogleGenAI with the active, resolved API key
+      const activeAi = new GoogleGenAI({
+        apiKey: resolvedApiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
       const operationalContext = await resolveOperationalContext(tenantId, clientOperationalContext);
       const systemInstruction = buildAssistantSystemInstruction(isPt, userName, operationalContext);
 
@@ -52,12 +74,8 @@ export function createAssistantHandler(ai: GoogleGenAI, apiKey?: string) {
         return res.status(400).json({ error: 'No input provided' });
       }
 
-      if (!apiKey) {
-        return res.json(noApiKeyResponse(isPt));
-      }
-
-      const textResponse = await generateAssistantText(ai, userContentParts, systemInstruction, isPt);
-      const { audio: base64Audio, mimeType: audioMimeType } = await generateAssistantAudio(ai, textResponse, isPt);
+      const textResponse = await generateAssistantText(activeAi, userContentParts, systemInstruction, isPt);
+      const { audio: base64Audio, mimeType: audioMimeType } = await generateAssistantAudio(activeAi, textResponse, isPt);
 
       res.json({ text: textResponse, audio: base64Audio, mimeType: audioMimeType });
     } catch (error: unknown) {

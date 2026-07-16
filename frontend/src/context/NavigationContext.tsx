@@ -53,7 +53,8 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   finance: '/finance',
   'platform-management': '/platform-management',
   'ai-assistant': '/ai-assistant',
-  'collector-map': '/collector-map'
+  'collector-map': '/collector-map',
+  'worker-profile': '/worker-profile'
 };
 
 export const ROUTE_SCREENS: Record<string, Screen> = Object.entries(SCREEN_ROUTES).reduce(

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
@@ -30,14 +30,26 @@ interface BusinessCenter {
   };
 }
 
-// Map Controller component to handle programmatically flying/panning to coordinates
-function MapFlyController({ selectedLocation }: { selectedLocation: [number, number] | null }) {
+// Map Controller component to handle programmatically flying/panning to coordinates without locking the zoom/pan
+function MapFlyController({ 
+  selectedLocation, 
+}: { 
+  selectedLocation: [number, number] | null; 
+}) {
   const map = useMap();
+  const lastFlownRef = useRef<string | null>(null);
+
+  // Fly to selected locations
   useEffect(() => {
     if (selectedLocation) {
-      map.flyTo(selectedLocation, 12, { duration: 1.5 });
+      const coordKey = `selected-${selectedLocation[0].toFixed(5)},${selectedLocation[1].toFixed(5)}`;
+      if (lastFlownRef.current !== coordKey) {
+        lastFlownRef.current = coordKey;
+        map.flyTo(selectedLocation, 12, { duration: 1.5 });
+      }
     }
   }, [selectedLocation, map]);
+
   return null;
 }
 
@@ -45,6 +57,7 @@ export function BCMap() {
   const { tenantId, loading: tenantLoading } = useTenant();
   const [centers, setCenters] = useState<BusinessCenter[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [selectedCenter, setSelectedCenter] = useState<BusinessCenter | null>(null);
   const [userLatLng, setUserLatLng] = useState<[number, number] | null>(null);
   const [userAccuracy, setUserAccuracy] = useState<number | null>(null);
@@ -85,6 +98,7 @@ export function BCMap() {
       console.error("Error loading business centers for map:", err);
     } finally {
       setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -125,7 +139,7 @@ export function BCMap() {
     };
   }, []);
 
-  if (tenantLoading || loading) {
+  if (tenantLoading || initialLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#6B21A8] mb-4"></div>
@@ -258,8 +272,9 @@ export function BCMap() {
           {/* Map Canvas body */}
           <div className="flex-1 relative min-h-[420px] h-[500px] z-0">
             <MapContainer
-              center={mapCenter}
-              zoom={5}
+              key={userLatLng ? 'located' : 'default'}
+              center={userLatLng || mapCenter}
+              zoom={userLatLng ? 11 : 5}
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer

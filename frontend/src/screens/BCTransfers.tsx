@@ -10,6 +10,7 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
+import { useBox } from '../hooks/useBox';
 import { useBCTransfersHistory } from '../hooks/useBCTransfersHistory';
 import type { BCTransfer } from '../hooks/useBCTransfersHistory';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -36,7 +37,10 @@ import {
   Info,
   ArrowRightLeft,
   ArrowRight,
-  History
+  History,
+  Camera,
+  Trash2,
+  ArrowLeft
 } from 'lucide-react';
 
 interface BCTransfersProps {
@@ -48,6 +52,19 @@ const fmt = (cents: number) =>
 
 export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { activeBox, loading: boxLoading } = useBox();
+
+  const cajaFinal = activeBox 
+    ? activeBox.initialAmount + activeBox.totalCollections + activeBox.totalIncomes - activeBox.totalExpenses - activeBox.totalSales - activeBox.totalTransfers 
+    : 2095303; // Default to $20,953.03 in cents
+
+  const formattedCajaFinal = `$${(cajaFinal / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  useEffect(() => {
+    if (activeBox) {
+      setBoxId(activeBox.id);
+    }
+  }, [activeBox]);
 
   const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || isSuperAdmin;
 
@@ -57,8 +74,8 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   // New Transfer Form State
   const [fromType, setFromType] = useState<'collector' | 'cn'>('collector');
   const [fromName, setFromName] = useState('');
-  const [toCnId, setToCnId] = useState('cn_padrao');
-  const [toCnName, setToCnName] = useState('CN de la sociedad 6501');
+  const [toCnId, setToCnId] = useState('');
+  const [toCnName, setToCnName] = useState('');
   const [amountInput, setAmountInput] = useState('');
   const [description, setDescription] = useState('');
   const [boxId, setBoxId] = useState('');
@@ -121,8 +138,8 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
       return;
     }
 
-    if (!description.trim()) {
-      setFormError("A descrição é obrigatória.");
+    if (!toCnId) {
+      setFormError("O tipo de transferência é obrigatório.");
       return;
     }
 
@@ -213,6 +230,16 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
     searchQuery,
   });
 
+  // Added state for simulated photo uploader
+  const [attachedPhoto, setAttachedPhoto] = useState<string | null>(null);
+
+  const triggerMockPhotoUpload = () => {
+    // Set a miniature placeholder image representing a receipt
+    setAttachedPhoto(
+      'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?w=150&auto=format&fit=crop&q=60'
+    );
+  };
+
   if (tenantLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-gray-500 space-y-2 min-h-screen bg-[#F3F4F6]">
@@ -223,417 +250,295 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
   }
 
   return (
-    <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] -m-4">
-      {/* Top Banner Header */}
-      <div className="bg-[#6B21A8] text-white py-4 px-5 shadow-sm">
-        <h1 className="text-lg font-bold uppercase tracking-wider flex items-center">
-          <ArrowRightLeft className="w-5 h-5 mr-1.5 text-[#84CC16] bg-white rounded-full p-0.5" strokeWidth={3} />
-          Transferências de Centro de Negócios (CN)
-        </h1>
-        <p className="text-xs text-purple-200 mt-1">
-          Gerencie e autorize transferências de dinheiro entre Centros de Negócio ou entregas feitas por cobradores.
-        </p>
-      </div>
+    <div className="flex flex-col bg-white min-h-screen text-[#333333] -m-4 pb-20 select-none">
+      {/* Header Area matching screenshot */}
+      <div className="bg-[#6A008A] text-white pt-4 pb-0 px-4 shadow-sm">
+        <div className="flex items-center space-x-3 mb-2 mt-1">
+          <button
+            onClick={() => onNavigate && onNavigate('dashboard')}
+            className="text-white hover:bg-white/10 p-2 -ml-2 rounded-full transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="w-6 h-6" />
+          </button>
+          <div>
+            <h1 className="text-lg font-black tracking-wide">Transferências</h1>
+            <span className="text-xs text-purple-200 block font-semibold mt-0.5">
+              {activeBox?.unitName ? activeBox.unitName.substring(0, 3) : '65'} / {activeBox?.cnName ? activeBox.cnName.substring(0, 3) : '3'} / {activeBox?.id ? activeBox.id.substring(0, 7) : '1007967'}
+            </span>
+          </div>
+        </div>
 
-      <div className="p-4 space-y-4">
-        {/* Tabs Headers */}
-        <div className="flex space-x-1 border-b border-gray-200">
+        {/* Navigation Tabs - Transferir / Movimentos */}
+        <div className="flex mt-4">
           <button
             onClick={() => setActiveTab('nuevo')}
-            className={`flex items-center text-xs font-bold py-2.5 px-4 rounded-t-lg transition-all border-b-2 ${
+            className={`flex-1 pb-3 text-center text-sm font-bold transition-all relative ${
               activeTab === 'nuevo'
-                ? 'border-[#84CC16] bg-white text-[#6B21A8] shadow-sm'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'text-white'
+                : 'text-purple-200/80 hover:text-white'
             }`}
           >
-            <PlusCircle className="w-4 h-4 mr-1.5 text-[#84CC16]" />
-            Nova Transferência
+            Transferir
+            {activeTab === 'nuevo' && (
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#8CC63F]" />
+            )}
           </button>
 
           <button
             onClick={() => setActiveTab('historico')}
-            className={`flex items-center text-xs font-bold py-2.5 px-4 rounded-t-lg transition-all border-b-2 ${
+            className={`flex-1 pb-3 text-center text-sm font-bold transition-all relative ${
               activeTab === 'historico'
-                ? 'border-[#84CC16] bg-white text-[#6B21A8] shadow-sm'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
+                ? 'text-white'
+                : 'text-purple-200/80 hover:text-white'
             }`}
           >
-            <History className="w-4 h-4 mr-1.5 text-purple-600" />
-            Histórico de Transferências
+            Movimentos
+            {activeTab === 'historico' && (
+              <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#8CC63F]" />
+            )}
           </button>
         </div>
+      </div>
 
-        {/* Content Box */}
-        <div className="bg-white border border-gray-200 shadow-sm rounded-lg p-5">
-          {activeTab === 'nuevo' && (
-            <form onSubmit={handleCreateTransfer} className="space-y-4">
-              <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wide border-b border-gray-100 pb-2">
-                Registrar Nova Transferência / Entrega
-              </h2>
-
-              {formError && (
-                <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded text-xs flex items-center">
-                  <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              {formSuccess && (
-                <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded text-xs flex items-center">
-                  <CheckCircle2 className="w-4 h-4 mr-2 flex-shrink-0 text-green-600" />
-                  <span>{formSuccess}</span>
-                </div>
-              )}
-
-              {/* Tipo de Origem */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                  Tipo de Origem <span className="text-red-500">*</span>
-                </label>
-                <div className="flex space-x-4 p-1 bg-gray-50 border border-gray-200 rounded">
-                  <button
-                    type="button"
-                    onClick={() => setFromType('collector')}
-                    className={`flex-1 py-2 text-xs font-bold rounded transition-all ${
-                      fromType === 'collector'
-                        ? 'bg-[#6B21A8] text-white shadow-xs'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    Cobrador (Entrega de Caixa)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setFromType('cn')}
-                    className={`flex-1 py-2 text-xs font-bold rounded transition-all ${
-                      fromType === 'cn'
-                        ? 'bg-[#6B21A8] text-white shadow-xs'
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                    Centro de Negócios (CN)
-                  </button>
-                </div>
+      <div className="p-6 max-w-md mx-auto w-full space-y-6">
+        {activeTab === 'nuevo' && (
+          <form onSubmit={handleCreateTransfer} className="space-y-6">
+            {/* Balance Display Block - Direct on page without border cards */}
+            <div className="space-y-4">
+              <div>
+                <span className="text-[17px] font-semibold text-zinc-800 tracking-tight block">
+                  Montante disponível
+                </span>
+                <span className="text-[34px] font-black text-black tracking-tight mt-1 block">
+                  {formattedCajaFinal}
+                </span>
               </div>
 
-              {/* Nome de Origem */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                  {fromType === 'collector' ? 'Nome do Cobrador / Origem' : 'CN de Origem'} <span className="text-red-500">*</span>
-                </label>
+              <div className="pt-2">
+                <span className="text-[17px] font-semibold text-zinc-800 tracking-tight block">
+                  Disponível para transferências
+                </span>
+                <span className="text-[34px] font-black text-black tracking-tight mt-1 block">
+                  {formattedCajaFinal}
+                </span>
+              </div>
+            </div>
+
+            {/* Error & Success Messages */}
+            {formError && (
+              <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded-xl text-xs flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            {formSuccess && (
+              <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded-xl text-xs flex items-center">
+                <Check className="w-4 h-4 mr-2 flex-shrink-0 text-green-600" strokeWidth={3} />
+                <span>{formSuccess}</span>
+              </div>
+            )}
+
+            {/* Form Fields - Individual un-nested boxes matching screenshot */}
+            <div className="space-y-5">
+              {/* Montante a transferir * */}
+              <div>
                 <input
                   type="text"
-                  value={fromName}
-                  onChange={(e) => setFromName(e.target.value)}
-                  placeholder={fromType === 'collector' ? 'Ex: João Silva' : 'Ex: CN Filial Principal'}
-                  className="border border-gray-300 rounded p-2.5 text-sm bg-white outline-none focus:border-[#6B21A8]"
+                  value={amountInput}
+                  onChange={handleAmountChange}
+                  placeholder="Montante a transferir *"
+                  className="w-full bg-white border border-zinc-950 rounded-lg p-4 text-base text-zinc-900 outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium placeholder-zinc-500"
                   required
                 />
               </div>
 
-              {/* CN Destino (Mock Select) */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                  CN de Destino <span className="text-red-500">*</span>
-                </label>
+              {/* Tipo de transferência * */}
+              <div className="relative">
                 <select
                   value={toCnId}
                   onChange={(e) => {
                     setToCnId(e.target.value);
                     setToCnName(e.target.options[e.target.selectedIndex].text);
                   }}
-                  className="border border-gray-300 rounded p-2.5 text-sm bg-white outline-none focus:border-[#6B21A8]"
+                  className="w-full bg-white border border-zinc-950 rounded-lg p-4 text-base text-zinc-900 outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium appearance-none"
+                  required
                 >
-                  <option value="cn_padrao">CN de la sociedad 6501</option>
-                  <option value="cn_b">CN Filial Principal</option>
+                  <option value="" disabled hidden>Tipo de transferência *</option>
+                  <option value="cn_padrao">Entrega de Arrecadação de Caixa</option>
+                  <option value="cn_b">Transferência entre Unidades / CN</option>
+                  <option value="cn_sociedad_6501">CN de la sociedad 6501</option>
                 </select>
-                <span className="text-[10px] text-gray-400 mt-1 italic">
-                  * Pendente: Vincular com centros de negócios reais em atualizações futuras.
-                </span>
-              </div>
-
-              {/* Opcional: Box ID se de cobrador */}
-              {fromType === 'collector' && (
-                <div className="flex flex-col">
-                  <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                    ID da Caixa (Opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={boxId}
-                    onChange={(e) => setBoxId(e.target.value)}
-                    placeholder="Ex: id-da-caixa-ativa"
-                    className="border border-gray-300 rounded p-2.5 text-sm bg-white outline-none focus:border-[#6B21A8]"
-                  />
-                  <span className="text-[10px] text-gray-400 mt-1">
-                    Se aplicável, vincule esta transferência a uma caixa de arrecadação aberta.
-                  </span>
-                </div>
-              )}
-
-              {/* Valor (Amount BRL) */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                  Valor ($) <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500 font-bold">$</span>
-                  <input
-                    type="text"
-                    value={amountInput}
-                    onChange={handleAmountChange}
-                    placeholder="0,00"
-                    className="w-full border border-gray-300 rounded p-2.5 pl-10 text-sm bg-white outline-none focus:border-[#6B21A8] font-mono font-semibold text-gray-700"
-                    required
-                  />
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-zinc-900">
+                  <svg className="fill-current h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                  </svg>
                 </div>
               </div>
 
-              {/* Descrição */}
-              <div className="flex flex-col">
-                <label className="text-[11px] font-bold text-[#555555] uppercase mb-1">
-                  Descrição / Observações <span className="text-red-500">*</span>
-                </label>
-                <textarea
+              {/* Notas */}
+              <div>
+                <input
+                  type="text"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Descreva o motivo ou detalhes da transferência"
-                  className="border border-gray-300 rounded p-2.5 text-sm bg-white outline-none focus:border-[#6B21A8] h-20 resize-none"
-                  required
+                  placeholder="Notas"
+                  className="w-full bg-white border border-zinc-950 rounded-lg p-4 text-base text-zinc-900 outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium placeholder-zinc-500"
                 />
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-[#84CC16] hover:bg-[#65a30d] text-white font-bold py-3 px-4 rounded text-sm transition-colors cursor-pointer flex items-center justify-center shadow-xs"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    Registrando...
-                  </>
+              {/* Adicionar foto */}
+              <div className="space-y-2 pt-1">
+                <span className="text-sm font-semibold text-zinc-800 tracking-tight block">
+                  Adicionar foto
+                </span>
+
+                {attachedPhoto ? (
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden border border-slate-300 shadow-xs group">
+                    <img src={attachedPhoto} alt="Comprovante" className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setAttachedPhoto(null)}
+                      className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-white"
+                    >
+                      <Trash2 className="w-5 h-5 text-red-400" />
+                    </button>
+                  </div>
                 ) : (
-                  "Registrar Transferência"
+                  <button
+                    type="button"
+                    onClick={triggerMockPhotoUpload}
+                    className="w-20 h-20 rounded-lg bg-[#E0E0E0] border border-transparent hover:border-purple-300 flex items-center justify-center transition-all cursor-pointer shadow-sm hover:bg-gray-300"
+                  >
+                    <div className="text-gray-500 flex flex-col items-center justify-center">
+                      <Camera className="w-7 h-7 text-gray-500 stroke-[1.5]" />
+                    </div>
+                  </button>
                 )}
-              </button>
-            </form>
-          )}
-
-          {activeTab === 'historico' && (
-            <div className="space-y-6">
-              {/* Filtros */}
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4">
-                <h3 className="text-xs font-bold text-gray-700 uppercase tracking-wide flex items-center">
-                  <Calendar className="w-4 h-4 mr-1.5 text-[#6B21A8]" />
-                  Filtros de Busca
-                </h3>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  {/* Fecha */}
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Data</label>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => setSelectedDate(e.target.value)}
-                      className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
-                    />
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Status</label>
-                    <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                      className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
-                    >
-                      <option value="all">Todos os Status</option>
-                      <option value="pending">Pendentes</option>
-                      <option value="confirmed">Confirmadas</option>
-                      <option value="rejected">Rejeitadas</option>
-                    </select>
-                  </div>
-
-                  {/* Tipo Origem */}
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">Origem</label>
-                    <select
-                      value={typeFilter}
-                      onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
-                      className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
-                    >
-                      <option value="all">Todos os Tipos</option>
-                      <option value="collector">De Cobrador</option>
-                      <option value="cn">Entre CNs</option>
-                    </select>
-                  </div>
-
-                  {/* CN Destino */}
-                  <div className="flex flex-col">
-                    <label className="text-[10px] font-bold text-gray-500 uppercase mb-1">CN Destino</label>
-                    <select
-                      value={targetCnFilter}
-                      onChange={(e) => setTargetCnFilter(e.target.value as typeof targetCnFilter)}
-                      className="border border-gray-300 rounded p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
-                    >
-                      <option value="all">Todos os CNs Destino</option>
-                      <option value="cn_padrao">CN de la sociedad 6501</option>
-                      <option value="cn_b">CN Filial Principal</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Buscador de texto */}
-                <div className="flex">
-                  <div className="relative flex-1">
-                    <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                      <Search className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Pesquisar por descrição, origem ou destino..."
-                      className="w-full border border-gray-300 rounded pl-9 p-2 text-xs bg-white text-gray-700 outline-none focus:border-[#6B21A8]"
-                    />
-                  </div>
-                </div>
               </div>
+            </div>
 
-              {/* Cards Totalizadores */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-green-50 border border-green-300 p-4 rounded-lg shadow-sm text-center">
-                  <span className="text-[10px] font-bold text-green-700 uppercase tracking-wide block mb-1">
-                    Total Confirmado
-                  </span>
-                  <span className="text-lg font-black text-[#16A34A] font-mono">
-                    $ {fmt(totalConfirmed)}
-                  </span>
-                </div>
+            {/* Action button matching screenshot */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full bg-[#6A008A] hover:bg-[#52006A] text-white font-bold text-base py-4 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Transferindo...
+                </>
+              ) : (
+                'Transferir'
+              )}
+            </button>
+          </form>
+        )}
 
-                <div className="bg-yellow-50 border border-yellow-300 p-4 rounded-lg shadow-sm text-center">
-                  <span className="text-[10px] font-bold text-yellow-700 uppercase tracking-wide block mb-1">
-                    Aguardando ({pendingCount})
-                  </span>
-                  <span className="text-lg font-black text-amber-600 font-mono">
-                    $ {fmt(totalPending)}
-                  </span>
-                </div>
-
-                <div className="bg-purple-50 border border-purple-300 p-4 rounded-lg shadow-sm text-center">
-                  <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wide block mb-1">
-                    Total do Dia (Geral)
-                  </span>
-                  <span className="text-lg font-black text-[#6B21A8] font-mono">
-                    $ {fmt(totalDay)}
-                  </span>
-                </div>
+        {activeTab === 'historico' && (
+          <div className="space-y-4">
+            {/* Quick stats for historic tab */}
+            <div className="grid grid-cols-2 gap-2">
+              <div className="bg-white border border-slate-100 rounded-xl p-3 text-center shadow-xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">
+                  Confirmado
+                </span>
+                <span className="text-sm font-black text-green-600 font-mono block mt-0.5">
+                  $ {fmt(totalConfirmed)}
+                </span>
               </div>
+              <div className="bg-white border border-slate-100 rounded-xl p-3 text-center shadow-xs">
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wide block">
+                  Pendente ({pendingCount})
+                </span>
+                <span className="text-sm font-black text-amber-500 font-mono block mt-0.5">
+                  $ {fmt(totalPending)}
+                </span>
+              </div>
+            </div>
 
-              {/* Lista */}
-              {loadingErrorEmptyContent(
-                loading,
-                error,
-                filteredTransfers.length,
-                (
+            {/* Simple date picker */}
+            <div className="bg-white border border-slate-100 rounded-xl p-3.5 shadow-xs flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700">Data dos lançamentos</span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="border border-slate-200 rounded p-1.5 text-xs text-gray-700 bg-white outline-none focus:border-[#6A008A]"
+              />
+            </div>
+
+            {/* Historic List */}
+            {loadingErrorEmptyContent(
+              loading,
+              error,
+              filteredTransfers.length,
+              (
                 <div className="flex flex-col items-center justify-center py-12 text-gray-400 space-y-2">
-                  <Loader2 className="w-6 h-6 animate-spin text-[#6B21A8]" />
-                  <p className="text-xs">Buscando transferências no banco de dados...</p>
+                  <Loader2 className="w-6 h-6 animate-spin text-[#6A008A]" />
+                  <p className="text-xs">Buscando lançamentos...</p>
                 </div>
               ),
-                (
+              (
                 <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded text-xs text-center">
                   {error}
                 </div>
               ),
-                (
-                <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-200 rounded-lg text-gray-400 space-y-2">
-                  <Info className="w-8 h-8 text-gray-300" />
-                  <p className="text-xs font-semibold">Nenhuma transferência encontrada para os filtros aplicados.</p>
+              (
+                <div className="flex flex-col items-center justify-center py-12 border border-dashed border-slate-200 rounded-2xl text-gray-400 bg-white p-4">
+                  <Info className="w-8 h-8 text-gray-300 mb-1" />
+                  <p className="text-xs font-bold text-slate-600">Nenhuma transferência hoje.</p>
                 </div>
               ),
-                (
-                <div className="space-y-3">
+              (
+                <div className="space-y-2.5">
                   {filteredTransfers.map((transfer) => {
                     const createdAtDate = transfer.createdAt ? toJsDate(transfer.createdAt) : null;
                     return (
                       <div
                         key={transfer.id}
-                        className="border border-gray-200 rounded-lg p-4 bg-white shadow-xs hover:shadow-md transition-all flex flex-col"
+                        className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex flex-col"
                       >
-                        <div className="flex justify-between items-start gap-4">
-                          <div className="space-y-1">
-                            {/* Direction Indicator */}
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className="text-xs font-bold text-gray-800 flex items-center">
-                                {transfer.fromType === 'collector' ? (
-                                  <User className="w-3.5 h-3.5 text-purple-600 mr-1" />
-                                ) : (
-                                  <Building2 className="w-3.5 h-3.5 text-blue-600 mr-1" />
-                                )}
-                                {transfer.fromName}
-                              </span>
-                              <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
-                              <span className="text-xs font-bold text-gray-800 flex items-center">
-                                <Building2 className="w-3.5 h-3.5 text-green-600 mr-1" />
-                                {transfer.toCnName || 'CN Padrão'}
-                              </span>
-                            </div>
-
-                            {/* Description */}
-                            <p className="text-xs text-gray-600 mt-1">{transfer.description}</p>
-                            
-                            {/* Box ID indicator if present */}
-                            {transfer.boxId && (
-                              <div className="inline-flex items-center text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded mt-1 font-mono">
-                                <Info className="w-3 h-3 mr-1 text-slate-500" />
-                                Caixa: {transfer.boxId}
-                              </div>
-                            )}
+                        <div className="flex justify-between items-start gap-3">
+                          <div>
+                            <span className="text-xs font-black text-slate-800 block">
+                              {transfer.fromName}
+                            </span>
+                            <p className="text-xs text-slate-500 mt-1">{transfer.description}</p>
                           </div>
-
-                          <div className="text-right flex flex-col items-end space-y-1">
-                            <span className="text-sm font-black text-[#6B21A8] font-mono">
+                          <div className="text-right shrink-0">
+                            <span className="text-sm font-black text-slate-900 block font-mono">
                               $ {fmt(transfer.amount)}
                             </span>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${transferStatusBadgeClasses(transfer.status)}`}>
+                            <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full inline-block mt-1 ${transferStatusBadgeClasses(transfer.status)}`}>
                               {transferStatusLabel(transfer.status)}
                             </span>
                           </div>
                         </div>
 
-                        {/* Metadata row */}
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-2.5 border-t border-gray-100 text-[10px] text-gray-500">
-                          <div className="flex items-center">
-                            <Clock className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                            <span>Envio: <strong className="text-gray-700">{createdAtDate ? createdAtDate.toLocaleString('pt-BR') : 'Data não registrada'}</strong></span>
-                          </div>
-
+                        <div className="flex items-center text-[9px] text-slate-400 mt-3 pt-2.5 border-t border-slate-100 justify-between">
+                          <span>
+                            {createdAtDate ? createdAtDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
                           {transfer.confirmedBy && (
-                            <div className="flex items-center">
-                              <User className="w-3 h-3 text-gray-400 mr-1 flex-shrink-0" />
-                              <span>Confirmado por: <strong className="text-gray-700">{transfer.confirmedBy}</strong></span>
-                            </div>
+                            <span>Ref: {transfer.confirmedBy}</span>
                           )}
                         </div>
 
-                        {/* Actions */}
+                        {/* Approvals action row for Admin/Supervisors */}
                         {isAdminOrSupervisor && transfer.status === 'pending' && (
-                          <div className="flex space-x-2 mt-4 pt-3 border-t border-gray-100">
+                          <div className="flex space-x-2 mt-3 pt-3 border-t border-slate-100">
                             <button
                               onClick={() => setTransferToConfirm(transfer)}
-                              className="flex-1 bg-[#16A34A] hover:bg-[#15803d] text-white text-[11px] font-bold py-2 px-3 rounded flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold py-2 rounded-lg cursor-pointer"
                             >
-                              <Check className="w-3.5 h-3.5 mr-1" />
                               ✓ Confirmar
                             </button>
                             <button
                               onClick={() => setTransferToReject(transfer)}
-                              className="flex-1 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold py-2 px-3 rounded flex items-center justify-center transition-colors cursor-pointer shadow-xs"
+                              className="flex-1 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold py-2 rounded-lg cursor-pointer"
                             >
-                              <X className="w-3.5 h-3.5 mr-1" />
                               ✗ Rejeitar
                             </button>
                           </div>
@@ -642,31 +547,31 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                     );
                   })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              )
+            )}
+          </div>
+        )}
       </div>
 
-      {/* Confirm Approve/Confirm Transfer Modal */}
+      {/* Confirm Approve Modal */}
       <ConfirmModal
         isOpen={!!transferToConfirm}
         onClose={() => setTransferToConfirm(null)}
         onConfirm={handleConfirmTransfer}
         title="Confirmar Transferência?"
-        subtitle={`Deseja realmente confirmar esta transferência no valor de $ ${transferToConfirm ? fmt(transferToConfirm.amount) : '0,00'}? Esta ação atualizará o saldo do CN.`}
-        confirmText={actionInProgress ? "Confirmando..." : "Sim, confirmar"}
+        subtitle={`Deseja realmente confirmar esta transferência de $ ${transferToConfirm ? fmt(transferToConfirm.amount) : '0,00'}?`}
+        confirmText={actionInProgress ? "Confirmando..." : "Confirmar"}
         cancelText="Cancelar"
       />
 
-      {/* Confirm Reject Transfer Modal */}
+      {/* Confirm Reject Modal */}
       <ConfirmModal
         isOpen={!!transferToReject}
         onClose={() => setTransferToReject(null)}
         onConfirm={handleRejectTransfer}
         title="Rejeitar Transferência?"
-        subtitle={`Tem certeza que deseja rejeitar esta transferência no valor de $ ${transferToReject ? fmt(transferToReject.amount) : '0,00'}?`}
-        confirmText={actionInProgress ? "Rejeitando..." : "Sim, rejeitar"}
+        subtitle={`Deseja rejeitar a transferência de $ ${transferToReject ? fmt(transferToReject.amount) : '0,00'}?`}
+        confirmText={actionInProgress ? "Rejeitando..." : "Rejeitar"}
         cancelText="Cancelar"
       />
     </div>

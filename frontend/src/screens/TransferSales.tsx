@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { Screen } from '../types';
 import { useTenant } from '../hooks/useTenant';
+import { BCTransfers } from './BCTransfers';
 import { useTransferSalesData } from '../hooks/useTransferSalesData';
 import { fmtTransferSales } from '../utils/transferSalesFormat';
 import { ConfirmModal } from './components/ConfirmModal';
@@ -72,6 +73,10 @@ export function TransferSales({ onNavigate }: TransferSalesProps) {
         <p className="text-xs font-semibold">Cargando datos organizacionales...</p>
       </div>
     );
+  }
+
+  if (role === 'collector') {
+    return <BCTransfers onNavigate={onNavigate} />;
   }
 
   return (
