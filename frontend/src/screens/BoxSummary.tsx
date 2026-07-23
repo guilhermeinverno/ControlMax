@@ -1,9 +1,11 @@
+import { fmtCents } from '../utils/fmtCents';
 import { getErrorMessage } from '../utils/errorMessage';
 import { useState, useEffect } from 'react';
 import { Screen, Box } from '../types';
 import { Search, ChevronLeft, ChevronRight, Download, AlertCircle } from 'lucide-react';
 import { boxStatusLabel, boxStatusBadgeBorderClasses } from '../utils/statusLabels';
 import { useTenant } from '../hooks/useTenant';
+import { useBox } from '../hooks/useBox';
 import { getBoxSummaryUserId, searchBoxSummaryForDate, type BoxTransaction } from '../utils/boxSummarySearch';
 import * as XLSX from 'xlsx';
 
@@ -12,7 +14,10 @@ interface BoxSummaryProps {
 }
 
 export function BoxSummary({ onNavigate }: BoxSummaryProps) {
-  const { tenantId, loading: tenantLoading } = useTenant();
+  const { tenantId, role, loading: tenantLoading } = useTenant();
+  const roleStr = String(role || '');
+  const { confirmBox } = useBox();
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Local helper to get today's date in YYYY-MM-DD
   const getTodayString = () => {
@@ -93,7 +98,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
         'Tipo Movimento': typeLabel,
         'Descrição': tx.description,
         'Usuário': tx.userName,
-        'Valor ($)': (tx.amount / 100).toFixed(2),
+        'Valor ($)': fmtCents(tx.amount),
       };
     });
 
@@ -249,36 +254,74 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
               <div className="space-y-1.5">
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Caja Inicial</span>
-                  <span className="font-semibold text-[#333333]">$ {(box.initialAmount / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#333333]">$ {fmtCents(box.initialAmount)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Ingresos</span>
-                  <span className="font-semibold text-[#16A34A]">+ $ {(box.totalIncomes / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#16A34A]">+ $ {fmtCents(box.totalIncomes)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Gastos</span>
-                  <span className="font-semibold text-[#DC2626]">- $ {(box.totalExpenses / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#DC2626]">- $ {fmtCents(box.totalExpenses)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Transferencias</span>
-                  <span className="font-semibold text-[#DC2626]">- $ {(box.totalTransfers / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#DC2626]">- $ {fmtCents(box.totalTransfers)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Recaudo</span>
-                  <span className="font-semibold text-[#16A34A]">+ $ {(box.totalCollections / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#16A34A]">+ $ {fmtCents(box.totalCollections)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Ventas</span>
-                  <span className="font-semibold text-[#16A34A]">+ $ {(box.totalSales / 100).toFixed(2)}</span>
+                  <span className="font-semibold text-[#16A34A]">+ $ {fmtCents(box.totalSales)}</span>
                 </div>
               </div>
               
               <div className="flex justify-between items-center bg-[#FAF5FF] border border-[#D8B4FE] mt-2 rounded-sm p-2">
                 <span className="font-bold text-[#333333] uppercase text-[11px]">Caja Final</span>
                 <span className="font-extrabold text-[#7B1FA2] text-sm">
-                  $ {(box.finalAmount / 100).toFixed(2)}
+                  $ {fmtCents(box.finalAmount)}
                 </span>
               </div>
+              
+              {box.expectedFinalAmount !== undefined && (
+                <div className="flex justify-between items-center bg-gray-50 border border-gray-200 mt-2 rounded-sm p-2">
+                  <span className="font-bold text-[#333333] uppercase text-[11px]">Saldo Previsto</span>
+                  <span className="font-bold text-gray-700 text-sm">
+                    $ {fmtCents(box.expectedFinalAmount)}
+                  </span>
+                </div>
+              )}
+              {box.difference !== undefined && (
+                <div className="flex justify-between items-center bg-gray-50 border border-gray-200 mt-2 rounded-sm p-2">
+                  <span className="font-bold text-[#333333] uppercase text-[11px]">Diferença</span>
+                  <span className={`font-bold text-sm ${box.difference < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    $ {fmtCents(box.difference)}
+                  </span>
+                </div>
+              )}
+
+              {box.status === 'closed' && (roleStr === 'admin' || roleStr === 'superadmin' || roleStr === 'supervisor') && (
+                <button
+                  onClick={async () => {
+                    if (!window.confirm("Tem certeza que deseja confirmar esta caixa? Esta ação é irreversível e bloqueará a caixa contra alterações.")) return;
+                    setIsConfirming(true);
+                    try {
+                      await confirmBox(box.id);
+                      setBox({...box, status: 'confirmed'});
+                    } catch (err: any) {
+                      alert(err.message || "Erro ao confirmar caixa");
+                    } finally {
+                      setIsConfirming(false);
+                    }
+                  }}
+                  disabled={isConfirming}
+                  className="w-full bg-[#6B21A8] text-white font-bold py-2 text-xs rounded-sm shadow-sm uppercase mt-3 hover:bg-[#581C87] transition-colors disabled:opacity-75"
+                >
+                  {isConfirming ? 'Confirmando...' : 'Confirmar Caixa (Auditoria)'}
+                </button>
+              )}
             </div>
 
             {/* EXTRATO (Tabela de movimentos) */}
@@ -322,7 +365,7 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
                             <td className="p-2 text-[#555555] text-[11px] italic">{tx.description || '-'}</td>
                             <td className="p-2 whitespace-nowrap text-[#555555]">{tx.userName}</td>
                             <td className={`p-2 font-bold text-right ${getTypeStyle(tx.type)}`}>
-                              {getSign(tx.type)} $ {(tx.amount / 100).toFixed(2)}
+                              {getSign(tx.type)} $ {fmtCents(tx.amount)}
                             </td>
                           </tr>
                         );

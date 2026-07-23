@@ -15,14 +15,14 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate: _onNavigate }: DashboardProps) {
-  const { tenantId, role, loading: tenantLoading } = useTenant();
+  const { tenantId, role, usuarioUnidades, loading: tenantLoading } = useTenant();
 
   useEffect(() => {
     if (role === 'collector' && _onNavigate) {
       _onNavigate('sales');
     }
   }, [role, _onNavigate]);
-  const { boxes, loading: loadingBoxes, error } = useDashboardBoxes(tenantId);
+  const { boxes, loading: loadingBoxes, error } = useDashboardBoxes(tenantId, usuarioUnidades);
 
   const [selectedCnId, setSelectedCnId] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');

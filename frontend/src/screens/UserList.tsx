@@ -1,10 +1,11 @@
 import { logFirestoreError } from '../utils/firestoreError';
 import { useState, useEffect } from 'react';
 import type { HtmlFormSubmitEvent } from '../types/reactEvents';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { collection, query, where, addDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { listViewBody } from '../utils/listViewBody';
+import { logSecurityAction } from '../utils/securityLogger';
 import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface AppUser {
@@ -24,7 +25,7 @@ interface AppUser {
 }
 
 export function UserList() {
-  const { tenantId } = useTenant();
+  const { tenantId, role } = useTenant();
 
   // Mode: 'list' or 'create'
   const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
@@ -139,6 +140,15 @@ export function UserList() {
     try {
       // Create user document in the database
       await addDoc(collection(db, 'users'), newUser);
+      
+      // Log successful CHANGE_PERMISSION
+      await logSecurityAction(
+        auth?.currentUser?.uid || 'unknown-user',
+        role || 'unknown-role',
+        'CHANGE_PERMISSION',
+        'all',
+        'SUCCESS'
+      ).catch(e => console.error('Silent log error:', e));
       
       setNotification({ type: 'success', message: '¡Usuario registrado exitosamente!' });
 

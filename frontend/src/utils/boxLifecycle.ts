@@ -16,6 +16,7 @@ import { auth, db } from '../lib/firebase';
 import { Box } from '../types';
 
 export interface OpenBoxParams {
+  date: string;
   unitId: string;
   unitName: string;
   cnId: string;
@@ -31,17 +32,19 @@ export async function createOpenBox(
   params: OpenBoxParams
 ): Promise<void> {
   const boxesRef = collection(db, 'boxes');
+  
+  // 2. LOGICA E VALIDAÇÃO DE ABERTURA (Sin Caja -> Abierta)
   const activeCheckQuery = query(
     boxesRef,
     where('tenantId', '==', tenantId),
-    where('userId', '==', userId),
-    where('status', '==', 'open'),
-    limit(1)
+    where('unitId', '==', params.unitId),
+    where('date', '==', params.date),
+    where('status', 'in', ['open', 'closed', 'confirmed'])
   );
 
   const checkSnap = await getDocs(activeCheckQuery);
   if (!checkSnap.empty) {
-    throw new Error('El usuario ya tiene una caja abierta.');
+    throw new Error('Já existe um caixa aberto ou fechado para esta Unidade nesta data.');
   }
 
   await addDoc(collection(db, 'boxes'), {
@@ -58,6 +61,7 @@ export async function createOpenBox(
       'Cobrador',
     status: 'open' as const,
     openedAt: serverTimestamp(),
+    date: params.date,
     initialAmount: Math.round(params.initialAmount),
     observation: params.observation || '',
     totalIncomes: 0,
@@ -66,10 +70,12 @@ export async function createOpenBox(
     totalCollections: 0,
     totalTransfers: 0,
     finalAmount: Math.round(params.initialAmount),
+    expectedFinalAmount: Math.round(params.initialAmount),
+    difference: 0,
   });
 }
 
-export async function closeActiveBox(activeBox: Box): Promise<void> {
+export async function closeActiveBox(activeBox: Box, realFinalAmount: number): Promise<void> {
   const boxRef = doc(db, 'boxes', activeBox.id);
 
   const [incomesSnap, expensesSnap, salesSnap, collectionsSnap, transfersSnap] = await Promise.all([
@@ -117,7 +123,8 @@ export async function closeActiveBox(activeBox: Box): Promise<void> {
   const totalCollections = collectionsSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
   const totalTransfers = transfersSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
 
-  const finalAmount =
+  // 3. LÓGICA DE FECHAMENTO E SALDO PREVISTO (Abierta -> Cerrada)
+  const expectedFinalAmount =
     activeBox.initialAmount +
     totalCollections +
     totalIncomes -
@@ -125,10 +132,13 @@ export async function closeActiveBox(activeBox: Box): Promise<void> {
     totalSales -
     totalTransfers;
 
+  const difference = realFinalAmount - expectedFinalAmount;
+
   await runTransaction(db, async (transaction) => {
     const boxSnap = await transaction.get(boxRef);
     if (!boxSnap.exists()) throw new Error('Caixa não encontrada');
-    if (boxSnap.data().status !== 'open') throw new Error('Caixa já foi fechada');
+    const boxData = boxSnap.data();
+    if (boxData.status !== 'open') throw new Error('Caixa já foi fechada');
 
     transaction.update(boxRef, {
       status: 'closed',
@@ -138,17 +148,48 @@ export async function closeActiveBox(activeBox: Box): Promise<void> {
       totalSales,
       totalCollections,
       totalTransfers,
-      finalAmount,
+      finalAmount: realFinalAmount,
+      expectedFinalAmount,
+      difference,
     });
   });
 }
 
-export async function confirmBoxByAdmin(boxId: string): Promise<void> {
-  await updateDoc(doc(db, 'boxes', boxId), {
-    status: 'confirmed' as const,
-    confirmedAt: serverTimestamp(),
-    confirmedBy: auth?.currentUser?.uid || 'test-user-id',
+export async function confirmBoxByAdmin(boxId: string, tenantId?: string): Promise<void> {
+  // 4. LÓGICA DE CONFIRMAÇÃO E IMUTABILIDADE (Cerrada -> Confirmada)
+  const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+
+  const response = await fetch('/api/boxes/confirm', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      boxId
+    })
   });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Erro do servidor (${response.status}) ao confirmar caixa.`);
+  }
+}
+
+export async function checkBoxIsMutable(boxId: string): Promise<void> {
+  const boxSnap = await getDocs(
+    query(
+      collection(db, 'boxes'),
+      where('__name__', '==', boxId),
+      limit(1)
+    )
+  );
+  if (!boxSnap.empty) {
+    const status = boxSnap.docs[0].data().status;
+    if (status === 'confirmed') {
+      throw new Error('Operação bloqueada: Caixa já confirmado e auditado');
+    }
+  }
 }
 
 export function logBoxError(err: unknown, operation: FirestoreOperationType, path: string): string {

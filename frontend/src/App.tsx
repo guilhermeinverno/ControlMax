@@ -1,7 +1,34 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode, useEffect, useState } from 'react';
 import { HashRouter } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { NavigationProvider } from './context/NavigationContext';
 import { AppRoutes } from './routes/AppRoutes';
+
+function OfflineBanner() {
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  if (!isOffline) return null;
+
+  return (
+    <div className="bg-orange-500 text-white text-center py-1 text-xs font-semibold uppercase tracking-widest fixed top-0 w-full z-[9999] shadow-md flex items-center justify-center space-x-2">
+      <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+      <span>Modo Offline - Você está operando offline</span>
+    </div>
+  );
+}
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: Error | null; errorInfo: ErrorInfo | null }> {
   state = { hasError: false, error: null as Error | null, errorInfo: null as ErrorInfo | null };
@@ -44,6 +71,8 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
 export default function App() {
   return (
     <ErrorBoundary>
+      <Toaster position="top-center" />
+      <OfflineBanner />
       <HashRouter>
         <NavigationProvider>
           <AppRoutes />

@@ -1,9 +1,11 @@
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { Screen } from '../types';
 import { useTenant } from '../hooks/useTenant';
 import { useSaleDetailData } from '../hooks/useSaleDetailData';
 import { buildSaleFinancialDisplay } from '../utils/saleDetailDisplay';
 import { SaleDetailContent } from './components/saleDetail/SaleDetailContent';
+import { useEffect } from 'react';
 
 interface SaleDetailProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
@@ -11,9 +13,21 @@ interface SaleDetailProps {
 }
 
 export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
-  const { tenantId } = useTenant();
+  const { tenantId, usuarioUnidades } = useTenant();
   const saleId = params?.saleId as string | undefined;
   const { sale, payments, loading } = useSaleDetailData(saleId, tenantId);
+
+  useEffect(() => {
+    if (!loading && sale && usuarioUnidades && usuarioUnidades.length > 0) {
+      const allowed = sale.unitId ? usuarioUnidades.includes(sale.unitId) : true;
+      if (!allowed) {
+        toast.error('Acceso denegado. No tiene permisos para ver esta venta.');
+        if (onNavigate) {
+          onNavigate('dashboard');
+        }
+      }
+    }
+  }, [loading, sale, usuarioUnidades, onNavigate]);
 
   if (!saleId) {
     return (

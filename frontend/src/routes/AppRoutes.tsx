@@ -1,5 +1,5 @@
-import { lazy, Suspense, useState, useEffect, type ComponentType } from 'react';
-import { Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { lazy, Suspense, useState, useEffect, type ComponentType, useRef } from 'react';
+import { Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { User } from 'firebase/auth';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { auth, onAuthStateChanged } from '../lib/firebase';
@@ -9,6 +9,8 @@ import { Layout } from '../screens/components/Layout';
 import { Login } from '../screens/Login';
 import { SuperAdmin } from '../screens/SuperAdmin';
 import { Dashboard } from '../screens/Dashboard';
+import { hasPermission } from '../utils/rbac';
+import { toast } from 'react-hot-toast';
 
 // Lazy loading all screen components for optimized code-splitting and performance
 // Dashboard is imported statically above to ensure correct React context and hook resolution
@@ -112,6 +114,44 @@ function TenantBootstrapError({
       </div>
     </div>
   );
+}
+
+interface ProtectedRouteProps {
+  permission: string;
+  redirectTo?: string;
+}
+
+function ProtectedRoute({ permission, redirectTo = '/dashboard' }: ProtectedRouteProps) {
+  const { role, permissions, loading } = useTenant();
+  const location = useLocation();
+  const toastFired = useRef(false);
+
+  useEffect(() => {
+    if (!loading) {
+      const user = { role: role || '', permissions };
+      const allowed = hasPermission(user, permission);
+      if (!allowed && !toastFired.current) {
+        toastFired.current = true;
+        toast.error('Acesso negado: Você não tem permissão para acessar este recurso.');
+        setTimeout(() => {
+          toastFired.current = false;
+        }, 3000);
+      }
+    }
+  }, [loading, role, permissions, permission]);
+
+  if (loading) {
+    return null;
+  }
+
+  const user = { role: role || '', permissions };
+  const allowed = hasPermission(user, permission);
+
+  if (!allowed) {
+    return <Navigate to={redirectTo} replace />;
+  }
+
+  return <Outlet />;
 }
 
 /**
@@ -260,7 +300,6 @@ export function AppRoutes() {
         <Route path="/statistics" element={<ScreenWrapper Component={Statistics} />} />
         <Route path="/forms" element={<ScreenWrapper Component={Forms} />} />
         <Route path="/sales" element={<ScreenWrapper Component={SalesList} />} />
-        <Route path="/summary" element={<ScreenWrapper Component={Summary} />} />
         <Route path="/holidays" element={<ScreenWrapper Component={Holidays} />} />
         <Route path="/edit-route" element={<ScreenWrapper Component={EditRoute} />} />
         <Route path="/route-list" element={<ScreenWrapper Component={RouteList} />} />
@@ -276,15 +315,22 @@ export function AppRoutes() {
         <Route path="/new-income" element={<ScreenWrapper Component={NewIncome} />} />
         <Route path="/new-expense" element={<ScreenWrapper Component={NewExpense} />} />
         <Route path="/performance" element={<ScreenWrapper Component={Performance} />} />
-        <Route path="/box-summary" element={<ScreenWrapper Component={BoxSummary} />} />
+        
+        {/* Protected Routes (Auditoria, Fechamento Geral, Configurações de Unidades) */}
+        <Route element={<ProtectedRoute permission="caja:confirmar" />}>
+          <Route path="/dashboard/auditoria" element={<ScreenWrapper Component={PeriodSummary} />} />
+          <Route path="/summary" element={<ScreenWrapper Component={Summary} />} />
+          <Route path="/period-summary" element={<ScreenWrapper Component={PeriodSummary} />} />
+          <Route path="/box-summary" element={<ScreenWrapper Component={BoxSummary} />} />
+          <Route path="/business-centers" element={<ScreenWrapper Component={BusinessCenters} />} />
+          <Route path="/platform-management" element={<ScreenWrapper Component={PlatformManagement} />} />
+        </Route>
+
         <Route path="/transfer-sales" element={<ScreenWrapper Component={TransferSales} />} />
         <Route path="/mass-box-opening" element={<ScreenWrapper Component={MassBoxOpening} />} />
         <Route path="/auto-keys" element={<ScreenWrapper Component={AutoKeys} />} />
         <Route path="/credit-requests" element={<ScreenWrapper Component={CreditRequests} />} />
-        <Route path="/business-centers" element={<ScreenWrapper Component={BusinessCenters} />} />
         <Route path="/collection-cleaning" element={<ScreenWrapper Component={CollectionCleaning} />} />
-        <Route path="/period-summary" element={<ScreenWrapper Component={PeriodSummary} />} />
-        <Route path="/platform-management" element={<ScreenWrapper Component={PlatformManagement} />} />
         <Route path="/ai-assistant" element={<ScreenWrapper Component={AIAssistant} />} />
         <Route path="/worker-profile" element={<ScreenWrapper Component={WorkerProfile} />} />
 

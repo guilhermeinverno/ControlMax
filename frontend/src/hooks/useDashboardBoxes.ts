@@ -14,7 +14,7 @@ function mapSnapshotToBoxes(docs: { id: string; data: () => Record<string, unkno
   });
 }
 
-export function useDashboardBoxes(tenantId?: string) {
+export function useDashboardBoxes(tenantId?: string, usuarioUnidades?: string[]) {
   const [boxes, setBoxes] = useState<DashboardBoxRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,7 +25,19 @@ export function useDashboardBoxes(tenantId?: string) {
     setError(null);
 
     const boxesRef = collection(db, 'boxes');
-    const q = query(boxesRef, where('tenantId', '==', tenantId), orderBy('openedAt', 'desc'), limit(30));
+    const constraints = [where('tenantId', '==', tenantId)];
+
+    if (usuarioUnidades && usuarioUnidades.length > 0) {
+      if (usuarioUnidades.length === 1) {
+        constraints.push(where('unitId', '==', usuarioUnidades[0]));
+      } else {
+        constraints.push(where('unitId', 'in', usuarioUnidades));
+      }
+    } else {
+      constraints.push(where('unitId', '==', 'none_assigned'));
+    }
+
+    const q = query(boxesRef, ...constraints, orderBy('openedAt', 'desc'), limit(30));
 
     const unsubscribe = onSnapshot(
       q,
@@ -36,7 +48,7 @@ export function useDashboardBoxes(tenantId?: string) {
       (err) => {
         console.warn('Boxes query with orderBy failed, using fallback query without orderBy:', err);
 
-        const fallbackQuery = query(boxesRef, where('tenantId', '==', tenantId));
+        const fallbackQuery = query(boxesRef, ...constraints);
         const unsubFallback = onSnapshot(
           fallbackQuery,
           (snapshot) => {
@@ -55,7 +67,7 @@ export function useDashboardBoxes(tenantId?: string) {
     );
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, usuarioUnidades]);
 
   return { boxes, loading, error };
 }

@@ -1,12 +1,11 @@
-import { logFirestoreError } from '../../utils/firestoreError';
 import { useState, useEffect } from 'react';
 import { db } from '../../lib/firebase';
 import { useTenant } from '../../hooks/useTenant';
-import { BusinessCenter, RouteOption } from '../../types/operational';
 import {
   collection, query, where, orderBy, onSnapshot
 } from 'firebase/firestore';
-import { seedDemoData } from '../../utils/seedDemoData';
+import { BusinessCenter, RouteOption } from '../../types/operational';
+import { logFirestoreError } from '../../utils/firestoreError';
 
 interface UnitSelectorsProps {
   selectedCnId?: string;
@@ -65,17 +64,6 @@ export function UnitSelectors({
         ...doc.data()
       })) as BusinessCenter[];
 
-      if (list.length === 0 && (
-        tenantId === 'tenant_demo' ||
-        tenantId === 'super_admin_tenant' ||
-        tenantId === 'tenant_qa' ||
-        tenantId === 'leg_notebooks' ||
-        tenantId === 'brasil_oficina'
-      )) {
-        console.log(`Self-healing empty CN list for tenant ${tenantId}. Running seedDemoData...`);
-        seedDemoData(tenantId).catch(err => console.error("Self-healing seeding failed:", err));
-      }
-
       setCns(list);
       setLoadingCns(false);
     }, (err) => {
@@ -93,20 +81,6 @@ export function UnitSelectors({
           name: doc.data().name || '',
           ...doc.data()
         })) as BusinessCenter[];
-
-        if (list.length === 0 && (
-          tenantId === 'tenant_demo' ||
-          tenantId === 'super_admin_tenant' ||
-          tenantId === 'tenant_qa' ||
-          tenantId === 'leg_notebooks' ||
-          tenantId === 'brasil_oficina'
-        )) {
-          console.log(`Self-healing empty CN list for tenant ${tenantId} (fallback). Running seedDemoData...`);
-          seedDemoData(tenantId).catch(err => console.error("Self-healing seeding fallback failed:", err));
-        }
-        
-        // Client-side sort
-        list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
         setCns(list);
         setLoadingCns(false);

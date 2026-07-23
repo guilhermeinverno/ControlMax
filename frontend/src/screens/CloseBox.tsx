@@ -1,3 +1,5 @@
+import { parseCurrencyBRLToFloat } from "../utils/currency";
+import { fmtCents as fmtUSD } from "../utils/fmtCents";
 import { getErrorMessage } from '../utils/errorMessage';
 import { useState } from 'react';
 import { Screen } from '../types';
@@ -17,8 +19,9 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [enteredValue, setEnteredValue] = useState('');
 
-  const fmtUSD = (cents: number) => 
-    (cents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// 
+
 
   const getFormattedDate = () => {
     const options: Intl.DateTimeFormatOptions = {
@@ -39,7 +42,8 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
     setSubmitting(true);
     setSubmitError(null);
     try {
-      await closeBox();
+      const realAmountCents = Math.round(parseCurrencyBRLToFloat(enteredValue) * 100);
+      await closeBox(realAmountCents);
       if (onNavigate) {
         onNavigate('box-summary');
       }

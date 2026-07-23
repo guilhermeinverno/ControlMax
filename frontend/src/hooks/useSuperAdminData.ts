@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import type {
   TenantDoc,
   UserDoc,
@@ -73,6 +74,7 @@ export function useSuperAdminData() {
       setCollections(data.collections);
     } catch (err: unknown) {
       console.error('Error loading SuperAdmin data:', err);
+      toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       setError('Falha na conexão com o Firestore. Verifique o console ou as regras de segurança.');
     } finally {
       setLoading(false);
@@ -145,6 +147,7 @@ export function useSuperAdminData() {
       await loadData();
     } catch (err: unknown) {
       console.error('Error adding tenant:', err);
+      toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       setError('Erro ao salvar tenant. Verifique sua conexão.');
     } finally {
       setSubmittingTenant(false);

@@ -20,7 +20,7 @@ function filterByDay<T extends { createdAt?: unknown }>(
   });
 }
 
-export function subscribeTenantCollectionByDate<T extends { createdAt?: { seconds?: number } }>(
+export function subscribeTenantCollectionByDate<T extends { createdAt?: { seconds?: number }; unitId?: string; unit_id?: string }>(
   collectionName: string,
   tenantId: string,
   selectedDate: string,
@@ -29,7 +29,8 @@ export function subscribeTenantCollectionByDate<T extends { createdAt?: { second
     onData: (items: T[]) => void;
     onError: (message: string) => void;
     onLoading: (loading: boolean) => void;
-  }
+  },
+  usuarioUnidades?: string[]
 ): () => void {
   callbacks.onLoading(true);
   callbacks.onError('');
@@ -44,10 +45,23 @@ export function subscribeTenantCollectionByDate<T extends { createdAt?: { second
   const attach = (useFallbackLevel: 0 | 1 | 2) => {
     if (unsub) unsub();
 
+    const queryConstraints = [where('tenantId', '==', tenantId)];
+    
+    // Apply unit security filter at database query level
+    if (usuarioUnidades && usuarioUnidades.length > 0) {
+      if (usuarioUnidades.length === 1) {
+        queryConstraints.push(where('unitId', '==', usuarioUnidades[0]));
+      } else {
+        queryConstraints.push(where('unitId', 'in', usuarioUnidades));
+      }
+    } else {
+      queryConstraints.push(where('unitId', '==', 'none_assigned'));
+    }
+
     if (useFallbackLevel === 0) {
       const q = query(
         collection(db, collectionName),
-        where('tenantId', '==', tenantId),
+        ...queryConstraints,
         where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
         where('createdAt', '<=', Timestamp.fromDate(endOfDay)),
         orderBy('createdAt', 'desc')
@@ -66,7 +80,7 @@ export function subscribeTenantCollectionByDate<T extends { createdAt?: { second
     if (useFallbackLevel === 1) {
       const q = query(
         collection(db, collectionName),
-        where('tenantId', '==', tenantId),
+        ...queryConstraints,
         where('createdAt', '>=', Timestamp.fromDate(startOfDay)),
         where('createdAt', '<=', Timestamp.fromDate(endOfDay))
       );
@@ -81,7 +95,7 @@ export function subscribeTenantCollectionByDate<T extends { createdAt?: { second
       return;
     }
 
-    const q = query(collection(db, collectionName), where('tenantId', '==', tenantId));
+    const q = query(collection(db, collectionName), ...queryConstraints);
     unsub = onSnapshot(
       q,
       (snapshot) => {

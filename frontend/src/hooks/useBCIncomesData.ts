@@ -7,7 +7,7 @@ import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEv
 import type { BCIncome } from '../types/bcIncome';
 import { todayDateString } from '../types/bcIncome';
 
-export function useBCIncomesData(tenantId?: string, userName?: string) {
+export function useBCIncomesData(tenantId?: string, userName?: string, usuarioUnidades?: string[]) {
   const [activeTab, setActiveTab] = useState<'nuevo' | 'historico'>('nuevo');
   const [incomes, setIncomes] = useState<BCIncome[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,9 +41,10 @@ export function useBCIncomesData(tenantId?: string, userName?: string) {
         onData: setIncomes,
         onError: setError,
         onLoading: setLoading,
-      }
+      },
+      usuarioUnidades
     );
-  }, [tenantId, selectedDate]);
+  }, [tenantId, selectedDate, usuarioUnidades]);
 
   const handleAmountChange = (e: HtmlInputChangeEvent) => {
     setAmountInput(formatCurrencyBRL(e.target.value));

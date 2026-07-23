@@ -3,6 +3,7 @@ export interface SaleDetailRecord {
   clientName: string;
   score?: string;
   unidade?: string;
+  unitId?: string;
   createdAt?: unknown;
   valor: string;
   interes?: string;

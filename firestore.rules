@@ -87,7 +87,25 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if (isAuthenticated() && (isSuperAdmin() || request.auth.uid == userId || resource.data.tenantId == userTenantId() || (request.auth.token != null && 'email' in request.auth.token && (resource.data.email == request.auth.token.email || resource.data.email.lower() == request.auth.token.email.lower() || resource.data.email.matches('(?i)^' + request.auth.token.email + '$')))));
       allow list: if (isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId() || (request.auth.token != null && 'email' in request.auth.token && (resource.data.email == request.auth.token.email || resource.data.email.lower() == request.auth.token.email.lower() || resource.data.email.matches('(?i)^' + request.auth.token.email + '$')))));
-      allow write: if (isAuthenticated() && (isSuperAdmin() || (userRole() == 'admin' && request.resource.data.tenantId == userTenantId()) || request.auth.uid == userId));
+      
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (userRole() == 'admin' && request.resource.data.tenantId == userTenantId()) ||
+        request.auth.uid == userId
+      );
+
+      allow update: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (userRole() == 'admin' && resource.data.tenantId == userTenantId() && request.resource.data.tenantId == userTenantId()) ||
+        (request.auth.uid == userId && 
+         resource.data.role == request.resource.data.role && 
+         resource.data.tenantId == request.resource.data.tenantId)
+      );
+
+      allow delete: if isAuthenticated() && (
+        isSuperAdmin() ||
+        (userRole() == 'admin' && resource.data.tenantId == userTenantId())
+      );
     }
     
     match /clients/{clientId} {
@@ -277,7 +295,11 @@ service cloud.firestore {
       allow delete: if false;
 
       match /transactions/{txId} {
-        allow read, write: if isAuthenticated();
+        allow read, create, update: if isAuthenticated() && (
+          isSuperAdmin() || 
+          get(/databases/$(database)/documents/boxes/$(boxId)).data.tenantId == userTenantId()
+        );
+        allow delete: if false;
       }
     }
 
@@ -316,6 +338,12 @@ service cloud.firestore {
         (resource.data.tenantId == userTenantId() && 
          (userRole() == 'admin' || userRole() == 'supervisor'))
       );
+    }
+
+    match /security_logs/{logId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update, delete: if false;
     }
   }
 }

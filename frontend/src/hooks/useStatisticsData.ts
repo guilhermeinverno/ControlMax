@@ -9,7 +9,7 @@ import {
 } from '../types/statistics';
 import { fetchCollectionWithFallback } from '../utils/statisticsFetch';
 
-export function useStatisticsData(tenantId?: string, filterTrigger = 0) {
+export function useStatisticsData(tenantId?: string, filterTrigger = 0, usuarioUnidades?: string[]) {
   const [boxes, setBoxes] = useState<StatsBox[]>([]);
   const [collections, setCollections] = useState<StatsCollection[]>([]);
   const [expenses, setExpenses] = useState<StatsExpense[]>([]);
@@ -28,12 +28,12 @@ export function useStatisticsData(tenantId?: string, filterTrigger = 0) {
     const loadData = async () => {
       try {
         const [boxList, collList, expList, credList, saleList, custDocs] = await Promise.all([
-          fetchCollectionWithFallback<StatsBox>('boxes', tenantId),
-          fetchCollectionWithFallback<StatsCollection>('collections', tenantId),
-          fetchCollectionWithFallback<StatsExpense>('expenses', tenantId),
-          fetchCollectionWithFallback<StatsCreditRequest>('credit_requests', tenantId),
-          fetchCollectionWithFallback<StatsSale>('sales', tenantId),
-          fetchCollectionWithFallback<StatsCustomer>('customers', tenantId),
+          fetchCollectionWithFallback<StatsBox>('boxes', tenantId, usuarioUnidades),
+          fetchCollectionWithFallback<StatsCollection>('collections', tenantId, usuarioUnidades),
+          fetchCollectionWithFallback<StatsExpense>('expenses', tenantId, usuarioUnidades),
+          fetchCollectionWithFallback<StatsCreditRequest>('credit_requests', tenantId, usuarioUnidades),
+          fetchCollectionWithFallback<StatsSale>('sales', tenantId, usuarioUnidades),
+          fetchCollectionWithFallback<StatsCustomer>('customers', tenantId, usuarioUnidades),
         ]);
 
         setBoxes(boxList);

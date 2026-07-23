@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { FormDefinition, FormResponse } from '../types';
 import { logFirestoreError } from '../utils/firestoreError';
@@ -40,7 +41,7 @@ export function useFormsData({ tenantId, role, userName, onError }: UseFormsData
             includeAuth: false,
           });
         } catch {
-          // logged
+          toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
         }
         setLoadingForms(false);
       }
@@ -65,7 +66,7 @@ export function useFormsData({ tenantId, role, userName, onError }: UseFormsData
             includeAuth: false,
           });
         } catch {
-          // logged
+          toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
         }
         setLoadingResponses(false);
       }

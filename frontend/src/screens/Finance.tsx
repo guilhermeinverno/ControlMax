@@ -22,9 +22,9 @@ import { FinanceMovementsTable } from './components/finance/FinanceMovementsTabl
 import { FinanceDistributionCard } from './components/finance/FinanceDistributionCard';
 
 export function Finance() {
-  const { tenantId, role, loading: tenantLoading } = useTenant();
+  const { tenantId, role, usuarioUnidades, loading: tenantLoading } = useTenant();
   const isCollector = role === 'collector';
-  const data = useFinanceData(tenantId, isCollector);
+  const data = useFinanceData(tenantId, isCollector, usuarioUnidades);
 
   const yearsList = [data.selectedYear - 1, data.selectedYear, data.selectedYear + 1];
   const filteredByDate = filterMovementsByDate(data.movements, data.selectedMonth, data.selectedYear);

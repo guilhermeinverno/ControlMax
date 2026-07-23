@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { GoogleGenAI } from '@google/genai';
 import { buildOperationalContext } from './buildOperationalContext';
 import {
@@ -7,16 +7,13 @@ import {
   isPortugueseLanguage,
 } from './assistantPrompts';
 import { generateAssistantAudio, generateAssistantText, noApiKeyResponse } from './geminiAssistant';
+import { AuthenticatedRequest, checkRateLimit } from './authMiddleware';
 
 interface AssistantRequestBody {
   message?: string;
   audio?: string;
   language?: string;
-  role?: string;
-  userName?: string;
-  tenantId?: string;
   clientOperationalContext?: string;
-  clientApiKey?: string;
 }
 
 async function resolveOperationalContext(
@@ -35,17 +32,28 @@ async function resolveOperationalContext(
 }
 
 export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: string) {
-  return async (req: Request, res: Response) => {
+  return async (req: AuthenticatedRequest, res: Response) => {
     try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Não autenticado.' });
+      }
+
+      const uid = req.user.uid;
+      const tenantId = req.user.tenantId;
+      const role = req.user.role;
+      const userName = req.user.name;
+
+      // Rate limit check: 10 requests per minute
+      if (!checkRateLimit(uid, 10, 60000)) {
+        return res.status(429).json({ error: 'Muitas solicitações. Por favor, tente novamente em um minuto.' });
+      }
+
       const body = req.body as AssistantRequestBody;
-      const { message, audio, language, role, userName, tenantId, clientOperationalContext, clientApiKey } = body;
+      const { message, audio, language, clientOperationalContext } = body;
       const isPt = isPortugueseLanguage(language, role);
 
-      // Dynamically resolve apiKey (try client-passed first, then headers, then process.env, then fallback to initialApiKey)
-      const resolvedApiKey = clientApiKey || 
-                            req.headers['x-gemini-api-key'] as string || 
-                            process.env.GEMINI_API_KEY || 
-                            initialApiKey;
+      // Gemini key MUST only come from environment variables
+      const resolvedApiKey = process.env.GEMINI_API_KEY;
 
       if (!resolvedApiKey) {
         return res.json(noApiKeyResponse(isPt));
@@ -64,7 +72,7 @@ export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: 
       const operationalContext = await resolveOperationalContext(tenantId, clientOperationalContext);
       const systemInstruction = buildAssistantSystemInstruction(isPt, userName, operationalContext);
 
-      console.log(`[AI Assistant API] Received request from user=${userName}, role=${role}, tenantId=${tenantId}`);
+      console.log(`[AI Assistant API] Received request from authenticated user=${userName}, role=${role}, tenantId=${tenantId}`);
       if (message) console.log(`[AI Assistant API] User message: "${message}"`);
       if (audio) console.log('[AI Assistant API] User sent audio input');
       console.log(`[AI Assistant API] System Instruction Context Length: ${operationalContext.length} chars`);

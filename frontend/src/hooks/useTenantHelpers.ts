@@ -11,7 +11,6 @@ import {
 import { User } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import { UserRole } from '../types';
-import { seedDemoData } from '../utils/seedDemoData';
 
 export const ADMIN_BYPASS_EMAILS = [
   'gringoeletronica@gmail.com',
@@ -63,7 +62,7 @@ export function resolveDefaultTenantId(emailLower: string, impersonated: string 
   if (emailLower === 'legnotebooks@gmail.com') return 'leg_notebooks';
   if (emailLower === 'brasiloficina40@gmail.com') return 'brasil_oficina';
   if (emailLower === 'qa@controlmax.dev') return 'tenant_qa';
-  return 'tenant_demo';
+  return '';
 }
 
 export function mapRoleFromFirestore(
@@ -152,11 +151,6 @@ export function provisionBypassAccount(emailLower: string, user: User): void {
     },
     { merge: true }
   ).catch((err) => console.error('Error auto-provisioning user:', err));
-
-  // Auto-seed demo data for this bypass tenant (e.g. super_admin_tenant, etc.) in the background
-  seedDemoData(config.tenantId).catch((err) => {
-    console.error('Error auto-seeding data for bypass tenant:', config.tenantId, err);
-  });
 }
 
 const USER_LOOKUP_TIMEOUT_MS = 15_000;

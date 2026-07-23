@@ -20,6 +20,7 @@ interface UseSalesListDataOptions {
   role: string;
   consultarPor: 'active' | 'inactive' | 'castigadas';
   verTodasUnidades: boolean;
+  usuarioUnidades?: string[];
 }
 
 function buildSalesQuery(
@@ -27,7 +28,8 @@ function buildSalesQuery(
   role: string,
   consultarPor: string,
   verTodasUnidades: boolean,
-  useOrderBy: boolean
+  useOrderBy: boolean,
+  usuarioUnidades: string[] = []
 ) {
   const baseRef = collection(db, 'sales');
   const queryStatus = consultarPor === 'active' ? 'active' : 'completed';
@@ -39,6 +41,17 @@ function buildSalesQuery(
     constraints.push(where('userId', '==', targetUserId));
   }
 
+  // Unit security isolation: Force filter by usuarioUnidades
+  if (usuarioUnidades && usuarioUnidades.length > 0) {
+    if (usuarioUnidades.length === 1) {
+      constraints.push(where('unitId', '==', usuarioUnidades[0]));
+    } else {
+      constraints.push(where('unitId', 'in', usuarioUnidades));
+    }
+  } else {
+    constraints.push(where('unitId', '==', 'none_assigned'));
+  }
+
   return useOrderBy ? query(baseRef, ...constraints, orderBy('clientName', 'asc')) : query(baseRef, ...constraints);
 }
 
@@ -47,6 +60,7 @@ export function useSalesListData({
   role,
   consultarPor,
   verTodasUnidades,
+  usuarioUnidades = [],
 }: UseSalesListDataOptions) {
   const [sales, setSales] = useState<SalesListSale[]>([]);
   const [collections, setCollections] = useState<SalesListCollection[]>([]);
@@ -58,7 +72,18 @@ export function useSalesListData({
   useEffect(() => {
     if (!tenantId) return;
 
-    const q = query(collection(db, 'boxes'), where('tenantId', '==', tenantId));
+    const boxConstraints = [where('tenantId', '==', tenantId)];
+    if (usuarioUnidades && usuarioUnidades.length > 0) {
+      if (usuarioUnidades.length === 1) {
+        boxConstraints.push(where('unitId', '==', usuarioUnidades[0]));
+      } else {
+        boxConstraints.push(where('unitId', 'in', usuarioUnidades));
+      }
+    } else {
+      boxConstraints.push(where('unitId', '==', 'none_assigned'));
+    }
+
+    const q = query(collection(db, 'boxes'), ...boxConstraints);
     const unsubscribe = onSnapshot(
       q,
       (snap) => {
@@ -81,7 +106,7 @@ export function useSalesListData({
     );
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, usuarioUnidades]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -91,7 +116,7 @@ export function useSalesListData({
 
     const attach = (useOrderBy: boolean) =>
       onSnapshot(
-        buildSalesQuery(tenantId, role, consultarPor, verTodasUnidades, useOrderBy),
+        buildSalesQuery(tenantId, role, consultarPor, verTodasUnidades, useOrderBy, usuarioUnidades),
         (snapshot) => {
           const loaded = snapshot.docs.map((docSnap) =>
             mapSalesListSale(docSnap.id, docSnap.data())
@@ -114,7 +139,7 @@ export function useSalesListData({
 
     unsubscribe = attach(true);
     return () => unsubscribe?.();
-  }, [tenantId, role, consultarPor, verTodasUnidades]);
+  }, [tenantId, role, consultarPor, verTodasUnidades, usuarioUnidades]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -123,7 +148,18 @@ export function useSalesListData({
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
 
-    const q = query(collection(db, 'collections'), where('tenantId', '==', tenantId));
+    const collectionConstraints = [where('tenantId', '==', tenantId)];
+    if (usuarioUnidades && usuarioUnidades.length > 0) {
+      if (usuarioUnidades.length === 1) {
+        collectionConstraints.push(where('unitId', '==', usuarioUnidades[0]));
+      } else {
+        collectionConstraints.push(where('unitId', 'in', usuarioUnidades));
+      }
+    } else {
+      collectionConstraints.push(where('unitId', '==', 'none_assigned'));
+    }
+
+    const q = query(collection(db, 'collections'), ...collectionConstraints);
     const unsubscribe = onSnapshot(
       q,
       (snapshot) => {
@@ -159,7 +195,7 @@ export function useSalesListData({
     );
 
     return () => unsubscribe();
-  }, [tenantId, role, verTodasUnidades]);
+  }, [tenantId, role, verTodasUnidades, usuarioUnidades]);
 
   return {
     sales,

@@ -10,6 +10,7 @@ function mapSaleDoc(docSnap: { id: string; data: () => Record<string, unknown> }
     clientName: String(data.clientName || ''),
     score: String(data.score || 'N'),
     unidade: String(data.unidade || ''),
+    unitId: String(data.unitId || ''),
     createdAt: data.createdAt || '',
     valor: String(data.valor || '0,00'),
     interes: String(data.interes || '0,0%'),

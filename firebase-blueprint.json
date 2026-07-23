@@ -172,6 +172,22 @@
           "read": "isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId())",
           "write": "isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId())"
         }
+      },
+      "security_logs": {
+        "description": "Logs de segurança imutáveis e auditorias do sistema",
+        "fields": {
+          "timestamp": "string",
+          "usuario_id": "string",
+          "operador_role": "string",
+          "acao": "string",
+          "unidad_id": "string",
+          "ip_origem": "string",
+          "status": "string"
+        },
+        "permissions": {
+          "read": "isAuthenticated()",
+          "write": "isAuthenticated()"
+        }
       }
     }
   }

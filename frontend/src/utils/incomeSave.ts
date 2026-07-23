@@ -47,10 +47,10 @@ function buildIncomePayload(input: IncomeFormInput, box: OpenBoxOption, amountCe
     description: input.description.trim(),
     attachmentName: input.fileName,
     attachmentUrl: input.fileUrl,
-    userId: auth?.currentUser?.uid || 'test-user-id',
+    userId: auth?.currentUser?.uid ?? '',
     userName: input.userName || auth?.currentUser?.email || 'Usuario',
     registeredBy: input.userName || auth?.currentUser?.email || 'Usuario',
-    registeredById: auth?.currentUser?.uid || 'test-user-id',
+    registeredById: auth?.currentUser?.uid ?? '',
     createdAt: serverTimestamp(),
   };
 
@@ -68,6 +68,7 @@ async function updateBoxIncomeTotals(boxId: string, amountCents: number): Promis
   if (!boxSnap.exists()) return;
 
   const boxData = boxSnap.data();
+  if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
   const newIncomes = (boxData.totalIncomes || 0) + amountCents;
   const finalAmount =
     (boxData.initialAmount || 0) +

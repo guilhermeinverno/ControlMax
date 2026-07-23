@@ -7,6 +7,9 @@ export function useTenant() {
   const [role, setRole] = useState<UserRole>('collector');
   const [userName, setUserName] = useState<string>('');
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
+  const [userId, setUserId] = useState<string>('');
+  const [usuarioUnidades, setUsuarioUnidades] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<any>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -25,8 +28,22 @@ export function useTenant() {
       setIsSuperAdmin,
       setLoading,
       setError,
+      setUserId,
+      setUsuarioUnidades,
+      setPermissions,
     });
   }, [refreshKey]);
 
-  return { tenantId, role, userName, isSuperAdmin, loading, error, retry };
+  return {
+    tenantId,
+    role,
+    userName,
+    isSuperAdmin,
+    userId,
+    usuarioUnidades,
+    permissions,
+    loading,
+    error,
+    retry,
+  };
 }

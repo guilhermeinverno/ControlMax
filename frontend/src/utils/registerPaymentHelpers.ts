@@ -60,6 +60,6 @@ export function buildCollectionRecord(input: CollectionRecordInput) {
     paymentMethod,
     comment: comment.trim(),
     registeredBy,
-    registeredById: userId || 'test-user-id',
+    registeredById: userId ?? '',
   };
 }

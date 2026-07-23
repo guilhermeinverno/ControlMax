@@ -26,6 +26,8 @@ export interface Box {
   totalCollections: number;
   totalTransfers: number;
   finalAmount: number;
+  expectedFinalAmount?: number;
+  difference?: number;
 }
 
 export interface Sale {
@@ -37,6 +39,7 @@ export interface Sale {
   balance: number;
   status: string;
   tenantId: string;
+  unitId?: string;
   idPreVenta?: string;
   saldoPendiente?: string;
   saldoPendienteCents?: number;

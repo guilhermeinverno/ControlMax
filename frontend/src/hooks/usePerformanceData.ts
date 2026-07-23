@@ -31,7 +31,7 @@ function getStartOfToday(): Date {
 
 export async function loadPerformanceSupplementaryData(tenantId: string) {
   const startOfToday = getStartOfToday();
-  const uid = auth.currentUser?.uid || 'test-user-id';
+  const uid = auth.currentUser?.uid ?? '';
 
   const [collections, creditRequests] = await Promise.all([
     fetchTodayCollections(tenantId, uid, startOfToday),
@@ -51,7 +51,7 @@ export function subscribePerformanceData(
   onLoadingChange: (loading: boolean) => void
 ) {
   const startOfToday = getStartOfToday();
-  const uid = auth.currentUser?.uid || 'test-user-id';
+  const uid = auth.currentUser?.uid ?? '';
 
   onLoadingChange(true);
 

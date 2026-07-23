@@ -32,7 +32,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
   useEffect(() => {
     if (role !== 'collector' || !tenantId) return;
 
-    const targetUserId = (tenantId === 'tenant_demo') ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    const targetUserId = auth.currentUser?.uid || '';
     const q = query(
       collection(db, 'sales'),
       where('tenantId', '==', tenantId),
@@ -60,10 +60,9 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
   useEffect(() => {
     if (role !== 'collector' || !tenantId) return;
 
-    const targetUserId = (tenantId === 'tenant_demo') ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    const targetUserId = auth.currentUser?.uid || '';
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
-
     const q = query(
       collection(db, 'collections'),
       where('tenantId', '==', tenantId),
@@ -214,34 +213,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
         {/* Right Section: Stretches purple background and holds profile */}
         <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-4 lg:px-6 space-x-4">
-          {isDemo && (
-            <div className="flex items-center bg-white/10 rounded-lg p-0.5 border border-white/20 gap-1 mr-2 shrink-0">
-              <button
-                type="button"
-                onClick={() => handleDemoRoleChange('admin')}
-                className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  role === 'admin'
-                    ? 'bg-[#8CC63F] text-white shadow-sm'
-                    : 'text-white/80 hover:text-white hover:bg-white/5'
-                }`}
-                title="Alternar para Painel do Gestor"
-              >
-                Gestor
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoRoleChange('collector')}
-                className={`px-2.5 py-1 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  role === 'collector'
-                    ? 'bg-[#8CC63F] text-white shadow-sm'
-                    : 'text-white/80 hover:text-white hover:bg-white/5'
-                }`}
-                title="Alternar para Painel do Vendedor"
-              >
-                Vendedor
-              </button>
-            </div>
-          )}
+
 
           <div className="hidden xl:flex flex-col text-right">
             <span className="text-white text-xs font-bold uppercase">{displayRole}</span>

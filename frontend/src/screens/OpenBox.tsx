@@ -7,6 +7,7 @@ import { useTenant } from '../hooks/useTenant';
 import { UnitSelectors } from './components/UnitSelectors';
 import { Save, X, AlertCircle } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL } from '../utils/currency';
+import { fmtCents } from '../utils/fmtCents';
 
 interface OpenBoxProps {
   onNavigate?: (screen: Screen) => void;
@@ -60,6 +61,7 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
       const amountInCents = Math.round(parsedAmount * 100);
 
       await openBox({
+        date,
         unitId: selectedUnitId,
         unitName: selectedUnitName,
         cnId: selectedCnId,
@@ -118,7 +120,7 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
             </div>
             <div>
               <span className="font-bold uppercase text-[10px] text-yellow-900 block">Valor Inicial</span>
-              <span className="text-sm font-bold text-green-700">$ {(activeBox.initialAmount / 100).toFixed(2)}</span>
+              <span className="text-sm font-bold text-green-700">$ {fmtCents(activeBox.initialAmount)}</span>
             </div>
           </div>
 

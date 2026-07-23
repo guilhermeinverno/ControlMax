@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { addDoc, collection, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { FormDefinition, FormField } from '../types';
 import {
@@ -40,7 +41,7 @@ export function useFormsActions({ tenantId, userName }: UseFormsActionsOptions) 
         includeAuth: false,
       });
     } catch {
-      // logged
+      toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
     }
   }, []);
 

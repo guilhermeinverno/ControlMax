@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { logFirestoreError } from '../utils/firestoreError';
 import { BusinessCenter, Customer } from '../types/company';
@@ -36,6 +37,7 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
         setSelectedUnitId(defaults.unitId);
       } catch (err) {
         console.error('Error loading business centers:', err);
+        toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     };
 
@@ -60,6 +62,7 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
         throwError: true,
         extraAuth: { userId: 'system_user' },
       });
+      toast.error('Falha de conexão. O sistema operará em modo restrito devido à instabilidade na rede.');
     }
   }, []);
 

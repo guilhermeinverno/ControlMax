@@ -1,3 +1,4 @@
+import { fmtCents } from '../utils/fmtCents';
 import { useState, useEffect } from 'react';
 import { Screen } from '../types';
 import { db, auth } from '../lib/firebase';
@@ -94,7 +95,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
         approvedBy: userName || auth?.currentUser?.email || 'Gestor',
         approvedAt: serverTimestamp()
       });
-      setSuccessMessage(`¡Gasto de ${requesterName} por $ ${(amount / 100).toFixed(2)} APROBADO correctamente!`);
+      setSuccessMessage(`¡Gasto de ${requesterName} por $ ${fmtCents(amount)} APROBADO correctamente!`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (error) {
       console.error("Error approving expense:", error);
@@ -103,7 +104,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
   };
 
   const handleReject = async (id: string, requesterName: string, amount: number) => {
-    if (!window.confirm(`¿Está seguro de que desea rechazar el gasto de ${requesterName} por $ ${(amount / 100).toFixed(2)}?`)) {
+    if (!window.confirm(`¿Está seguro de que desea rechazar el gasto de ${requesterName} por $ ${fmtCents(amount)}?`)) {
       return;
     }
     try {
@@ -196,7 +197,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
           <div className="bg-purple-50 border border-purple-200 rounded p-3 flex flex-col justify-between">
             <span className="text-[10px] uppercase font-bold text-purple-700 tracking-wider">Monto Pendiente</span>
             <span className="text-2xl font-black text-purple-800 mt-1">
-              $ {(totalPendingAmount / 100).toFixed(2)}
+              $ {fmtCents(totalPendingAmount)}
             </span>
           </div>
 
@@ -332,7 +333,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
                   <div>
                     <span className="text-[9px] text-gray-400 uppercase font-black tracking-wider block">Monto Solicitado</span>
                     <span className="text-lg font-black text-[#DC2626]">
-                      $ {(req.amount / 100).toFixed(2)}
+                      $ {fmtCents(req.amount)}
                     </span>
                   </div>
 

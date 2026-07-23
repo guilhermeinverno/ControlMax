@@ -10,6 +10,7 @@ import {
   updateDoc,
   where,
 } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import { db } from '../lib/firebase';
 import { logFirestoreError } from '../utils/firestoreError';
 import type { HtmlFormSubmitEvent } from '../types/reactEvents';
@@ -63,7 +64,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
             includeAuth: false,
           });
         } catch {
-          /* logged */
+          toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
         }
         setLoading(false);
       }
@@ -110,7 +111,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
           includeAuth: false,
         });
       } catch {
-        /* logged */
+        toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     } finally {
       setSubmitting(false);
@@ -134,7 +135,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
           includeAuth: false,
         });
       } catch {
-        /* logged */
+        toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     }
   };
@@ -158,7 +159,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
           includeAuth: false,
         });
       } catch {
-        /* logged */
+        toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     }
   };

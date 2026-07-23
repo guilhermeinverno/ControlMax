@@ -130,7 +130,7 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
         clientDoc: newClientDoc.trim(),
         amount: parsedAmountCents,
         requestedBy: userName,
-        requestedById: auth.currentUser?.uid || 'test-user-id',
+        requestedById: auth.currentUser?.uid ?? '',
         status: 'pending',
         score: calculateClientScore(newClientDoc, newClientName),
         currentBalance: 0,
@@ -174,7 +174,7 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
         status: isApproved ? 'approved' : 'rejected',
         reviewedAt: serverTimestamp(),
         reviewedBy: userName,
-        reviewedById: auth.currentUser?.uid || 'test-user-id',
+        reviewedById: auth.currentUser?.uid ?? '',
         historyLogs: arrayUnion({
           time: new Date().toLocaleString('pt-BR'),
           action: isApproved ? 'Aprovado' : 'Rejeitado',

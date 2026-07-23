@@ -14,6 +14,9 @@ export interface TenantSetters {
   setIsSuperAdmin: (v: boolean) => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
+  setUserId: (v: string) => void;
+  setUsuarioUnidades: (v: string[]) => void;
+  setPermissions: (v: any) => void;
 }
 
 export function applyExistingUserDoc(
@@ -41,6 +44,17 @@ export function applyExistingUserDoc(
       ? `Super Admin (${impersonated})`
       : String(data.userName || data.name || user.displayName || user.email?.split('@')[0] || '')
   );
+  setters.setUserId(user.uid);
+  
+  // Resolve units
+  const rawUnits = data.usuario_unidades || data.usuarioUnidades || [];
+  const resolvedUnits = Array.isArray(rawUnits) ? rawUnits : [];
+  setters.setUsuarioUnidades(resolvedUnits);
+
+  // Resolve permissions
+  const rawPermissions = data.permissions || {};
+  setters.setPermissions(rawPermissions);
+
   setters.setError(null);
   setters.setLoading(false);
 }
@@ -56,6 +70,9 @@ export function applyBypassState(
   setters.setRole(bypass.role);
   setters.setUserName(bypass.userName);
   setters.setIsSuperAdmin(bypass.isSuperAdmin);
+  setters.setUserId('system_bypass_uid');
+  setters.setUsuarioUnidades([]);
+  setters.setPermissions({});
   setters.setError(null);
   setters.setLoading(false);
   return true;
@@ -76,6 +93,9 @@ export function applyGuestState(
   setters.setUserName(
     impersonated ? `Super Admin (${impersonated})` : (user.displayName || user.email?.split('@')[0] || '')
   );
+  setters.setUserId(user.uid);
+  setters.setUsuarioUnidades([]);
+  setters.setPermissions({});
   setters.setError(null);
   setters.setLoading(false);
 }

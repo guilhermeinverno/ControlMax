@@ -10,11 +10,12 @@ import {
   logBoxError,
   type OpenBoxParams,
 } from '../utils/boxLifecycle';
+import { hasPermission } from '../utils/rbac';
 
 export type { OpenBoxParams };
 
 export function useBox() {
-  const { tenantId, role, userName, loading: tenantLoading } = useTenant();
+  const { tenantId, role, permissions, userName, loading: tenantLoading } = useTenant();
   const [refreshKey, setRefreshKey] = useState(0);
   const subscription = useActiveBoxSubscription(tenantId, refreshKey);
 
@@ -40,14 +41,14 @@ export function useBox() {
     }
   };
 
-  const closeBox = async (): Promise<void> => {
+  const closeBox = async (realFinalAmount: number): Promise<void> => {
     if (!subscription.activeBox) throw new Error('Nenhuma caixa aberta');
 
     subscription.setLoading(true);
     subscription.setError(null);
 
     try {
-      await closeActiveBox(subscription.activeBox);
+      await closeActiveBox(subscription.activeBox, realFinalAmount);
       subscription.setLoading(false);
     } catch (err) {
       subscription.setLoading(false);
@@ -57,15 +58,16 @@ export function useBox() {
   };
 
   const confirmBox = async (boxId: string): Promise<void> => {
-    if (role !== 'admin' && role !== 'supervisor') {
-      throw new Error('Acceso denegado. Solo administradores o supervisores pueden confirmar cajas.');
+    const user = { role: role || '', permissions };
+    if (!hasPermission(user, 'caja:confirmar')) {
+      throw new Error('Acceso denegado. Solo administradores o supervisores autorizados pueden confirmar cajas.');
     }
 
     subscription.setLoading(true);
     subscription.setError(null);
 
     try {
-      await confirmBoxByAdmin(boxId);
+      await confirmBoxByAdmin(boxId, tenantId);
       subscription.setLoading(false);
     } catch (err) {
       subscription.setLoading(false);

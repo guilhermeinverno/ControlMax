@@ -1,5 +1,6 @@
 import { getErrorMessage } from '../utils/errorMessage';
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ArrowLeft, Camera, Loader2, AlertCircle } from 'lucide-react';
@@ -16,7 +17,7 @@ interface RegisterPaymentProps {
 }
 
 export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
-  const { tenantId, userName, loading: tenantLoading } = useTenant();
+  const { tenantId, userName, usuarioUnidades, loading: tenantLoading } = useTenant();
   const { activeBox, loading: boxLoading } = useBox();
   
   const saleId = params?.saleId as string | undefined;
@@ -63,6 +64,18 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
 
     return () => unsubscribe();
   }, [tenantId, saleId]);
+
+  useEffect(() => {
+    if (!loadingSale && sale && usuarioUnidades && usuarioUnidades.length > 0) {
+      const allowed = sale.unitId ? usuarioUnidades.includes(sale.unitId) : true;
+      if (!allowed) {
+        toast.error('Acceso denegado. No tiene permisos para registrar cobros en esta venta.');
+        if (onNavigate) {
+          onNavigate('dashboard');
+        }
+      }
+    }
+  }, [loadingSale, sale, usuarioUnidades, onNavigate]);
 
   // Adjust installments dynamically when "Pay Total" is toggled
   useEffect(() => {

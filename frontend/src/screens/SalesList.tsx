@@ -8,21 +8,19 @@ import {
   filterSalesList,
   getSevenDaysAgoString,
 } from '../utils/salesListFilters';
-import { seedExampleSales } from '../utils/salesSeed';
 import { SalesListTabBar } from './components/salesList/SalesListTabBar';
-import { SalesListSeedPanel } from './components/salesList/SalesListSeedPanel';
 import { SalesListUnitFilters } from './components/salesList/SalesListUnitFilters';
 import { SalesListFiltersPanel } from './components/salesList/SalesListFiltersPanel';
 import { SalesListSalesGrid } from './components/salesList/SalesListSalesGrid';
 import { SalesListCollectionsTab } from './components/salesList/SalesListCollectionsTab';
-import { ListFilter, Search, X, ChevronDown, ChevronUp, Plus, Coins, FileText, Check } from 'lucide-react';
+import { ListFilter, Search, X, ChevronDown, ChevronUp, Plus, Coins, FileText, Check, ArrowLeft, UserPlus } from 'lucide-react';
 
 export function SalesList({
   onNavigate,
 }: {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
 }) {
-  const { tenantId, role } = useTenant();
+  const { tenantId, role, usuarioUnidades } = useTenant();
   const { activeBox } = useBox();
 
   const [activeTab, setActiveTab] = useState<'Vendas' | 'Coleção'>('Vendas');
@@ -34,9 +32,6 @@ export function SalesList({
   const [verTodasUnidades, setVerTodasUnidades] = useState(false);
   const [selectedCn, setSelectedCn] = useState('all');
   const [selectedUnit, setSelectedUnit] = useState('all');
-  const [seeding, setSeeding] = useState(false);
-  const [seedSuccess, setSeedSuccess] = useState(false);
-
   // States for Collector Panel (TryController styled)
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
@@ -49,31 +44,8 @@ export function SalesList({
       role,
       consultarPor,
       verTodasUnidades,
+      usuarioUnidades,
     });
-
-  const handleSeedExampleSales = async () => {
-    if (!tenantId) {
-      alert('Tenant ID não encontrado. Por favor, aguarde o carregamento ou faça login novamente.');
-      return;
-    }
-    setSeeding(true);
-    try {
-      await seedExampleSales({
-        tenantId,
-        unitId: activeBox?.unitId || '3',
-        unitName: activeBox?.unitName || '3 - RT 03',
-        boxId: activeBox?.id || 'box_route_1',
-        boxName: activeBox?.unitName || 'Caixa de Vendas',
-      });
-      setSeedSuccess(true);
-      setTimeout(() => setSeedSuccess(false), 5000);
-    } catch (err) {
-      console.error('Error seeding sales:', err);
-      alert('Erro ao criar as vendas. Verifique se você está conectado e tem permissão.');
-    } finally {
-      setSeeding(false);
-    }
-  };
 
   // Helper to determine payment frequency deterministically
   const getSaleFrequency = (saleId: string): 'diario' | 'semanal' | 'quinzenal' | 'mensal' => {
@@ -273,10 +245,6 @@ export function SalesList({
         ) : (
           <>
             {isVendasTab ? (
-              <SalesListSeedPanel seeding={seeding} seedSuccess={seedSuccess} onSeed={handleSeedExampleSales} />
-            ) : null}
-
-            {isVendasTab ? (
               <SalesListUnitFilters
                 selectedCn={selectedCn}
                 selectedUnit={selectedUnit}
@@ -325,52 +293,59 @@ export function SalesList({
         <div className="fixed bottom-24 right-6 z-50">
           <button
             type="button"
-            onClick={() => setIsFloatingMenuOpen(!isFloatingMenuOpen)}
+            onClick={() => setIsFloatingMenuOpen(true)}
             className="w-14 h-14 bg-[#6A008A] hover:bg-[#52006A] text-white rounded-full shadow-[0_4px_15px_rgba(106,0,138,0.4)] flex items-center justify-center cursor-pointer transition-transform duration-200 active:scale-95"
-            style={{ transform: isFloatingMenuOpen ? 'rotate(45deg)' : 'rotate(0deg)' }}
             title="Menu de Ações"
           >
             <Plus size={32} strokeWidth={2.5} />
           </button>
 
-          {/* Speed dial popup menu */}
+          {/* Speed dial overlay menu like requested image */}
           {isFloatingMenuOpen && (
-            <div className="absolute bottom-16 right-0 bg-white border border-gray-100 rounded-2xl shadow-xl p-3 flex flex-col gap-2 min-w-[200px] animate-in fade-in slide-in-from-bottom-5 duration-150">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsFloatingMenuOpen(false);
-                  onNavigate?.('new-income');
-                }}
-                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 rounded-lg transition-colors text-left cursor-pointer"
+            <div 
+              className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex flex-col items-center justify-center p-6 animate-in fade-in duration-200"
+              onClick={() => setIsFloatingMenuOpen(false)}
+            >
+              <div 
+                className="flex flex-col gap-4 w-full max-w-[320px] animate-in slide-in-from-bottom-10 duration-300"
+                onClick={(e) => e.stopPropagation()}
               >
-                <Coins size={16} className="text-[#8CC63F] stroke-[2.5]" />
-                <span>Nova Entrada (Cobrança)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsFloatingMenuOpen(false);
-                  onNavigate?.('new-expense');
-                }}
-                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 rounded-lg transition-colors text-left cursor-pointer"
-              >
-                <FileText size={16} className="text-red-500 stroke-[2.5]" />
-                <span>Nova Despesa</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsFloatingMenuOpen(false);
-                  onNavigate?.('bc-transfers');
-                }}
-                className="flex items-center gap-3 px-3 py-2 text-xs font-bold text-gray-700 hover:bg-purple-50 rounded-lg transition-colors text-left cursor-pointer"
-              >
-                <svg className="w-4 h-4 text-purple-600 stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                </svg>
-                <span>Transferências</span>
-              </button>
+                {/* Cliente Novo (New Customer Form) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFloatingMenuOpen(false);
+                    onNavigate?.('company-list', { initialTab: 'create' });
+                  }}
+                  className="w-full bg-[#6A008A] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-[0_8px_25px_rgba(106,0,138,0.35)] flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none"
+                >
+                  <span className="text-lg font-bold tracking-wide">Cliente Novo</span>
+                  <UserPlus size={28} className="text-white" strokeWidth={1.5} />
+                </button>
+
+                {/* Cliente Cadastrado (List Customers) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsFloatingMenuOpen(false);
+                    onNavigate?.('company-list', { initialTab: 'list' });
+                  }}
+                  className="w-full bg-[#6A008A] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-[0_8px_25px_rgba(106,0,138,0.35)] flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none"
+                >
+                  <span className="text-lg font-bold tracking-wide">Cliente Cadastrado</span>
+                  <Coins size={28} className="text-white" strokeWidth={1.5} />
+                </button>
+
+                {/* para retornar (Close menu) */}
+                <button
+                  type="button"
+                  onClick={() => setIsFloatingMenuOpen(false)}
+                  className="w-full bg-[#6A008A] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-[0_8px_25px_rgba(106,0,138,0.35)] flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none"
+                >
+                  <span className="text-lg font-semibold tracking-wide lowercase">para retornar</span>
+                  <ArrowLeft size={28} className="text-white" strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
           )}
         </div>

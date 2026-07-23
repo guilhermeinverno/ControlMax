@@ -19,6 +19,7 @@ export async function cancelCollectionAndUpdateBox(
   if (!boxSnap.exists()) return;
 
   const boxData = boxSnap.data();
+  if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
   const newTotal = Math.max(0, (boxData.totalCollections || 0) - collectionToCancel.amount);
   const newFinal =
     (boxData.initialAmount || 0) +

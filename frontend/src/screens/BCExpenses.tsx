@@ -12,14 +12,14 @@ interface BCExpensesProps {
 }
 
 export function BCExpenses({ onNavigate }: BCExpensesProps) {
-  const { tenantId, role, userName, loading: tenantLoading } = useTenant();
+  const { tenantId, role, userName, usuarioUnidades, loading: tenantLoading } = useTenant();
 
   const isAdmin = role === 'admin';
   const isSupervisor = role === 'supervisor';
   const canWrite = isAdmin || isSupervisor;
   const isCollector = role === 'collector';
 
-  const data = useBCExpensesData(tenantId, userName, isAdmin);
+  const data = useBCExpensesData(tenantId, userName, isAdmin, usuarioUnidades);
 
   if (tenantLoading) {
     return (

@@ -32,15 +32,26 @@ function mapApprovalStatus(status: unknown): 'Aprobado' | 'Pendiente' | 'Rechaza
   return 'Pendiente';
 }
 
-export async function fetchUnifiedMovements(tenantId: string): Promise<{
+export async function fetchUnifiedMovements(tenantId: string, usuarioUnidades?: string[]): Promise<{
   movements: UnifiedMovement[];
   cnNames: string[];
 }> {
+  const collectionConstraints = [where('tenantId', '==', tenantId)];
+  if (usuarioUnidades && usuarioUnidades.length > 0) {
+    if (usuarioUnidades.length === 1) {
+      collectionConstraints.push(where('unitId', '==', usuarioUnidades[0]));
+    } else {
+      collectionConstraints.push(where('unitId', 'in', usuarioUnidades));
+    }
+  } else {
+    collectionConstraints.push(where('unitId', '==', 'none_assigned'));
+  }
+
   const [incomesSnap, expensesSnap, transfersSnap, collectionsSnap] = await Promise.all([
-    getDocs(query(collection(db, 'bc_incomes'), where('tenantId', '==', tenantId))),
-    getDocs(query(collection(db, 'bc_expenses'), where('tenantId', '==', tenantId))),
-    getDocs(query(collection(db, 'bc_transfers'), where('tenantId', '==', tenantId))),
-    getDocs(query(collection(db, 'collections'), where('tenantId', '==', tenantId))),
+    getDocs(query(collection(db, 'bc_incomes'), ...collectionConstraints)),
+    getDocs(query(collection(db, 'bc_expenses'), ...collectionConstraints)),
+    getDocs(query(collection(db, 'bc_transfers'), ...collectionConstraints)),
+    getDocs(query(collection(db, 'collections'), ...collectionConstraints)),
   ]);
 
   const loadedMovements: UnifiedMovement[] = [];

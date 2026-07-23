@@ -72,10 +72,10 @@ async function persistBoxExpense(input: ExpenseFormInput, amountCents: number, s
     attachmentName: input.fileName,
     attachmentUrl: input.fileUrl,
     status,
-    userId: auth?.currentUser?.uid || 'test-user-id',
+    userId: auth?.currentUser?.uid ?? '',
     userName: input.userName || auth?.currentUser?.email || 'Usuario',
     requestedBy: input.userName || auth?.currentUser?.email || 'Usuario',
-    requestedById: auth?.currentUser?.uid || 'test-user-id',
+    requestedById: auth?.currentUser?.uid ?? '',
     createdAt: serverTimestamp(),
   });
 
@@ -84,6 +84,7 @@ async function persistBoxExpense(input: ExpenseFormInput, amountCents: number, s
   if (!boxSnap.exists()) return;
 
   const boxData = boxSnap.data();
+  if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
   const newExpenses = (boxData.totalExpenses || 0) + amountCents;
   const finalAmount =
     (boxData.initialAmount || 0) +

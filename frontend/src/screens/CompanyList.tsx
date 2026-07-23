@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { AlertCircle, Check } from 'lucide-react';
 import { useCompanyListData } from '../hooks/useCompanyListData';
 import { useCustomerCreateForm } from '../hooks/useCustomerCreateForm';
@@ -16,7 +16,17 @@ interface CompanyListProps {
 
 export function CompanyList({ params }: CompanyListProps) {
   const { tenantId } = useTenant();
-  const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'create'>(() => 
+    params?.initialTab === 'create' ? 'create' : 'list'
+  );
+
+  useEffect(() => {
+    if (params?.initialTab === 'create') {
+      setActiveTab('create');
+    } else if (params?.initialTab === 'list') {
+      setActiveTab('list');
+    }
+  }, [params]);
 
   const listData = useCompanyListData({
     tenantId,

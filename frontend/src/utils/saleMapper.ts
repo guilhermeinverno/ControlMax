@@ -8,6 +8,7 @@ export function mapSaleFromSnapshot(
   return {
     id: docSnap.id,
     tenantId: String(data.tenantId || ''),
+    unitId: data.unitId ? String(data.unitId) : undefined,
     clientId: String(data.clientId || ''),
     clientName: String(data.clientName || ''),
     clientDoc: String(data.clientDoc || ''),

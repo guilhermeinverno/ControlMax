@@ -1,3 +1,4 @@
+import { fmtCents } from '../../../utils/fmtCents';
 import { Coins, Edit3, History, User, Camera, Check, X, Mail } from 'lucide-react';
 import { Screen } from '../../../types';
 import { formatSalesListCents } from '../../../utils/salesListFormat';
@@ -126,7 +127,7 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
               <div className="flex flex-col leading-none">
                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Valor de venda</span>
                 <span className="text-xs font-black text-[#333333] mt-0.5">
-                  ${(sale.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                  ${fmtCents(sale.amount)}
                 </span>
               </div>
 
@@ -134,7 +135,7 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
                 <div className="flex flex-col leading-none">
                   <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Saldo devedor</span>
                   <span className="text-xs font-black text-[#333333] mt-0.5">
-                    ${(sale.saldoPendienteCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                    ${fmtCents(sale.saldoPendienteCents)}
                   </span>
                 </div>
                 {/* Button 2: Registrar Não Pagamento */}
@@ -256,7 +257,7 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
               <div className="flex flex-col leading-none">
                 <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Valor de venda</span>
                 <span className="text-xs font-black text-[#333333] mt-0.5">
-                  ${(sale.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                  ${fmtCents(sale.amount)}
                 </span>
               </div>
 
@@ -264,7 +265,7 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
                 <div className="flex flex-col leading-none">
                   <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Saldo devedor</span>
                   <span className="text-xs font-black text-[#333333] mt-0.5">
-                    ${(sale.saldoPendienteCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+                    ${fmtCents(sale.saldoPendienteCents)}
                   </span>
                 </div>
                 {/* Button 2: Registrar Não Pagamento */}

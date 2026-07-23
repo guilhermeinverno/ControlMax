@@ -1,3 +1,4 @@
+import { auth } from '../lib/firebase';
 import { getOperationalContext } from './assistantOperationalContext';
 import {
   assistantAbortErrorMessage,
@@ -48,23 +49,20 @@ export async function callGeminiAssistant(params: CallGeminiAssistantParams): Pr
 
   try {
     const clientOperationalContext = await loadOperationalContext(params.tenantId);
-    const clientApiKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined) || 
-                         (typeof window !== 'undefined' ? window.localStorage.getItem('gemini_api_key') : null) || 
-                         undefined;
+    const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
 
     const response = await fetch(resolveAssistantApiUrl(), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       signal: controller.signal,
       body: JSON.stringify({
         message: params.text,
         audio: params.base64Audio,
         language: params.language,
-        role: params.role,
-        userName: params.userName,
-        tenantId: params.tenantId,
         clientOperationalContext,
-        clientApiKey,
       }),
     });
 

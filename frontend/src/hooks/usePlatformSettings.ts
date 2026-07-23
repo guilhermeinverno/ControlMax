@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { db } from '../lib/firebase';
+import { db, auth } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { useTenant } from './useTenant';
+import { logSecurityAction } from '../utils/securityLogger';
 import {
   DEFAULT_PLATFORM_SETTINGS,
   mapPlatformSettingsFromFirestore,
@@ -8,6 +10,7 @@ import {
 } from '../types/platformSettings';
 
 export function usePlatformSettings(tenantId?: string) {
+  const { role } = useTenant();
   const [settings, setSettings] = useState<PlatformSettings>(DEFAULT_PLATFORM_SETTINGS);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -65,6 +68,15 @@ export function usePlatformSettings(tenantId?: string) {
       await updateDoc(tenantDocRef, { name: settings.platformName }).catch((err) =>
         console.log('Non-blocking error updating tenant name:', err)
       );
+
+      // Log successful CHANGE_CREDIT_LIMIT
+      await logSecurityAction(
+        auth?.currentUser?.uid || 'unknown-user',
+        role || 'unknown-role',
+        'CHANGE_CREDIT_LIMIT',
+        'all',
+        'SUCCESS'
+      ).catch(e => console.error('Silent log error:', e));
 
       setSuccessMsg('¡Configuración de la plataforma guardada y aplicada con éxito!');
       setTimeout(() => setSuccessMsg(null), 5000);

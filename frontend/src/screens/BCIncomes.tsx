@@ -13,9 +13,9 @@ interface BCIncomesProps {
 }
 
 export function BCIncomes({ onNavigate: _onNavigate }: BCIncomesProps) {
-  const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
+  const { tenantId, role, userName, isSuperAdmin, usuarioUnidades, loading: tenantLoading } = useTenant();
   const { activeBox } = useBox();
-  const data = useBCIncomesData(tenantId, userName);
+  const data = useBCIncomesData(tenantId, userName, usuarioUnidades);
 
   const isAdminOrSupervisor = role === 'admin' || role === 'supervisor' || isSuperAdmin;
 

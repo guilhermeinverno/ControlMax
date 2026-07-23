@@ -1,5 +1,6 @@
 import { User } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { toast } from 'react-hot-toast';
 import {
   findRegisteredUserByEmail,
   isAdminBypassEmail,
@@ -79,6 +80,7 @@ export async function handleMissingUserDoc(
     await applyLinkedUser(user, emailLower, foundData, setters);
   } catch (err) {
     console.error('Error auto-linking registered user by email:', err);
+    toast.error('Falha de conexão. O sistema operará em modo restrito devido à instabilidade na rede.');
     applyGuestState(user, emailLower, hasAdminBypass, setters);
   }
 }

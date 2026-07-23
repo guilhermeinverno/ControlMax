@@ -23,7 +23,7 @@ const fmt = (cents: number) =>
   });
 
 export function Statistics() {
-  const { tenantId } = useTenant();
+  const { tenantId, usuarioUnidades } = useTenant();
 
   // Filters state (Defaults to 30 days range ending today)
   const [startDate, setStartDate] = useState<string>(() => {
@@ -40,7 +40,7 @@ export function Statistics() {
 
   const [filterTrigger, setFilterTrigger] = useState<number>(0);
 
-  const { boxes, collections, expenses, sales, customersCount, loading, loadError } = useStatisticsData(tenantId, filterTrigger);
+  const { boxes, collections, expenses, sales, customersCount, loading, loadError } = useStatisticsData(tenantId, filterTrigger, usuarioUnidades);
 
   const filterStart = new Date(startDate + 'T00:00:00');
   const filterEnd = new Date(endDate + 'T23:59:59');

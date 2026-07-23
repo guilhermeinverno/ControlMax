@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { logFirestoreError } from '../utils/firestoreError';
 import { fetchUnifiedMovements, type UnifiedMovement } from '../utils/financeMovements';
 
-export function useFinanceData(tenantId?: string, isCollector = false) {
+export function useFinanceData(tenantId?: string, isCollector = false, usuarioUnidades?: string[]) {
   const [loadingData, setLoadingData] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [movements, setMovements] = useState<UnifiedMovement[]>([]);
@@ -21,7 +22,7 @@ export function useFinanceData(tenantId?: string, isCollector = false) {
     setErrorMsg(null);
 
     try {
-      const { movements: loadedMovements, cnNames } = await fetchUnifiedMovements(tenantId);
+      const { movements: loadedMovements, cnNames } = await fetchUnifiedMovements(tenantId, usuarioUnidades);
       setMovements(loadedMovements);
       setAvailableCns(cnNames);
     } catch (err: unknown) {
@@ -33,7 +34,7 @@ export function useFinanceData(tenantId?: string, isCollector = false) {
           includeAuth: false,
         });
       } catch {
-        /* logged */
+        toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     } finally {
       setLoadingData(false);
@@ -44,7 +45,7 @@ export function useFinanceData(tenantId?: string, isCollector = false) {
     if (tenantId && !isCollector) {
       loadFinancialData();
     }
-  }, [tenantId, isCollector]);
+  }, [tenantId, isCollector, usuarioUnidades]);
 
   return {
     loadingData,

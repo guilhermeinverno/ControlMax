@@ -37,6 +37,7 @@ export async function executeRegisterPaymentTransaction({
 
     const saleData = saleSnap.data();
     const boxData = boxSnap.data();
+    if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
     const { computedNewBalance, newTotalCollections, newFinalAmount } = computePaymentBalances(
       saleData,
       boxData,
@@ -61,7 +62,6 @@ export async function executeRegisterPaymentTransaction({
 
     transaction.update(saleRef, {
       saldoPendienteCents: computedNewBalance,
-      saldoPendiente: (computedNewBalance / 100).toFixed(2),
       status: computedNewBalance <= 0 ? 'completed' : saleData.status,
     });
 

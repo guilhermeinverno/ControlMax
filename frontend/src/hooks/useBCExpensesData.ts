@@ -7,7 +7,7 @@ import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEv
 import type { BCExpense } from '../types/bcExpense';
 import { todayDateString } from '../types/bcExpense';
 
-export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin = false) {
+export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin = false, usuarioUnidades?: string[]) {
   const [isNewExpenseOpen, setIsNewExpenseOpen] = useState(false);
   const [expenses, setExpenses] = useState<BCExpense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,9 +42,10 @@ export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin 
         onData: setExpenses,
         onError: setError,
         onLoading: setLoading,
-      }
+      },
+      usuarioUnidades
     );
-  }, [tenantId, selectedDate]);
+  }, [tenantId, selectedDate, usuarioUnidades]);
 
   const handleAmountChange = (e: HtmlInputChangeEvent) => {
     setAmountInput(formatCurrencyBRL(e.target.value));
