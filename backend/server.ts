@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import cors from "cors";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { createAssistantHandler } from "./assistantRoute";
@@ -48,7 +47,8 @@ app.use("/api/admin", authMiddleware, adminRoutes);
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
+    const { createServer } = await import("vite");
+    const vite = await createServer({
       server: { middlewareMode: true },
       appType: "spa",
       root: path.join(__dirname, "../frontend"),
@@ -72,7 +72,9 @@ async function startServer() {
   }
 }
 
-startServer();
+if (process.env.LOCAL_DEV === 'true') {
+  startServer();
+}
 
 import * as functions from 'firebase-functions';
 
