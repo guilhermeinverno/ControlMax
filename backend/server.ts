@@ -76,7 +76,7 @@ if (process.env.LOCAL_DEV === 'true') {
   startServer();
 }
 
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 
-// Exportando a aplicação como uma Firebase Cloud Function
-export const api = functions.https.onRequest(app);
+// Exportando a aplicação como uma Firebase Cloud Function (Gen 2 com acesso público)
+export const api = onRequest({ invoker: 'public', region: 'us-central1' }, app);

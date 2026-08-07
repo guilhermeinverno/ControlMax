@@ -86,9 +86,11 @@ Para corrigir isso, configure uma das seguintes variáveis de ambiente:
       });
     }
   } else {
-    initializeApp({
-      projectId: config.projectId,
-    });
+    if (config.projectId) {
+      initializeApp({ projectId: config.projectId });
+    } else {
+      initializeApp();
+    }
   }
 }
 
