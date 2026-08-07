@@ -37,23 +37,6 @@ export async function checkIdempotency(
   return null;
 }
 
-export function registerIdempotencyStart(
-  tx: FirebaseFirestore.Transaction,
-  key: string,
-  uid: string,
-  tenantId: string = ''
-) {
-  if (!key) return;
-  const docId = buildIdempotencyDocId(tenantId, uid, key);
-  const keyRef = adminDb.collection("idempotency_keys").doc(docId);
-  tx.set(keyRef, {
-    uid,
-    tenantId,
-    status: "processing",
-    createdAt: FieldValue.serverTimestamp(),
-  });
-}
-
 export function registerIdempotencySuccess(
   tx: FirebaseFirestore.Transaction,
   key: string,
@@ -64,10 +47,11 @@ export function registerIdempotencySuccess(
   if (!key) return;
   const docId = buildIdempotencyDocId(tenantId, uid, key);
   const keyRef = adminDb.collection("idempotency_keys").doc(docId);
-  tx.update(keyRef, {
+  tx.set(keyRef, {
+    uid,
+    tenantId,
     status: "completed",
     response: responseData,
     completedAt: FieldValue.serverTimestamp(),
   });
 }
-

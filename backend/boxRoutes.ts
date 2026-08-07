@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { adminDb, AuthenticatedRequest } from "./authMiddleware";
-import { checkIdempotency, registerIdempotencyStart, registerIdempotencySuccess } from "./idempotency";
+import { checkIdempotency, registerIdempotencySuccess } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
 
 const router = Router();
@@ -38,7 +38,6 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId);
       }
 
       // Verificar se já existe caixa para esta Unidade nesta data
@@ -118,7 +117,6 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId);
       }
 
       const boxRef = adminDb.collection("boxes").doc(boxId);
@@ -219,7 +217,6 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId);
       }
 
       // Buscar perfil do usuário

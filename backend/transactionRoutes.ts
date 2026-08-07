@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { adminDb, AuthenticatedRequest } from "./authMiddleware";
-import { checkIdempotency, registerIdempotencyStart, registerIdempotencySuccess } from "./idempotency";
+import { checkIdempotency, registerIdempotencySuccess } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
 
 const router = Router();
@@ -57,7 +57,6 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId, tenantId);
       }
 
       // Buscar caixa aberta do cobrador para este tenant na data
@@ -161,7 +160,6 @@ router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId, tenantId);
       }
 
       // Buscar caixa aberta
@@ -294,7 +292,6 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId, tenantId);
       }
 
       const boxRef = adminDb.collection("boxes").doc(boxId);
@@ -439,7 +436,6 @@ router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
-        registerIdempotencyStart(transaction, idempotencyKey, userId, tenantId);
       }
 
       const collectionRef = adminDb.collection("collections").doc(originalTransactionId);
