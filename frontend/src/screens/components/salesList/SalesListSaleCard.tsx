@@ -76,7 +76,7 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
             <div>
               <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Parcelas</span>
               <span className="font-extrabold text-[#333333] text-xs block">
-                Faltam {pendingInstallments.toFixed(0)} de {sale.installments.toFixed(0)}
+                {pendingInstallments.toFixed(0)}/{sale.installments.toFixed(0)}
               </span>
             </div>
             <div className="flex items-center space-x-2">

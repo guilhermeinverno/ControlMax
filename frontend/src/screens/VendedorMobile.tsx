@@ -877,7 +877,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                         <div>
                           <span className="block text-[9px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-1">Parcelas</span>
                           <span className="font-extrabold text-[#333333] text-xs block">
-                            Faltam {pendingInstallments.toFixed(0)} de {sale.installments.toFixed(0)}
+                            {pendingInstallments.toFixed(0)}/{sale.installments.toFixed(0)}
                           </span>
                         </div>
                         <div>
