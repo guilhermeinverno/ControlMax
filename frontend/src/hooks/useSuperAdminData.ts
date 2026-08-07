@@ -106,25 +106,42 @@ export function useSuperAdminData() {
     setSubmittingTenant(true);
     setError(null);
     try {
-      const priceInCents = Math.round(parseFloat(newTenantPrice) * 100) || 0;
-      const tenantRef = await addDoc(collection(db, 'tenants'), {
-        name: newTenantName.trim(),
-        active: true,
-        createdAt: Timestamp.now(),
-        plan: 'Completo',
-        monthlyPrice: priceInCents,
+      const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+      const cleanTenantId = newTenantName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
+      const res = await fetch('/api/admin/tenants', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          tenantId: cleanTenantId,
+          name: newTenantName.trim(),
+          active: true,
+        }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao criar empresa via servidor.');
+      }
 
       // Create primary administrator account if email is provided
       if (newTenantAdminEmail.trim()) {
-        await addDoc(collection(db, 'users'), {
-          email: newTenantAdminEmail.trim().toLowerCase(),
-          name: newTenantAdminName.trim() || 'Administrador',
-          userName: newTenantAdminName.trim() || 'Administrador',
-          role: 'admin',
-          tenantId: tenantRef.id,
-          active: true,
-          createdAt: Timestamp.now(),
+        await fetch('/api/admin/users', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            email: newTenantAdminEmail.trim().toLowerCase(),
+            name: newTenantAdminName.trim() || 'Administrador',
+            role: 'admin',
+            tenantId: cleanTenantId,
+            active: true,
+          }),
         });
       }
 
@@ -145,10 +162,10 @@ export function useSuperAdminData() {
       setNewTenantAdminName('');
       setNewTenantAdminEmail('');
       await loadData();
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Error adding tenant:', err);
-      toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
-      setError('Erro ao salvar tenant. Verifique sua conexão.');
+      toast.error(err.message || 'Falha de sincronização. Verifique sua conexão com a internet.');
+      setError(err.message || 'Erro ao salvar tenant. Verifique sua conexão.');
     } finally {
       setSubmittingTenant(false);
     }
@@ -160,13 +177,27 @@ export function useSuperAdminData() {
     setSubmittingUser(true);
     setError(null);
     try {
-      await addDoc(collection(db, 'users'), {
-        email: newUserEmail.trim().toLowerCase(),
-        name: newUserName.trim() || 'Colaborador',
-        role: newUserRole,
-        tenantId: newUserTenant,
-        active: true,
+      const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: newUserEmail.trim().toLowerCase(),
+          name: newUserName.trim() || 'Colaborador',
+          role: newUserRole,
+          tenantId: newUserTenant,
+          active: true,
+        }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Falha ao criar colaborador via servidor.');
+      }
+
       setTerminalLogs((prev) =>
         prependTerminalLog(
           prev,
@@ -176,8 +207,9 @@ export function useSuperAdminData() {
       setNewUserEmail('');
       setNewUserName('');
       await loadData();
-    } catch (err: unknown) {
+    } catch (err: any) {
       console.error('Error adding user:', err);
+
       setError('Erro ao salvar usuário no Firestore.');
     } finally {
       setSubmittingUser(false);

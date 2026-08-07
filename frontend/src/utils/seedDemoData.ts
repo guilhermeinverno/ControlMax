@@ -3,7 +3,6 @@ import { db, auth } from '../lib/firebase';
 
 export async function seedDemoData(customTenantId?: string) {
   const tenantId = customTenantId || 'tenant_demo';
-  const isOffline = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
 
   // Safe write helper to prevent hanging or slowing down login flow
   const safeSetDoc = async (ref: any, data: any) => {

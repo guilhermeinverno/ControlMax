@@ -11,6 +11,7 @@ import { DEFAULT_DEVICE_APP_VERSION } from '../../../constants/device';
 import { fmtCents } from '../../../utils/fmtCents';
 import { pickJsDate } from '../../../utils/firestoreTimestamp';
 import { dashboardBoxListStatusLabel } from '../../../utils/statusLabels';
+import { parseUnknownTimestamp } from '../../../utils/timestampParsing';
 import type { DashboardBoxRecord } from '../../../types/dashboardBox';
 
 interface DashboardBoxCardProps {
@@ -18,7 +19,8 @@ interface DashboardBoxCardProps {
 }
 
 export function DashboardBoxCard({ record }: DashboardBoxCardProps) {
-  const openedDate = record.openedAt ? record.openedAt.toDate() : new Date();
+  const openedDate = parseUnknownTimestamp(record.openedAt) || new Date();
+
   const dateBoxStr = openedDate.toLocaleDateString('pt-BR', {
     day: '2-digit',
     month: 'short',

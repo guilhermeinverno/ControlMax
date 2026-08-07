@@ -5,7 +5,8 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { createAssistantHandler } from "./assistantRoute";
-import { handleConfirmBox } from "./boxConfirmRoute";
+import boxRoutes from "./boxRoutes";
+import transactionRoutes from "./transactionRoutes";
 import { authMiddleware } from "./authMiddleware";
 import { fileURLToPath } from "url";
 
@@ -38,8 +39,12 @@ const ai = new GoogleGenAI({
   }
 });
 
+import adminRoutes from "./adminRoutes";
+
 app.post("/api/gemini/assistant", authMiddleware, createAssistantHandler(ai, apiKey));
-app.post("/api/boxes/confirm", authMiddleware, handleConfirmBox);
+app.use("/api/boxes", authMiddleware, boxRoutes);
+app.use("/api/transactions", authMiddleware, transactionRoutes);
+app.use("/api/admin", authMiddleware, adminRoutes);
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -60,9 +65,16 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  if (process.env.NODE_ENV !== "production" && !process.env.FUNCTIONS_EMULATOR) {
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  }
 }
 
 startServer();
+
+import * as functions from 'firebase-functions';
+
+// Exportando a aplicação como uma Firebase Cloud Function
+export const api = functions.https.onRequest(app);

@@ -3,7 +3,6 @@ import { doc, setDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
 import {
   findRegisteredUserByEmail,
-  isAdminBypassEmail,
   mapRoleFromFirestore,
 } from './useTenantHelpers';
 import { applyExistingUserDoc, applyGuestState, TenantSetters } from './useTenantState';
@@ -66,12 +65,10 @@ export async function handleMissingUserDoc(
   userDocRef: ReturnType<typeof doc>,
   setters: TenantSetters
 ) {
-  const hasAdminBypass = isAdminBypassEmail(emailLower);
-
   try {
     const foundDoc = await findRegisteredUserByEmail(user, emailLower);
     if (!foundDoc) {
-      applyGuestState(user, emailLower, hasAdminBypass, setters);
+      applyGuestState(user, emailLower, false, setters);
       return;
     }
 
@@ -81,6 +78,7 @@ export async function handleMissingUserDoc(
   } catch (err) {
     console.error('Error auto-linking registered user by email:', err);
     toast.error('Falha de conexão. O sistema operará em modo restrito devido à instabilidade na rede.');
-    applyGuestState(user, emailLower, hasAdminBypass, setters);
+    applyGuestState(user, emailLower, false, setters);
   }
 }
+

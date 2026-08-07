@@ -8,6 +8,8 @@ import { UnitSelectors } from './components/UnitSelectors';
 import { Save, X, AlertCircle } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL } from '../utils/currency';
 import { fmtCents } from '../utils/fmtCents';
+import { parseUnknownTimestamp } from '../utils/timestampParsing';
+
 
 interface OpenBoxProps {
   onNavigate?: (screen: Screen) => void;
@@ -115,7 +117,7 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
             <div>
               <span className="font-bold uppercase text-[10px] text-yellow-900 block">Fecha y Hora de Apertura</span>
               <span className="text-sm font-semibold">
-                {activeBox.openedAt ? activeBox.openedAt.toDate().toLocaleString('pt-BR') : 'N/A'}
+                {parseUnknownTimestamp(activeBox.openedAt)?.toLocaleString('pt-BR') || 'N/A'}
               </span>
             </div>
             <div>

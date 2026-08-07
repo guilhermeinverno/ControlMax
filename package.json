@@ -18,7 +18,8 @@
     "lint:frontend": "npm run lint -w frontend",
     "lint": "npm run lint -w frontend",
     "test:rules:run": "npm run test -w frontend -- src/tests/firestore.rules.test.ts",
-    "test:rules": "HTTP_PROXY= HTTPS_PROXY= http_proxy= https_proxy= NO_PROXY=127.0.0.1,localhost npx firebase emulators:exec --only firestore \"npm run test:rules:run\""
+    "test:rules": "set HTTP_PROXY= && set HTTPS_PROXY= && set http_proxy= && set https_proxy= && set NO_PROXY=127.0.0.1,localhost && npx firebase emulators:exec --only firestore \"npm run test:rules:run\"",
+    "seed:client": "npm run seed:client -w backend"
   },
   "devDependencies": {
     "concurrently": "^10.0.3"

@@ -1,0 +1,52 @@
+label,route
+Abrir Caja,/OpenCashLoan/CreateOpenCashLoan
+Abrir Caja,/OpenCashRegisterOffice/vwOpenCashRegisterOffice
+Actividad económica,/EconomicActivities/EconomicActivities
+Apertura masiva de cajas,/Queues/ViewQueuesTC
+Aprobaciones,/GeneralApprovals/vwGeneralApprovals
+Aprobar transferencias,/ApproveMoneyTransfer/ViewApproveMoneyTransfer
+Asignación de unidades,/AssignmentToUsers/ViewAssignmentToUsers
+Centros de negocios,/Offices/CreateOffices
+Cerrar Caja,/CloseBox/CloseBox
+Cerrar Caja,/CloseCashRegisterOffice/vwCloseCashRegisterOffice
+Cierre masivo de cajas,/QueuesOffice/ViewQueuesOffice
+Clientes,/Customers/ViewCustomer
+Confirmar Caja,/ConfirmBox/ConfirmBox
+Confirmar Caja,/ConfirmBoxOffice/ConfirmBoxOffice
+Crear llave,/MassiveKeys/MassiveKeys?utId=1
+Dispositivos,/LinkDevices/Link
+Egresos,/OfficesExpenses/ViewOfficesExpenses
+Facturación,/RoutinesInvoices/vwRoutinesInvoices
+Gastos,/Expenses/ViewExpenses?idCash=0
+Histórico de alertas de pánico,/PanicAlertReport/vwPanicAlert
+Ingresos,/OfficesIncomes/ViewOfficesIncomes
+Ingresos / Complementarios,/Incomes/ViewIncomes?idCash=0
+Limpieza de cobro,/CollectionCleaning/ViewCollectionCleaning
+Liquidación del trabajador,/WorkerLiquidation/ViewWorkerLiquidation
+Lista negra,/CustomersBlackList/CreateViewCustomersBlackList
+Loans financing,/SocietyLoans/ViewSocietyLoans?offId=
+Log de Acciones,/TotalLog/ViewTotalLog
+Log Móvil,/LogMovil/LogMovil
+Mapa,/MapxUnits/MapxUnits
+Perfiles,/CreateProfiles/CreateProfiles
+Plataforma,/LoansReports/vwLoansReports?rpt=P
+Procesos encolados,/ReportsQueues/ViewReportsQueues
+Reporte Dispositivos Vinculados,/DeviceReportToExcel/vwDeviceReportToExcel
+Reportes Personalizados,/CustomReports/ViewCustomReports
+Reportes Rápidos,/FastReportsLoans/viewFastReportsLoans
+Resumen,/Summary/vwSummary?utId=1
+Resumen,/SummaryCN/ViewSummaryCN
+Resumen por periodo,/SummaryByPeriod/vwSummaryByPeriod
+Resumen por periodo,/SummaryCNByPeriod/vwSummaryCNByPeriod
+Seguros,/Insurance/ViewInsurance
+Sociedades,/CreateSocieties/vwCreateSocieties
+Tipos de movimientos,/TypesMovements/ViewTypesMovements
+Trabajadores,/Workers/ViewWorkers
+Transferencia de dinero,/MoneyTranfererHistory/MoneyTranfererHistory
+Transferencia masiva de ventas,/MassiveTransferSales/ViewMassiveTransferSales
+Traslado de unidades,/UgisTransferHistory/vwTabsUgisTransfer
+Ubicar Mis Trabajadores,/LocationWorkers/viewLocationWorkers
+Unidades,/ManageUnits/ManageUnits
+Usuarios,/Users/Users
+Ventas,/Loans/Loans
+Ventas,/LoansReports/vwLoansReports?rpt=S

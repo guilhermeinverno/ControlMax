@@ -1,0 +1,12 @@
+flowchart LR
+    U[Usuário autenticado] --> S[Shell /Application/Index]
+    S --> C[Contexto: centro e unidade]
+    S --> M[Menus por domínio]
+    M --> L[CargarBody]
+    L --> V[Views parciais ASP.NET]
+    V --> A[Endpoints controlador/ação]
+    A --> D[(Dados operacionais)]
+    V --> J[Scripts específicos por tela]
+    S --> ST[sessionStorage/localStorage]
+    S --> T[Clarity e Datadog RUM]
+    A --> AZ[Serviços e armazenamento Azure]

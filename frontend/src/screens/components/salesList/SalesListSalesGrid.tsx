@@ -2,17 +2,18 @@ import { Wallet } from 'lucide-react';
 import { SKELETON_ROW_KEYS } from '../../../constants/placeholders';
 import { Screen } from '../../../types';
 import { listViewBody } from '../../../utils/listViewBody';
-import { SalesListSale } from '../../../utils/salesListMapper';
+import { SalesListSale, SalesListCollection } from '../../../utils/salesListMapper';
 import { SalesListSaleCard } from './SalesListSaleCard';
 import { useTenant } from '../../../hooks/useTenant';
 
 interface SalesListSalesGridProps {
   sales: SalesListSale[];
+  collections?: SalesListCollection[];
   loadingSales: boolean;
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
 }
 
-export function SalesListSalesGrid({ sales, loadingSales, onNavigate }: SalesListSalesGridProps) {
+export function SalesListSalesGrid({ sales, collections, loadingSales, onNavigate }: SalesListSalesGridProps) {
   const { role } = useTenant();
   const isCollector = role === 'collector';
 
@@ -50,7 +51,7 @@ export function SalesListSalesGrid({ sales, loadingSales, onNavigate }: SalesLis
         ),
         <>
           {sales.map((sale) => (
-            <SalesListSaleCard key={sale.id} sale={sale} onNavigate={onNavigate} />
+            <SalesListSaleCard key={sale.id} sale={sale} collections={collections} onNavigate={onNavigate} />
           ))}
         </>
       )}

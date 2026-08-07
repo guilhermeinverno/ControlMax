@@ -7,7 +7,11 @@ export function parseUnknownTimestamp(ts: unknown): Date | null {
     'toDate' in ts &&
     typeof (ts as Record<string, unknown>).toDate === 'function'
   ) {
-    return (ts as { toDate: () => Date }).toDate();
+    try {
+      return (ts as { toDate: () => Date }).toDate();
+    } catch (e) {
+      // fallback
+    }
   }
 
   if (ts instanceof Date) return ts;
@@ -23,5 +27,11 @@ export function parseUnknownTimestamp(ts: unknown): Date | null {
 
   if (typeof ts === 'number') return new Date(ts);
 
+  if (typeof ts === 'string') {
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
   return null;
 }
+

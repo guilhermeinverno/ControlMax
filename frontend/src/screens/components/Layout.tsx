@@ -1,6 +1,6 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { 
-  Menu, User, LogOut, Check, MessageCircle, Download, Smartphone, ClipboardList
+  Menu, User, LogOut, Check, Download, Smartphone, ClipboardList
 } from 'lucide-react';
 import { Screen } from '../../types';
 import { auth, db, getDemoUser, triggerAuthListeners } from '../../lib/firebase';
@@ -13,6 +13,9 @@ import { LayoutMobileDrawer } from './layout/LayoutMobileDrawer';
 import { LayoutDesktopNav } from './layout/LayoutDesktopNav';
 import { layoutRoleLabel } from '../../utils/statusLabels';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { SyncStatusBadge } from '../../components/sync/SyncStatusBadge';
+
+import { useGlobalContext } from '../../context/GlobalContext';
 
 interface LayoutProps {
   children: ReactNode;
@@ -23,9 +26,10 @@ interface LayoutProps {
 
 export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: LayoutProps) {
   const { tenantId, role } = useTenant();
-  const shouldHideGlobalHeader = currentScreen === 'bc-transfers' || currentScreen === 'transfer-sales' || currentScreen === 'sale-detail' || currentScreen === 'new-expense' || currentScreen === 'new-income' || (currentScreen === 'sales' && role === 'collector');
+  const { selectedCnId, selectedUnitId, setSelectedCnId, setSelectedUnitId } = useGlobalContext();
+  const shouldHideGlobalHeader = currentScreen === 'bc-transfers' || currentScreen === 'transfer-sales' || currentScreen === 'sale-detail' || currentScreen === 'new-expense' || currentScreen === 'new-income' || (currentScreen === 'sales' && role === 'collector') || currentScreen === 'vendedor-mobile';
   useLocation(); // Rastreamento automático quando caixa aberta
-  const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
+
 
   const [collectorStats, setCollectorStats] = useState({ clients: 65, paid: 1, balance: 1007951 });
 
@@ -99,8 +103,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
   };
   const userEmail = auth.currentUser?.email || '';
   const currentEmail = userEmail.toLowerCase();
-  const isSuperByEmail = currentEmail === 'gringoeletronica@gmail.com' || currentEmail === 'controlmaxia@gmail.com';
-  const showSuperAdmin = isSuperAdmin || isSuperByEmail;
+  const showSuperAdmin = isSuperAdmin;
   const displayRole = layoutRoleLabel(role, showSuperAdmin);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -174,30 +177,14 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
             <Menu className="w-7 h-7" />
           </button>
 
-          {/* Logo themed elegantly like TRY Controller but with ControlMax */}
+          {/* Logo em círculo elegante */}
           <div 
             onClick={() => onNavigate(role === 'collector' ? 'sales' : 'dashboard')}
-            className="flex items-center cursor-pointer select-none"
+            className="flex items-center cursor-pointer select-none py-1"
           >
-            {role === 'collector' ? (
-              <div className="flex flex-col items-start leading-none py-1">
-                <span className="text-white font-black text-sm lg:text-base tracking-wide uppercase">ControlMax</span>
-                <div className="flex items-center space-x-1.5 text-[10px] font-bold text-gray-200 mt-1">
-                  <ClipboardList className="w-3.5 h-3.5 text-[#8CC63F]" />
-                  <span>{collectorStats.clients} / {collectorStats.paid} / {collectorStats.balance}</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-start leading-tight">
-                <span className="text-white font-black text-sm lg:text-base uppercase tracking-wider">Control</span>
-                <div className="flex items-center gap-1">
-                  <span className="text-[#8CC63F] font-black text-lg tracking-tight uppercase leading-none">Max</span>
-                  <span className="bg-[#8CC63F] rounded-full p-0.5 flex items-center justify-center shadow-sm w-3.5 h-3.5 border border-white">
-                    <Check className="w-2.5 h-2.5 text-white stroke-[4.5]" />
-                  </span>
-                </div>
-              </div>
-            )}
+            <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white border-2 border-white/40 shadow-md flex items-center justify-center overflow-hidden shrink-0">
+              <img src="/logo.png" alt="ControlMax Logo" className="h-8 lg:h-9 w-auto object-contain" />
+            </div>
           </div>
         </div>
 
@@ -213,14 +200,27 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
         {/* Right Section: Stretches purple background and holds profile */}
         <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-4 lg:px-6 space-x-4">
+          <SyncStatusBadge />
 
+          {(role === 'admin' || role === 'supervisor' || showSuperAdmin) && (
+            <button 
+              onClick={() => nav('ai-assistant')} 
+              className={`p-1.5 rounded-full hover:bg-white/10 transition-colors flex items-center justify-center relative cursor-pointer ${
+                currentScreen === 'ai-assistant' ? 'bg-white/15 text-white' : 'text-white'
+              }`}
+              title="Assistente de Voz IA"
+            >
+              <span className="text-xl">🤖</span>
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#84CC16] rounded-full ring-1 ring-[#6A008A]"></span>
+            </button>
+          )}
 
           <div className="hidden xl:flex flex-col text-right">
             <span className="text-white text-xs font-bold uppercase">{displayRole}</span>
             <span className="text-white/70 text-[10px]">{userEmail}</span>
           </div>
 
-          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none" onClick={() => nav('superadmin')} title="Super Administrador">
+          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none cursor-pointer" onClick={() => nav('superadmin')} title="Super Administrador">
             <div className="border-2 border-white/80 rounded-full p-1 bg-white/10 flex items-center justify-center">
               <User className="w-5 h-5 text-white" />
             </div>
@@ -292,18 +292,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
           </div>
         )}
 
-        {/* Floating WhatsApp Button (exactly like TryController bottom-right green contact button) */}
-        {!isAIAssistantOpen && currentScreen !== 'ai-assistant' && (
-          <a 
-            href="https://wa.me/5511999999999" 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="fixed bottom-6 right-6 lg:bottom-8 lg:right-8 bg-[#25D366] text-white p-3.5 rounded-full shadow-[0_6px_16px_rgba(0,0,0,0.3)] z-[100] flex items-center justify-center border-4 border-white hover:scale-110 active:scale-95 transition-transform"
-            title="Contacto de WhatsApp"
-          >
-            <MessageCircle className="w-8 h-8 fill-white stroke-[1.2] text-[#25D366]" />
-          </a>
-        )}
+
 
          {/* AI Voice Assistant for Client Admin (Spanish) or Super Admin (Portuguese) */}
         {(role === 'admin' || showSuperAdmin) && currentScreen !== 'ai-assistant' && (

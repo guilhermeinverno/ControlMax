@@ -12,47 +12,73 @@ import { Dashboard } from '../screens/Dashboard';
 import { hasPermission } from '../utils/rbac';
 import { toast } from 'react-hot-toast';
 
+// Helper to retry loading dynamic imports on deployment or chunk load failures
+function lazyRetry<T extends ComponentType<any>>(
+  factory: () => Promise<{ default: T } | { [key: string]: any }>
+): React.LazyExoticComponent<T> {
+  return lazy(async () => {
+    try {
+      const result = await factory();
+      if ('default' in result) {
+        return result as { default: T };
+      }
+      const keys = Object.keys(result);
+      return { default: result[keys[0]] } as { default: T };
+    } catch (error) {
+      console.error('Chunk load error, retrying page reload...', error);
+      const isRetry = window.sessionStorage.getItem('lazy-retry-done');
+      if (!isRetry) {
+        window.sessionStorage.setItem('lazy-retry-done', 'true');
+        window.location.reload();
+      }
+      throw error;
+    }
+  });
+}
+
 // Lazy loading all screen components for optimized code-splitting and performance
 // Dashboard is imported statically above to ensure correct React context and hook resolution
-const Statistics = lazy(() => import('../screens/Statistics').then(m => ({ default: m.Statistics })));
-const Forms = lazy(() => import('../screens/Forms').then(m => ({ default: m.Forms })));
-const SalesList = lazy(() => import('../screens/SalesList').then(m => ({ default: m.SalesList })));
-const Summary = lazy(() => import('../screens/Summary').then(m => ({ default: m.Summary })));
-const Holidays = lazy(() => import('../screens/Holidays').then(m => ({ default: m.Holidays })));
-const EditRoute = lazy(() => import('../screens/EditRoute').then(m => ({ default: m.EditRoute })));
-const RouteList = lazy(() => import('../screens/RouteList').then(m => ({ default: m.RouteList })));
-const UserList = lazy(() => import('../screens/UserList').then(m => ({ default: m.UserList })));
-const DeviceList = lazy(() => import('../screens/DeviceList').then(m => ({ default: m.DeviceList })));
-const EditDevice = lazy(() => import('../screens/EditDevice').then(m => ({ default: m.EditDevice })));
-const CompanyList = lazy(() => import('../screens/CompanyList').then(m => ({ default: m.CompanyList })));
-const SaleDetail = lazy(() => import('../screens/SaleDetail').then(m => ({ default: m.SaleDetail })));
-const RegisterPayment = lazy(() => import('../screens/RegisterPayment').then(m => ({ default: m.RegisterPayment })));
-const PaymentHistory = lazy(() => import('../screens/PaymentHistory').then(m => ({ default: m.PaymentHistory })));
-const OpenBox = lazy(() => import('../screens/OpenBox').then(m => ({ default: m.OpenBox })));
-const CloseBox = lazy(() => import('../screens/CloseBox').then(m => ({ default: m.CloseBox })));
-const NewIncome = lazy(() => import('../screens/NewIncome').then(m => ({ default: m.NewIncome })));
-const NewExpense = lazy(() => import('../screens/NewExpense').then(m => ({ default: m.NewExpense })));
-const Performance = lazy(() => import('../screens/Performance').then(m => ({ default: m.Performance })));
-const BoxSummary = lazy(() => import('../screens/BoxSummary').then(m => ({ default: m.BoxSummary })));
-const TransferSales = lazy(() => import('../screens/TransferSales').then(m => ({ default: m.TransferSales })));
-const MassBoxOpening = lazy(() => import('../screens/MassBoxOpening').then(m => ({ default: m.MassBoxOpening })));
-const AutoKeys = lazy(() => import('../screens/AutoKeys').then(m => ({ default: m.AutoKeys })));
-const CreditRequests = lazy(() => import('../screens/CreditRequests').then(m => ({ default: m.CreditRequests })));
-const BusinessCenters = lazy(() => import('../screens/BusinessCenters').then(m => ({ default: m.BusinessCenters })));
-const CollectionCleaning = lazy(() => import('../screens/CollectionCleaning').then(m => ({ default: m.CollectionCleaning })));
-const PeriodSummary = lazy(() => import('../screens/PeriodSummary').then(m => ({ default: m.PeriodSummary })));
-const PlatformManagement = lazy(() => import('../screens/PlatformManagement').then(m => ({ default: m.PlatformManagement })));
-const AIAssistant = lazy(() => import('../screens/AIAssistant').then(m => ({ default: m.AIAssistant })));
-const CollectorMap = lazy(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
-const WorkerProfile = lazy(() => import('../screens/WorkerProfile').then(m => ({ default: m.WorkerProfile })));
+const Statistics = lazyRetry(() => import('../screens/Statistics').then(m => ({ default: m.Statistics })));
+const Forms = lazyRetry(() => import('../screens/Forms').then(m => ({ default: m.Forms })));
+const SalesList = lazyRetry(() => import('../screens/SalesList').then(m => ({ default: m.SalesList })));
+const Summary = lazyRetry(() => import('../screens/Summary').then(m => ({ default: m.Summary })));
+const Holidays = lazyRetry(() => import('../screens/Holidays').then(m => ({ default: m.Holidays })));
+const EditRoute = lazyRetry(() => import('../screens/EditRoute').then(m => ({ default: m.EditRoute })));
+const RouteList = lazyRetry(() => import('../screens/RouteList').then(m => ({ default: m.RouteList })));
+const UserList = lazyRetry(() => import('../screens/UserList').then(m => ({ default: m.UserList })));
+const DeviceList = lazyRetry(() => import('../screens/DeviceList').then(m => ({ default: m.DeviceList })));
+const EditDevice = lazyRetry(() => import('../screens/EditDevice').then(m => ({ default: m.EditDevice })));
+const CompanyList = lazyRetry(() => import('../screens/CompanyList').then(m => ({ default: m.CompanyList })));
+const SaleDetail = lazyRetry(() => import('../screens/SaleDetail').then(m => ({ default: m.SaleDetail })));
+const RegisterPayment = lazyRetry(() => import('../screens/RegisterPayment').then(m => ({ default: m.RegisterPayment })));
+const PaymentHistory = lazyRetry(() => import('../screens/PaymentHistory').then(m => ({ default: m.PaymentHistory })));
+const OpenBox = lazyRetry(() => import('../screens/OpenBox').then(m => ({ default: m.OpenBox })));
+const CloseBox = lazyRetry(() => import('../screens/CloseBox').then(m => ({ default: m.CloseBox })));
+const NewIncome = lazyRetry(() => import('../screens/NewIncome').then(m => ({ default: m.NewIncome })));
+const NewExpense = lazyRetry(() => import('../screens/NewExpense').then(m => ({ default: m.NewExpense })));
+const Performance = lazyRetry(() => import('../screens/Performance').then(m => ({ default: m.Performance })));
+const BoxSummary = lazyRetry(() => import('../screens/BoxSummary').then(m => ({ default: m.BoxSummary })));
+const TransferSales = lazyRetry(() => import('../screens/TransferSales').then(m => ({ default: m.TransferSales })));
+const MassBoxOpening = lazyRetry(() => import('../screens/MassBoxOpening').then(m => ({ default: m.MassBoxOpening })));
+const AutoKeys = lazyRetry(() => import('../screens/AutoKeys').then(m => ({ default: m.AutoKeys })));
+const CreditRequests = lazyRetry(() => import('../screens/CreditRequests').then(m => ({ default: m.CreditRequests })));
+const BusinessCenters = lazyRetry(() => import('../screens/BusinessCenters').then(m => ({ default: m.BusinessCenters })));
+const CollectionCleaning = lazyRetry(() => import('../screens/CollectionCleaning').then(m => ({ default: m.CollectionCleaning })));
+const PeriodSummary = lazyRetry(() => import('../screens/PeriodSummary').then(m => ({ default: m.PeriodSummary })));
+const PlatformManagement = lazyRetry(() => import('../screens/PlatformManagement').then(m => ({ default: m.PlatformManagement })));
+const AIAssistant = lazyRetry(() => import('../screens/AIAssistant').then(m => ({ default: m.AIAssistant })));
+const CollectorMap = lazyRetry(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
+const WorkerProfile = lazyRetry(() => import('../screens/WorkerProfile').then(m => ({ default: m.WorkerProfile })));
+const Profiles = lazyRetry(() => import('../screens/Profiles').then(m => ({ default: m.Profiles })));
+const VendedorMobile = lazyRetry(() => import('../screens/VendedorMobile').then(m => ({ default: m.VendedorMobile })));
 
-const BCIncomes = lazy(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
-const BCExpenses = lazy(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
-const BCTransfers = lazy(() => import('../screens/BCTransfers').then(m => ({ default: m.BCTransfers })));
-const BCApprovals = lazy(() => import('../screens/BCApprovals').then(m => ({ default: m.BCApprovals })));
-const BCMap = lazy(() => import('../screens/BCMap').then(m => ({ default: m.BCMap })));
-const Insurance = lazy(() => import('../screens/Insurance').then(m => ({ default: m.Insurance })));
-const Finance = lazy(() => import('../screens/Finance').then(m => ({ default: m.Finance })));
+const BCIncomes = lazyRetry(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
+const BCExpenses = lazyRetry(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
+const BCTransfers = lazyRetry(() => import('../screens/BCTransfers').then(m => ({ default: m.BCTransfers })));
+const BCApprovals = lazyRetry(() => import('../screens/BCApprovals').then(m => ({ default: m.BCApprovals })));
+const BCMap = lazyRetry(() => import('../screens/BCMap').then(m => ({ default: m.BCMap })));
+const Insurance = lazyRetry(() => import('../screens/Insurance').then(m => ({ default: m.Insurance })));
+const Finance = lazyRetry(() => import('../screens/Finance').then(m => ({ default: m.Finance })));
 
 /**
  * ScreenWrapper provides backward-compatibility for legacy screens.
@@ -185,10 +211,8 @@ function PrivateLayout() {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
-
   return (
-    <Layout currentScreen={navState.screen} onNavigate={navigate} isSuperAdmin={isSuperAdmin || isSuperByEmail}>
+    <Layout currentScreen={navState.screen} onNavigate={navigate} isSuperAdmin={isSuperAdmin}>
       <Suspense fallback={
         <div className="flex items-center justify-center h-64">
           <div className="text-[#6A008A] text-sm font-medium">Cargando...</div>
@@ -227,8 +251,7 @@ function PublicRoute() {
   }
 
   if (fbUser) {
-    const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
-    return <Navigate to={(isSuperAdmin || isSuperByEmail) ? "/superadmin" : "/dashboard"} replace />;
+    return <Navigate to={isSuperAdmin ? "/superadmin" : "/dashboard"} replace />;
   }
 
   return <Login onSuccess={() => {}} />;
@@ -272,9 +295,7 @@ function SuperAdminRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  const isSuperByEmail = fbUser?.email?.toLowerCase() === 'gringoeletronica@gmail.com' || fbUser?.email?.toLowerCase() === 'controlmaxia@gmail.com';
-
-  return (isSuperAdmin || isSuperByEmail) ? (
+  return isSuperAdmin ? (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-[#0B0F19]">
         <div className="text-slate-400 text-sm font-medium">Carregando painel corporativo...</div>
@@ -324,6 +345,7 @@ export function AppRoutes() {
           <Route path="/box-summary" element={<ScreenWrapper Component={BoxSummary} />} />
           <Route path="/business-centers" element={<ScreenWrapper Component={BusinessCenters} />} />
           <Route path="/platform-management" element={<ScreenWrapper Component={PlatformManagement} />} />
+          <Route path="/profiles" element={<ScreenWrapper Component={Profiles} />} />
         </Route>
 
         <Route path="/transfer-sales" element={<ScreenWrapper Component={TransferSales} />} />
@@ -333,6 +355,7 @@ export function AppRoutes() {
         <Route path="/collection-cleaning" element={<ScreenWrapper Component={CollectionCleaning} />} />
         <Route path="/ai-assistant" element={<ScreenWrapper Component={AIAssistant} />} />
         <Route path="/worker-profile" element={<ScreenWrapper Component={WorkerProfile} />} />
+        <Route path="/vendedor-mobile" element={<ScreenWrapper Component={VendedorMobile} />} />
 
         {/* Business Center Specifics */}
         <Route path="/bc-incomes" element={<ScreenWrapper Component={BCIncomes} />} />

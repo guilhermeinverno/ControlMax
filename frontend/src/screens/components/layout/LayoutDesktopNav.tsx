@@ -26,41 +26,23 @@ export function LayoutDesktopNav({
     <div className="hidden lg:flex items-stretch bg-white border-r border-gray-200">
       <button
         onClick={() => nav('dashboard')}
-        className={`px-5 flex items-center gap-2 transition-colors border-r border-gray-200 hover:bg-gray-50/80 text-xs uppercase font-extrabold ${
-          currentScreen === 'dashboard' ? 'bg-gray-100/80 text-[#6A008A]' : 'text-gray-500'
+        className={`px-6 flex items-center justify-center transition-colors border-r border-gray-200 hover:bg-gray-50/80 ${
+          currentScreen === 'dashboard' ? 'bg-gray-100/80' : ''
         }`}
         title="Inicio / Dashboard"
       >
-        <Home className="w-4.5 h-4.5 text-[#6A008A]" />
-        <span>Dashboard</span>
+        <Home className="w-5.5 h-5.5 text-[#6A008A]" />
       </button>
 
       {role !== 'collector' && (
         <button
           onClick={() => nav('statistics')}
-          className={`px-5 flex items-center gap-2 transition-colors border-r border-gray-200 hover:bg-gray-50/80 text-xs uppercase font-extrabold ${
-            currentScreen === 'statistics' ? 'bg-gray-100/80 text-[#6A008A]' : 'text-gray-500'
+          className={`px-6 flex items-center justify-center transition-colors border-r border-gray-200 hover:bg-gray-50/80 ${
+            currentScreen === 'statistics' ? 'bg-gray-100/80' : ''
           }`}
           title="Estadísticas"
         >
-          <BarChart3 className="w-4.5 h-4.5 text-[#6A008A]" />
-          <span>Estadísticas</span>
-        </button>
-      )}
-
-      {(role === 'admin' || role === 'supervisor') && (
-        <button
-          onClick={() => nav('ai-assistant')}
-          className={`px-5 flex items-center gap-2 transition-colors border-r border-gray-200 hover:bg-gray-50/80 text-xs uppercase font-extrabold ${
-            currentScreen === 'ai-assistant' ? 'bg-gray-100/80 text-[#6A008A]' : 'text-gray-500'
-          }`}
-          title="Assistente IA"
-        >
-          <span className="text-base">🤖</span>
-          <span>Assistente IA</span>
-          <span className="bg-[#84CC16] text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full ml-1">
-            NOVO
-          </span>
+          <BarChart3 className="w-5.5 h-5.5 text-[#6A008A]" />
         </button>
       )}
 
@@ -287,7 +269,7 @@ function LayoutAdminDropdown({
   handleDropdownClick,
   nav,
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'role' | 'showSuperAdmin' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
-  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'platform-management', 'forms', 'holidays'];
+  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'platform-management', 'forms', 'holidays', 'profiles', 'vendedor-mobile'];
   const isActive = activeDropdown === 'admin' || adminScreens.includes(currentScreen);
 
   return (
@@ -315,6 +297,12 @@ function LayoutAdminDropdown({
           </button>
           <button onClick={() => nav('user-list')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Gestión de Usuarios <ChevronRight className="w-3 h-3 text-gray-400" />
+          </button>
+          <button onClick={() => nav('profiles')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
+            Perfiles / Permisos <ChevronRight className="w-3 h-3 text-gray-400" />
+          </button>
+          <button onClick={() => nav('vendedor-mobile')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
+            📱 App Vendedor (Mobile) <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
           {(role === 'admin' || role === 'supervisor') && (
             <button onClick={() => nav('collector-map')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">

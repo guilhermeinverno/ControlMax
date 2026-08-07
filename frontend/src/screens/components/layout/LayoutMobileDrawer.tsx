@@ -226,11 +226,8 @@ export function LayoutMobileDrawer({
           /* STANDARD LAYOUT FOR ADMINS / GESTORES */
           <>
             <div className="bg-[#6A008A] h-[64px] flex items-center justify-between px-4 shrink-0 border-b border-[#52006A]">
-              <div className="flex items-center space-x-2">
-                <span className="text-white font-black text-lg tracking-tight">ControlMax</span>
-                <div className="bg-[#8CC63F] rounded-full p-0.5 flex items-center justify-center shadow-sm w-4.5 h-4.5">
-                  <Check className="w-2.5 h-2.5 text-white stroke-[3.5]" />
-                </div>
+              <div className="flex items-center py-1">
+                <img src="/logo.png" alt="ControlMax Logo" className="h-7 w-auto object-contain brightness-0 invert" />
               </div>
               <button onClick={() => setDrawerOpen(false)} className="text-white p-1 focus:outline-none">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>

@@ -54,7 +54,9 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   'platform-management': '/platform-management',
   'ai-assistant': '/ai-assistant',
   'collector-map': '/collector-map',
-  'worker-profile': '/worker-profile'
+  'worker-profile': '/worker-profile',
+  profiles: '/profiles',
+  'vendedor-mobile': '/vendedor-mobile'
 };
 
 export const ROUTE_SCREENS: Record<string, Screen> = Object.entries(SCREEN_ROUTES).reduce(

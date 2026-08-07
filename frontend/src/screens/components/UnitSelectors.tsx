@@ -168,11 +168,11 @@ export function UnitSelectors({
   }, [tenantId, selectedCnId]);
 
   return (
-    <div className="px-3 pt-4 pb-2">
-      <div className="space-y-2 mb-2">
+    <div className="px-3 py-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
         
         {/* Select CN */}
-        <div className="relative">
+        <div className="relative w-full">
           <select
             value={selectedCnId}
             onChange={e => {
@@ -191,7 +191,7 @@ export function UnitSelectors({
             }}
             className="w-full border border-[#6B21A8] rounded bg-white 
               text-[#333333] text-sm p-2 outline-none h-10 shadow-sm 
-              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer"
+              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer font-bold"
           >
             {cns.length === 0 && !loadingCns ? (
               <option value="" disabled>Nenhum CN cadastrado</option>
@@ -213,7 +213,7 @@ export function UnitSelectors({
         </div>
 
         {/* Select Unidade */}
-        <div className="relative">
+        <div className="relative w-full">
           <select
             value={selectedUnitId}
             onChange={e => {
@@ -227,7 +227,7 @@ export function UnitSelectors({
             }}
             className="w-full border border-[#6B21A8] rounded bg-white 
               text-[#333333] text-sm p-2 outline-none h-10 shadow-sm 
-              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer"
+              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer font-bold"
           >
             {units.length === 0 && !loadingUnits ? (
               <option value="" disabled>Nenhuma unidade</option>
@@ -247,24 +247,24 @@ export function UnitSelectors({
             </div>
           )}
         </div>
-      </div>
 
-      {/* Checkbox ver todas */}
-      {showVerTodas && (
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="see-all"
-            checked={verTodas}
-            onChange={e => onVerTodasChange?.(e.target.checked)}
-            className="w-4 h-4 text-[#6B21A8] rounded 
-              border-gray-300 focus:ring-[#6B21A8] mr-2 cursor-pointer"
-          />
-          <label htmlFor="see-all" className="text-sm font-bold text-[#333333] cursor-pointer select-none">
-            Ver todas as unidades
-          </label>
-        </div>
-      )}
+        {/* Checkbox ver todas */}
+        {showVerTodas && (
+          <div className="flex items-center pl-1 h-10">
+            <input
+              type="checkbox"
+              id="see-all"
+              checked={verTodas}
+              onChange={e => onVerTodasChange?.(e.target.checked)}
+              className="w-4 h-4 text-[#6B21A8] rounded 
+                border-gray-300 focus:ring-[#6B21A8] mr-2 cursor-pointer"
+            />
+            <label htmlFor="see-all" className="text-sm font-bold text-[#333333] cursor-pointer select-none">
+              Ver todas as unidades
+            </label>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

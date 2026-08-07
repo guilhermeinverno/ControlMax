@@ -1,7 +1,6 @@
-import { collection, doc, runTransaction, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import type { Box, Sale } from '../types';
-import { buildCollectionRecord, computePaymentBalances } from './registerPaymentHelpers';
+import { generateIdempotencyKey } from './boxLifecycle';
 
 interface RegisterPaymentTransactionInput {
   tenantId?: string;
@@ -22,52 +21,26 @@ export async function executeRegisterPaymentTransaction({
   comment,
   userName,
 }: RegisterPaymentTransactionInput): Promise<void> {
-  const saleRef = doc(db, 'sales', sale.id);
-  const boxRef = doc(db, 'boxes', activeBox.id);
-  const collectionRef = doc(collection(db, 'collections'));
-  const registeredBy = userName || auth?.currentUser?.email || 'Usuario';
-  const userId = auth.currentUser?.uid || '';
+  const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+  const idempotencyKey = generateIdempotencyKey();
 
-  await runTransaction(db, async (transaction) => {
-    const saleSnap = await transaction.get(saleRef);
-    if (!saleSnap.exists()) throw new Error('Venda não encontrada');
-
-    const boxSnap = await transaction.get(boxRef);
-    if (!boxSnap.exists()) throw new Error('Caixa não encontrada');
-
-    const saleData = saleSnap.data();
-    const boxData = boxSnap.data();
-    if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
-    const { computedNewBalance, newTotalCollections, newFinalAmount } = computePaymentBalances(
-      saleData,
-      boxData,
-      parsedAmountCents
-    );
-
-    transaction.set(collectionRef, {
-      ...buildCollectionRecord({
-        tenantId,
-        activeBox,
-        sale,
-        saleData,
-        parsedAmountCents,
-        paymentMethod,
-        comment,
-        userName,
-        userId,
-        registeredBy,
-      }),
-      createdAt: serverTimestamp(),
-    });
-
-    transaction.update(saleRef, {
-      saldoPendienteCents: computedNewBalance,
-      status: computedNewBalance <= 0 ? 'completed' : saleData.status,
-    });
-
-    transaction.update(boxRef, {
-      totalCollections: newTotalCollections,
-      finalAmount: newFinalAmount,
-    });
+  const response = await fetch('/api/transactions/collection', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      saleId: sale.id,
+      amountCents: parsedAmountCents,
+      paymentMethod,
+      comment,
+      idempotencyKey
+    })
   });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Erro do servidor (${response.status}) ao registrar recebimento.`);
+  }
 }

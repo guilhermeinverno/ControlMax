@@ -65,7 +65,8 @@ export function mapSalesListSale(
     amount: Number(data.amount || 0),
     balance: Number(data.balance || 0),
     saldoPendienteCents: Number(data.saldoPendienteCents || data.balance || 0),
-    installments: Number(data.installments || 0),
+    installments: Number(data.installments || data.totalInstallments || (data.amount && data.installmentAmount ? Math.ceil(Number(data.amount) / Number(data.installmentAmount)) : 20)),
+
     installmentAmount: Number(data.installmentAmount || 0),
     paidInstallments: Number(data.paidInstallments || 0),
     status: (data.status as SalesListSale['status']) || 'active',

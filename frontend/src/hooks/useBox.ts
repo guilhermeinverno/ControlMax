@@ -3,10 +3,9 @@ import { useState } from 'react';
 import { auth } from '../lib/firebase';
 import { useTenant } from './useTenant';
 import { useActiveBoxSubscription } from './useActiveBoxSubscription';
+import { useOfflineSync } from './useOfflineSync';
 import {
-  closeActiveBox,
   confirmBoxByAdmin,
-  createOpenBox,
   logBoxError,
   type OpenBoxParams,
 } from '../utils/boxLifecycle';
@@ -18,6 +17,7 @@ export function useBox() {
   const { tenantId, role, permissions, userName, loading: tenantLoading } = useTenant();
   const [refreshKey, setRefreshKey] = useState(0);
   const subscription = useActiveBoxSubscription(tenantId, refreshKey);
+  const { openBox: offlineOpenBox, closeBox: offlineCloseBox } = useOfflineSync();
 
   const refreshBox = () => setRefreshKey((prev) => prev + 1);
 
@@ -31,7 +31,14 @@ export function useBox() {
     subscription.setError(null);
 
     try {
-      await createOpenBox(tenantId, userId, userName, params);
+      const boxId = crypto.randomUUID();
+      await offlineOpenBox({
+        tenantId,
+        boxId,
+        collectorId: userId,
+        initialBalanceCents: params.initialAmount,
+        openedAt: new Date().toISOString(),
+      });
       subscription.setLoading(false);
     } catch (err) {
       subscription.setLoading(false);
@@ -48,7 +55,15 @@ export function useBox() {
     subscription.setError(null);
 
     try {
-      await closeActiveBox(subscription.activeBox, realFinalAmount);
+      const userId = auth?.currentUser?.uid || subscription.activeBox.userId;
+      await offlineCloseBox({
+        tenantId,
+        boxId: subscription.activeBox.id,
+        collectorId: userId,
+        finalBalanceCents: realFinalAmount,
+        notes: '',
+        closedAt: new Date().toISOString(),
+      });
       subscription.setLoading(false);
     } catch (err) {
       subscription.setLoading(false);

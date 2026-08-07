@@ -14,6 +14,7 @@ import {
   SalesListCollection,
   SalesListSale,
 } from '../utils/salesListMapper';
+import { parseUnknownTimestamp } from '../utils/timestampParsing';
 
 interface UseSalesListDataOptions {
   tenantId?: string;
@@ -36,8 +37,7 @@ function buildSalesQuery(
   const constraints = [where('tenantId', '==', tenantId), where('status', '==', queryStatus)];
 
   if (role === 'collector' && !verTodasUnidades) {
-    const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
-    const targetUserId = isDemo ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+    const targetUserId = auth.currentUser?.uid || '';
     constraints.push(where('userId', '==', targetUserId));
   }
 
@@ -48,8 +48,6 @@ function buildSalesQuery(
     } else {
       constraints.push(where('unitId', 'in', usuarioUnidades));
     }
-  } else {
-    constraints.push(where('unitId', '==', 'none_assigned'));
   }
 
   return useOrderBy ? query(baseRef, ...constraints, orderBy('clientName', 'asc')) : query(baseRef, ...constraints);
@@ -155,8 +153,6 @@ export function useSalesListData({
       } else {
         collectionConstraints.push(where('unitId', 'in', usuarioUnidades));
       }
-    } else {
-      collectionConstraints.push(where('unitId', '==', 'none_assigned'));
     }
 
     const q = query(collection(db, 'collections'), ...collectionConstraints);
@@ -167,10 +163,10 @@ export function useSalesListData({
 
         snapshot.docs.forEach((docSnap) => {
           const data = docSnap.data();
-          const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
-          const createdAtDate = data.createdAt?.toDate() || null;
-          const isToday = isDemo ? true : (createdAtDate ? createdAtDate.getTime() >= startOfToday.getTime() : true);
-          const targetUserId = isDemo ? (auth.currentUser?.uid || 'col_1') : (auth.currentUser?.uid || '');
+          const createdAtDate = parseUnknownTimestamp(data.createdAt);
+
+          const isToday = createdAtDate ? createdAtDate.getTime() >= startOfToday.getTime() : true;
+          const targetUserId = auth.currentUser?.uid || '';
           const matchesCollector =
             role !== 'collector' || verTodasUnidades || data.userId === targetUserId;
 
@@ -180,8 +176,8 @@ export function useSalesListData({
         });
 
         loaded.sort((a, b) => {
-          const timeA = a.createdAt?.toDate()?.getTime() || 0;
-          const timeB = b.createdAt?.toDate()?.getTime() || 0;
+          const timeA = parseUnknownTimestamp(a.createdAt)?.getTime() || 0;
+          const timeB = parseUnknownTimestamp(b.createdAt)?.getTime() || 0;
           return timeB - timeA;
         });
 

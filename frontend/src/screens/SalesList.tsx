@@ -278,7 +278,7 @@ export function SalesList({
 
         {/* Grid Lists / Results */}
         {isVendasTab ? (
-          <SalesListSalesGrid sales={collectorFilteredSales} loadingSales={loadingSales} onNavigate={onNavigate} />
+          <SalesListSalesGrid sales={collectorFilteredSales} collections={collections} loadingSales={loadingSales} onNavigate={onNavigate} />
         ) : (
           <SalesListCollectionsTab
             collections={filteredCollections}

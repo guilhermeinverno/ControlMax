@@ -17,17 +17,27 @@ export function SaleDetail({ onNavigate, params }: SaleDetailProps) {
   const saleId = params?.saleId as string | undefined;
   const { sale, payments, loading } = useSaleDetailData(saleId, tenantId);
 
-  useEffect(() => {
-    if (!loading && sale && usuarioUnidades && usuarioUnidades.length > 0) {
-      const allowed = sale.unitId ? usuarioUnidades.includes(sale.unitId) : true;
-      if (!allowed) {
-        toast.error('Acceso denegado. No tiene permisos para ver esta venta.');
-        if (onNavigate) {
-          onNavigate('dashboard');
-        }
-      }
-    }
-  }, [loading, sale, usuarioUnidades, onNavigate]);
+  const allowed = !loading && sale && usuarioUnidades && usuarioUnidades.length > 0 && sale.unitId
+    ? usuarioUnidades.includes(sale.unitId)
+    : true;
+
+  if (!loading && !allowed) {
+    return (
+      <div className="flex flex-col bg-[#F3F4F6] min-h-screen p-4 justify-center items-center">
+        <div className="bg-red-50 border border-red-300 rounded p-6 max-w-md w-full flex flex-col items-center text-center space-y-3">
+          <AlertCircle className="w-12 h-12 text-red-500" />
+          <h2 className="font-bold text-red-800 text-base">Acesso Negado</h2>
+          <p className="text-red-700 text-xs">Você não tem permissão para visualizar esta venda nesta unidade.</p>
+          <button
+            onClick={() => onNavigate && onNavigate('sales')}
+            className="w-full bg-[#6B21A8] hover:bg-[#52006A] text-white font-bold text-xs py-2.5 rounded shadow cursor-pointer transition-colors"
+          >
+            Voltar às Vendas
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!saleId) {
     return (

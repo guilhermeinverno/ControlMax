@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type Screen = 'dashboard' | 'statistics' | 'forms' | 'sales' | 'summary' | 'holidays' | 'edit-route' | 'route-list' | 'user-list' | 'device-list' | 'edit-device' | 'company-list' | 'sale-detail' | 'register-payment' | 'payment-history' | 'open-box' | 'close-box' | 'new-income' | 'new-expense' | 'performance' | 'box-summary' | 'transfer-sales' | 'mass-box-opening' | 'auto-keys' | 'credit-requests' | 'business-centers' | 'collection-cleaning' | 'period-summary' | 'superadmin' | 'bc-incomes' | 'bc-expenses' | 'bc-transfers' | 'bc-approvals' | 'bc-map' | 'insurance' | 'finance' | 'platform-management' | 'ai-assistant' | 'collector-map' | 'worker-profile';
+export type Screen = 'dashboard' | 'statistics' | 'forms' | 'sales' | 'summary' | 'holidays' | 'edit-route' | 'route-list' | 'user-list' | 'device-list' | 'edit-device' | 'company-list' | 'sale-detail' | 'register-payment' | 'payment-history' | 'open-box' | 'close-box' | 'new-income' | 'new-expense' | 'performance' | 'box-summary' | 'transfer-sales' | 'mass-box-opening' | 'auto-keys' | 'credit-requests' | 'business-centers' | 'collection-cleaning' | 'period-summary' | 'superadmin' | 'bc-incomes' | 'bc-expenses' | 'bc-transfers' | 'bc-approvals' | 'bc-map' | 'insurance' | 'finance' | 'platform-management' | 'ai-assistant' | 'collector-map' | 'worker-profile' | 'profiles' | 'vendedor-mobile';
 
 export type UserRole = 'admin' | 'supervisor' | 'collector';
 

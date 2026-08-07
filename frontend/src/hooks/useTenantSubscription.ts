@@ -3,8 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { logFirestoreError } from '../utils/firestoreError';
 import { getErrorMessage } from '../utils/errorMessage';
-import { provisionBypassAccount } from './useTenantHelpers';
-import { applyBypassState, applyExistingUserDoc, TenantSetters } from './useTenantState';
+import { applyExistingUserDoc, TenantSetters } from './useTenantState';
 import { handleMissingUserDoc } from './useTenantLink';
 
 function clearTenantSession(setters: TenantSetters) {
@@ -61,22 +60,6 @@ export function createTenantSubscription(setters: TenantSetters) {
     }
 
     const emailLower = user.email?.toLowerCase() || '';
-    if (typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true') {
-      const isSuperDemo = emailLower === 'controlmaxia@gmail.com' || emailLower === 'gringoeletronica@gmail.com';
-      const demoRole = (localStorage.getItem('controlmax_demo_role') as any) || 'admin';
-      setters.setTenantId('');
-      setters.setRole(demoRole);
-      setters.setUserName(isSuperDemo ? 'Super Admin Demo' : (demoRole === 'admin' ? 'Admin Demo' : 'Vendedor Demo'));
-      setters.setIsSuperAdmin(isSuperDemo && demoRole === 'admin');
-      setters.setError(null);
-      setters.setLoading(false);
-      return;
-    }
-
-    if (applyBypassState(emailLower, setters)) {
-      provisionBypassAccount(emailLower, user);
-      return;
-    }
 
     setters.setLoading(true);
     setters.setError(null);
@@ -88,3 +71,4 @@ export function createTenantSubscription(setters: TenantSetters) {
     unsubscribeSnap?.();
   };
 }
+

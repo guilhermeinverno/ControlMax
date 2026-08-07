@@ -1,15 +1,16 @@
 import { getErrorMessage } from '../utils/errorMessage';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
-import { ArrowLeft, Camera, Loader2, AlertCircle } from 'lucide-react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { ArrowLeft, Camera, Loader2, AlertCircle, X, ImageIcon } from 'lucide-react';
+import { doc, onSnapshot, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
 import { db } from '../lib/firebase';
 import { mapSaleFromSnapshot } from '../utils/saleMapper';
 import { executeRegisterPaymentTransaction } from '../utils/registerPaymentTransaction';
+
 
 interface RegisterPaymentProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
@@ -17,7 +18,7 @@ interface RegisterPaymentProps {
 }
 
 export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
-  const { tenantId, userName, usuarioUnidades, loading: tenantLoading } = useTenant();
+  const { tenantId, userName, userId, usuarioUnidades, loading: tenantLoading } = useTenant();
   const { activeBox, loading: boxLoading } = useBox();
   
   const saleId = params?.saleId as string | undefined;
@@ -44,6 +45,10 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   const [selectedReason, setSelectedReason] = useState<string>('Cliente sem dinheiro');
   const [notes, setNotes] = useState('');
 
+  // Image upload state
+  const [images, setImages] = useState<{ url: string; name: string }[]>([]);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
   // Load Sale Data
   useEffect(() => {
     if (!tenantId || !saleId) return;
@@ -65,17 +70,9 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     return () => unsubscribe();
   }, [tenantId, saleId]);
 
-  useEffect(() => {
-    if (!loadingSale && sale && usuarioUnidades && usuarioUnidades.length > 0) {
-      const allowed = sale.unitId ? usuarioUnidades.includes(sale.unitId) : true;
-      if (!allowed) {
-        toast.error('Acceso denegado. No tiene permisos para registrar cobros en esta venta.');
-        if (onNavigate) {
-          onNavigate('dashboard');
-        }
-      }
-    }
-  }, [loadingSale, sale, usuarioUnidades, onNavigate]);
+  const allowed = !loadingSale && sale && usuarioUnidades && usuarioUnidades.length > 0 && sale.unitId
+    ? usuarioUnidades.includes(sale.unitId)
+    : true;
 
   // Adjust installments dynamically when "Pay Total" is toggled
   useEffect(() => {
@@ -139,6 +136,24 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     );
   }
 
+  if (!allowed) {
+    return (
+      <div className="flex flex-col bg-[#F3F4F6] min-h-screen p-4 justify-center items-center">
+        <div className="bg-red-50 border border-red-300 rounded p-6 max-w-md w-full flex flex-col items-center text-center space-y-3">
+          <AlertCircle className="w-12 h-12 text-red-500 animate-pulse" />
+          <h2 className="font-bold text-red-800 text-base">Acesso Negado</h2>
+          <p className="text-red-700 text-xs">Você não tem permissão para registrar recebimentos nesta venda.</p>
+          <button
+            onClick={() => onNavigate && onNavigate('sales')}
+            className="w-full bg-[#6B21A8] hover:bg-[#52006A] text-white font-bold text-xs py-2.5 rounded shadow cursor-pointer transition-colors"
+          >
+            Voltar às Vendas
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!sale) {
     return null;
   }
@@ -182,7 +197,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   };
 
   const handleSave = async () => {
-    if (!activeBox || !sale) return;
+    if (!activeBox || !sale || !tenantId) return;
 
     setSaving(true);
     setSaveError(null);
@@ -215,11 +230,10 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         parsedAmountCents: finalAmountCents,
         paymentMethod: methodStr,
         comment: finalComment,
-        userName,
+        userName: userName || '',
       });
 
-      // Clear states and navigate back
-      setCustomAmount('');
+      toast.success(initialMode === 'payment' ? 'Pagamento registrado!' : 'Visita registrada!');
       onNavigate?.('sales');
     } catch (err) {
       setSaveError(getErrorMessage(err) || 'Erro ao registrar operação');
@@ -228,15 +242,33 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     }
   };
 
-  // Extra details calculation for mockup fidelity
-  const lateDays = sale.lateDays !== undefined 
-    ? sale.lateDays 
-    : Math.max(0, Math.abs(sale.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 6);
+  // Image handlers
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        setImages(prev => [...prev, { url: ev.target?.result as string, name: file.name }]);
+      };
+      reader.readAsDataURL(file);
+    });
+    // Reset input
+    if (photoInputRef.current) photoInputRef.current.value = '';
+  };
 
-  // Mock Route/Box/Client details for header matching screenshot "65 / 3 / 1007967"
+  const removeImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Short client ID display (first 8 chars)
+  const shortClientId = (sale.clientId || sale.id || '').slice(0, 8).toUpperCase();
+
+  // Extra details
+  const lateDays = sale.lateDays !== undefined
+    ? sale.lateDays
+    : Math.max(0, Math.abs(sale.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 6);
   const routeNo = sale.userId ? sale.userId.slice(0, 2) : '65';
   const unitId = sale.unitName ? sale.unitName.split('-')[0].trim() : '3';
-  const displayClientId = sale.clientId || '1007967';
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] pb-10">
@@ -252,7 +284,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         <div className="flex flex-col leading-none">
           <span className="font-extrabold text-[15px] tracking-wide">Gestor de pagamentos</span>
           <span className="text-[10px] font-bold text-white/80 mt-1 select-none">
-            {routeNo} / {unitId} / {displayClientId}
+            {routeNo} / {unitId} / {shortClientId}
           </span>
         </div>
       </div>
@@ -274,7 +306,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
             
             <div className="flex justify-between items-center">
               <span className="font-bold text-purple-900/80 uppercase text-[10px]">Id Cliente:</span>
-              <span className="font-extrabold text-[#333333]">{displayClientId}</span>
+              <span className="font-extrabold text-[#333333] font-mono tracking-wider">{shortClientId}</span>
             </div>
 
             <div className="flex justify-between items-center">
@@ -495,19 +527,43 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
               </div>
             )}
 
-            {/* ADICIONAR FOTO BLOCK (Images 1 and 2) */}
+            {/* ADICIONAR FOTO BLOCK (Payment mode) */}
             <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-2">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
-                Adicionar foto
+                Adicionar fotos
               </label>
-              <button
-                type="button"
-                onClick={() => alert("Câmera ativada: tire uma foto para anexar ao recebimento.")}
-                className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer"
-                title="Tirar foto"
-              >
-                <Camera size={24} className="stroke-[2.5]" />
-              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <div className="flex flex-wrap gap-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 shrink-0">
+                    <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center cursor-pointer"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer gap-1"
+                  title="Adicionar foto"
+                >
+                  <Camera size={20} className="stroke-[2.5]" />
+                  <span className="text-[8px] font-bold uppercase tracking-wide">Foto</span>
+                </button>
+              </div>
             </div>
 
           </div>
@@ -577,19 +633,43 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
               />
             </div>
 
-            {/* ADICIONAR FOTO BLOCK (Image 3) */}
+            {/* ADICIONAR FOTO BLOCK (No-payment mode) */}
             <div className="bg-white rounded-xl shadow-xs border border-gray-200/60 p-4 space-y-2">
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wide">
-                Adicionar foto
+                Adicionar fotos
               </label>
-              <button
-                type="button"
-                onClick={() => alert("Câmera ativada: tire uma foto para anexar à justificativa de visita.")}
-                className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer"
-                title="Tirar foto"
-              >
-                <Camera size={24} className="stroke-[2.5]" />
-              </button>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                capture="environment"
+                onChange={handlePhotoSelect}
+                className="hidden"
+              />
+              <div className="flex flex-wrap gap-2">
+                {images.map((img, idx) => (
+                  <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 shrink-0">
+                    <img src={img.url} alt={img.name} className="w-full h-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-0.5 right-0.5 bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center cursor-pointer"
+                    >
+                      <X size={10} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="w-16 h-16 bg-gray-100 border border-gray-200/80 rounded-xl flex flex-col items-center justify-center text-gray-400 hover:bg-gray-200/60 transition-all cursor-pointer gap-1"
+                  title="Adicionar foto"
+                >
+                  <Camera size={20} className="stroke-[2.5]" />
+                  <span className="text-[8px] font-bold uppercase tracking-wide">Foto</span>
+                </button>
+              </div>
             </div>
 
           </div>

@@ -39,9 +39,7 @@ export function subscribeActiveOpenBox(
 ): () => void {
   onLoadingChange(true);
 
-  const isDemo = typeof window !== 'undefined' && localStorage.getItem('controlmax_demo_active') === 'true';
-  const role = isDemo ? localStorage.getItem('controlmax_demo_role') : null;
-  const targetUserId = (isDemo && role === 'collector') ? (auth.currentUser?.uid || 'col_1') : userId;
+  const targetUserId = userId;
 
   const q = query(
     collection(db, 'boxes'),

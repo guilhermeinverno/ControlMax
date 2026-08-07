@@ -31,7 +31,7 @@ export function WorkerProfile() {
   const [showSaveToast, setShowSaveToast] = useState(false);
 
   // Generate a mock PIN based on user metadata or static reference
-  const pinCode = user?.uid ? `TC${user.uid.substring(0, 10).toUpperCase()}` : 'TC65BKKQ2073';
+  const pinCode = user?.uid ? `CM${user.uid.substring(0, 10).toUpperCase()}` : 'CM65BKKQ2073';
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();

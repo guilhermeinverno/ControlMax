@@ -1,8 +1,6 @@
 import { User } from 'firebase/auth';
 import { UserRole } from '../types';
 import {
-  getAdminBypassConfig,
-  isAdminBypassEmail,
   mapRoleFromFirestore,
   resolveDefaultTenantId,
 } from './useTenantHelpers';
@@ -25,9 +23,7 @@ export function applyExistingUserDoc(
   data: Record<string, unknown>,
   setters: TenantSetters
 ): void {
-  const impersonated =
-    (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com') ? localStorage.getItem('controlmax_impersonated_tenant') : null;
-  const hasAdminBypass = isAdminBypassEmail(emailLower);
+  const impersonated = data.isSuperAdmin ? localStorage.getItem('controlmax_impersonated_tenant') : null;
   const { role: userRole, isSuperAdmin: isSuper } = mapRoleFromFirestore(
     data.role,
     emailLower,
@@ -38,7 +34,7 @@ export function applyExistingUserDoc(
     impersonated || String(data.tenantId || '') || resolveDefaultTenantId(emailLower, impersonated)
   );
   setters.setIsSuperAdmin(isSuper);
-  setters.setRole(hasAdminBypass ? 'admin' : userRole);
+  setters.setRole(userRole);
   setters.setUserName(
     impersonated
       ? `Super Admin (${impersonated})`
@@ -59,43 +55,20 @@ export function applyExistingUserDoc(
   setters.setLoading(false);
 }
 
-export function applyBypassState(
-  emailLower: string,
-  setters: TenantSetters
-): boolean {
-  const bypass = getAdminBypassConfig(emailLower);
-  if (!bypass) return false;
-
-  setters.setTenantId(bypass.tenantId);
-  setters.setRole(bypass.role);
-  setters.setUserName(bypass.userName);
-  setters.setIsSuperAdmin(bypass.isSuperAdmin);
-  setters.setUserId('system_bypass_uid');
-  setters.setUsuarioUnidades([]);
-  setters.setPermissions({});
-  setters.setError(null);
-  setters.setLoading(false);
-  return true;
-}
-
 export function applyGuestState(
   user: User,
   emailLower: string,
-  hasAdminBypass: boolean,
+  _hasAdminBypass: boolean,
   setters: TenantSetters
 ): void {
-  const impersonated =
-    (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com') ? localStorage.getItem('controlmax_impersonated_tenant') : null;
-
-  setters.setTenantId(resolveDefaultTenantId(emailLower, impersonated));
-  setters.setRole(hasAdminBypass ? 'admin' : 'collector');
-  setters.setIsSuperAdmin(emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com');
-  setters.setUserName(
-    impersonated ? `Super Admin (${impersonated})` : (user.displayName || user.email?.split('@')[0] || '')
-  );
+  setters.setTenantId(resolveDefaultTenantId(emailLower, null));
+  setters.setRole('collector');
+  setters.setIsSuperAdmin(false);
+  setters.setUserName(user.displayName || user.email?.split('@')[0] || '');
   setters.setUserId(user.uid);
   setters.setUsuarioUnidades([]);
   setters.setPermissions({});
   setters.setError(null);
   setters.setLoading(false);
 }
+

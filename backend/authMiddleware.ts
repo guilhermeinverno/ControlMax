@@ -98,7 +98,7 @@ export const adminDb = config.firestoreDatabaseId
   ? getFirestore(appInstance, config.firestoreDatabaseId)
   : getFirestore(appInstance);
 
-const adminAuth = getAuth(appInstance);
+export const adminAuth = getAuth(appInstance);
 
 // Rate limiting in-memory map
 const rateLimitMap = new Map<string, number[]>();

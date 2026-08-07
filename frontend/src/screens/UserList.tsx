@@ -138,8 +138,28 @@ export function UserList() {
     };
 
     try {
-      // Create user document in the database
-      await addDoc(collection(db, 'users'), newUser);
+      const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: formEmail.trim().toLowerCase(),
+          name: `${formFirstName} ${formLastName1}`.trim(),
+          role: formRole,
+          tenantId,
+          active: formActive,
+          document: formDocNumber,
+          username: formUsername,
+        }),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || 'Error ao registrar usuário no servidor.');
+      }
       
       // Log successful CHANGE_PERMISSION
       await logSecurityAction(
@@ -151,6 +171,7 @@ export function UserList() {
       ).catch(e => console.error('Silent log error:', e));
       
       setNotification({ type: 'success', message: '¡Usuario registrado exitosamente!' });
+
 
       // Reset form variables
       setFormUsername('');

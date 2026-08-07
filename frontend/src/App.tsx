@@ -55,10 +55,32 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
               <pre>{JSON.stringify(this.state.errorInfo)}</pre>
             </details>
             <button 
-              onClick={() => window.location.reload()}
-              className="w-full bg-[#6A008A] text-white py-2 rounded-md hover:bg-[#52006A] transition-colors"
+              onClick={async () => {
+                if ('serviceWorker' in navigator) {
+                  try {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const reg of registrations) {
+                      await reg.unregister();
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }
+                if ('caches' in window) {
+                  try {
+                    const keys = await caches.keys();
+                    for (const key of keys) {
+                      await caches.delete(key);
+                    }
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }
+                window.location.href = window.location.origin + '?clear-cache=' + Date.now();
+              }}
+              className="w-full bg-[#6A008A] text-white py-2 rounded-md hover:bg-[#52006A] transition-colors font-bold"
             >
-              Recargar página
+              Recargar página y limpiar cache
             </button>
           </div>
         </div>
@@ -68,16 +90,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boole
   }
 }
 
+import { GlobalProvider } from './context/GlobalContext';
+
 export default function App() {
   return (
     <ErrorBoundary>
       <Toaster position="top-center" />
       <OfflineBanner />
       <HashRouter>
-        <NavigationProvider>
-          <AppRoutes />
-        </NavigationProvider>
+        <GlobalProvider>
+          <NavigationProvider>
+            <AppRoutes />
+          </NavigationProvider>
+        </GlobalProvider>
       </HashRouter>
     </ErrorBoundary>
   );
 }
+

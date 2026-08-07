@@ -1,18 +1,56 @@
 import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { auth } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 'firebase/auth';
 import type { AuthError } from 'firebase/auth';
-import { Sparkles, LogIn } from 'lucide-react';
+import { Sparkles, LogIn, Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
   onSuccess: () => void;
 }
 
 export function Login({ onSuccess }: LoginProps) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [unauthorizedDomainError, setUnauthorizedDomainError] = useState(false);
   const [googleOperationNotAllowedError, setGoogleOperationNotAllowedError] = useState(false);
+
+  const handleEmailPasswordLogin = async (e: FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setUnauthorizedDomainError(false);
+    setGoogleOperationNotAllowedError(false);
+    setLoading(true);
+
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      onSuccess();
+    } catch (err: unknown) {
+      const authError = err as AuthError;
+      console.warn("Email/Password login failed:", authError);
+
+      switch (authError.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          setError('E-mail ou senha incorretos.');
+          break;
+        case 'auth/invalid-email':
+          setError('Formato de e-mail inválido.');
+          break;
+        case 'auth/too-many-requests':
+          setError('Muitas tentativas sem sucesso. Tente novamente mais tarde.');
+          break;
+        default:
+          setError(authError.message || 'Erro ao entrar. Verifique os dados e tente novamente.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     setError('');
@@ -23,7 +61,7 @@ export function Login({ onSuccess }: LoginProps) {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
       onSuccess();
-    } catch (err: any) {
+    } catch (err: unknown) {
       const authError = err as AuthError;
       console.warn("Google login failed:", authError);
       if (
@@ -50,22 +88,22 @@ export function Login({ onSuccess }: LoginProps) {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8 select-none">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
         {/* Elegant Logo Header */}
-        <div className="inline-flex items-center justify-center p-3.5 bg-[#6A008A] rounded-2xl shadow-md text-white mb-4">
-          <span className="font-black text-xl tracking-wider uppercase">ControlMax</span>
+        <div className="flex items-center justify-center mb-6">
+          <img src="/logo.png" alt="ControlMax Logo" className="h-28 w-auto object-contain drop-shadow-md" />
         </div>
         <h2 className="mt-2 text-3xl font-extrabold text-gray-900 tracking-tight">
           Iniciar Sesión
         </h2>
         <p className="mt-1.5 text-sm text-gray-500 font-medium">
-          Acceso corporativo exclusivo con Google
+          Acceso corporativo y administración
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100 flex flex-col items-stretch space-y-6">
+        <div className="bg-white py-8 px-6 shadow-xl sm:rounded-2xl sm:px-10 border border-gray-100 flex flex-col items-stretch space-y-5">
           
-          <div className="text-center text-xs text-gray-400 py-2 border-b border-gray-100 font-medium leading-relaxed">
-            Inicie sesión con su cuenta corporativa autorizada para acceder al panel de control y funciones administrativas.
+          <div className="text-center text-xs text-gray-400 py-1 border-b border-gray-100 font-medium leading-relaxed">
+            Inicie sesión con su correo corporativo o a través de su cuenta de Google.
           </div>
 
           {error && (
@@ -116,6 +154,71 @@ export function Login({ onSuccess }: LoginProps) {
             </div>
           )}
 
+          {/* Email / Password Form */}
+          <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                E-mail corporativo
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-[#6A008A] bg-gray-50/50"
+                placeholder="Ex: seu.nome@empresa.com"
+                disabled={loading}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1">
+                Senha
+              </label>
+              <div className="relative">
+                <input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl pl-3.5 pr-10 py-2.5 text-sm outline-none focus:border-[#6A008A] bg-gray-50/50"
+                  placeholder="••••••••"
+                  disabled={loading}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full bg-[#6A008A] hover:bg-[#52006A] text-white py-3.5 px-4 rounded-xl text-sm font-extrabold shadow-sm hover:shadow-md transition-all active:scale-98 flex justify-center items-center gap-2 cursor-pointer ${
+                loading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {loading && !error ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                'Entrar'
+              )}
+            </button>
+          </form>
+
+          {/* Divider "OU" */}
+          <div className="flex items-center my-3">
+            <div className="flex-1 border-t border-gray-200"></div>
+            <span className="px-3 text-xs text-gray-400 font-bold uppercase tracking-wider">OU</span>
+            <div className="flex-1 border-t border-gray-200"></div>
+          </div>
+
           <button
             type="button"
             onClick={handleGoogleLogin}
@@ -124,10 +227,10 @@ export function Login({ onSuccess }: LoginProps) {
               loading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
-            {loading ? (
+            {loading && error ? (
               <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
             ) : (
-              <svg className="w-5 h-5" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -146,10 +249,10 @@ export function Login({ onSuccess }: LoginProps) {
                 />
               </svg>
             )}
-            <span className="text-gray-800">{loading ? 'Iniciando sesión...' : 'Iniciar Sesión con Google'}</span>
+            <span className="text-gray-800">Iniciar Sesión con Google</span>
           </button>
 
-          <div className="pt-4 border-t border-gray-100 flex items-center justify-center gap-2 text-[10px] text-gray-400 font-medium">
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-[10px] text-gray-400 font-medium">
             <LogIn size={11} />
             <span>Sistema seguro operado con Firebase</span>
           </div>

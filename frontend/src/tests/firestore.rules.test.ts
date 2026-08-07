@@ -24,15 +24,20 @@ describe("Testes de Regras de Segurança do Firestore", () => {
         port: 8080,
       },
     });
-  });
+  }, 30000);
 
   afterAll(async () => {
-    await testEnv.cleanup();
-  });
+    if (testEnv) {
+      await testEnv.cleanup();
+    }
+  }, 30000);
 
   beforeEach(async () => {
-    await testEnv.clearFirestore();
-  });
+    if (testEnv) {
+      await testEnv.clearFirestore();
+    }
+  }, 30000);
+
 
   // Helper para criar um usuário autenticado e já cadastrar seu perfil de usuário no Firestore
   async function setupUser(uid: string, tenantId: string, role: string, email: string) {
@@ -93,7 +98,7 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("usuário do próprio tenant A com role adequada consegue ler e criar transações normalmente", async () => {
+    test("usuário do próprio tenant A NÃO consegue criar transações diretamente (BFF apenas)", async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.doc("boxes/box-tenant-a").set({
@@ -106,13 +111,31 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const dbA = userAContext.firestore();
 
-      // Escrever transação no box de seu tenant deve funcionar
-      await assertSucceeds(
+      // Escrever transação no box pelo client-side DEVE FALHAR
+      await assertFails(
         dbA.doc("boxes/box-tenant-a/transactions/tx-legit").set({
           amount: 5000,
           description: "Pagamento de rota",
         })
       );
+    });
+
+    test("usuário do próprio tenant A consegue LER transações do seu box normalmente", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc("boxes/box-tenant-a").set({
+          tenantId: "tenant-a",
+          userId: "collector-a",
+          status: "open",
+        });
+        await adminDb.doc("boxes/box-tenant-a/transactions/tx-legit").set({
+          amount: 5000,
+          description: "Pagamento de rota",
+        });
+      });
+
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
 
       // Ler transação no box de seu tenant deve funcionar
       await assertSucceeds(dbA.doc("boxes/box-tenant-a/transactions/tx-legit").get());
@@ -132,10 +155,8 @@ describe("Testes de Regras de Segurança do Firestore", () => {
         });
       });
 
-      // Configurar superadmin via email permitido em firestore.rules
-      const superadminContext = testEnv.authenticatedContext("super-uid", {
-        email: "controlmaxia@gmail.com",
-      });
+      // Configurar superadmin via banco de dados
+      const superadminContext = await setupUser("super-uid", "super_admin_tenant", "superadmin", "superadmin@controlmax.dev");
       const dbSuper = superadminContext.firestore();
 
       await assertSucceeds(dbSuper.doc("boxes/box-tenant-a/transactions/tx-1").get());
@@ -144,7 +165,50 @@ describe("Testes de Regras de Segurança do Firestore", () => {
 
   // 2. PRIVILEGE ESCALATION EM /users/{userId}
   describe("2. Privilege escalation em /users/{userId}", () => {
-    test("um usuário com role collector tenta atualizar o próprio documento mudando role para admin deve falhar", async () => {
+    test("usuário autenticado sem documento /users/{uid} tenta criar próprio documento como collector -> NEGADO (create: if false)", async () => {
+      const userAContext = testEnv.authenticatedContext("new-user-a", { email: "new-user-a@tenant-a.com" });
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("users/new-user-a").set({
+          tenantId: "tenant-a",
+          role: "collector",
+          email: "new-user-a@tenant-a.com",
+          active: true,
+        })
+      );
+    });
+
+    test("usuário autenticado sem documento /users/{uid} tenta criar próprio documento como admin -> NEGADO", async () => {
+      const userAContext = testEnv.authenticatedContext("new-user-b", { email: "new-user-b@tenant-a.com" });
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("users/new-user-b").set({
+          tenantId: "tenant-a",
+          role: "admin",
+          email: "new-user-b@tenant-a.com",
+          active: true,
+        })
+      );
+    });
+
+    test("usuário autenticado sem documento /users/{uid} tenta criar próprio documento com isSuperAdmin: true -> NEGADO", async () => {
+      const userAContext = testEnv.authenticatedContext("new-user-c", { email: "new-user-c@tenant-a.com" });
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("users/new-user-c").set({
+          tenantId: "tenant-a",
+          role: "superadmin",
+          isSuperAdmin: true,
+          email: "new-user-c@tenant-a.com",
+          active: true,
+        })
+      );
+    });
+
+    test("usuário com role collector tenta atualizar o próprio documento mudando role para admin -> NEGADO", async () => {
       await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const userAContext = testEnv.authenticatedContext("collector-a", { email: "collector-a@tenant-a.com" });
       const dbA = userAContext.firestore();
@@ -159,7 +223,7 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("um usuário com role collector tenta mudar tenantId para outro tenant deve falhar", async () => {
+    test("usuário com role collector tenta mudar tenantId para outro tenant -> NEGADO", async () => {
       await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const userAContext = testEnv.authenticatedContext("collector-a", { email: "collector-a@tenant-a.com" });
       const dbA = userAContext.firestore();
@@ -174,7 +238,7 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("um usuário com role collector tenta atualizar um campo não sensível do próprio perfil deve funcionar", async () => {
+    test("usuário com role collector atualizando campo não sensível do próprio perfil preservando role/tenantId -> PERMITIDO", async () => {
       await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const userAContext = testEnv.authenticatedContext("collector-a", { email: "collector-a@tenant-a.com" });
       const dbA = userAContext.firestore();
@@ -190,14 +254,14 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("um admin do Tenant A tenta mudar role de um usuário do Tenant A deve funcionar", async () => {
+    test("admin de um tenant tenta promover outro usuário do mesmo tenant para role='admin' via update -> NEGADO", async () => {
       await setupUser("admin-a", "tenant-a", "admin", "admin-a@tenant-a.com");
       await setupUser("collector-a2", "tenant-a", "collector", "collector-a2@tenant-a.com");
 
       const adminAContext = testEnv.authenticatedContext("admin-a", { email: "admin-a@tenant-a.com" });
       const dbAdminA = adminAContext.firestore();
 
-      await assertSucceeds(
+      await assertFails(
         dbAdminA.doc("users/collector-a2").set({
           tenantId: "tenant-a",
           role: "admin",
@@ -207,7 +271,42 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("um admin do Tenant A tenta mudar role de um usuário do Tenant B deve falhar", async () => {
+    test("admin de um tenant tenta promover outro usuário do mesmo tenant para role='superadmin' via update -> NEGADO", async () => {
+      await setupUser("admin-a", "tenant-a", "admin", "admin-a@tenant-a.com");
+      await setupUser("collector-a3", "tenant-a", "collector", "collector-a3@tenant-a.com");
+
+      const adminAContext = testEnv.authenticatedContext("admin-a", { email: "admin-a@tenant-a.com" });
+      const dbAdminA = adminAContext.firestore();
+
+      await assertFails(
+        dbAdminA.doc("users/collector-a3").set({
+          tenantId: "tenant-a",
+          role: "superadmin",
+          isSuperAdmin: true,
+          email: "collector-a3@tenant-a.com",
+          active: true,
+        })
+      );
+    });
+
+    test("admin de um tenant alterando outro usuário para papel de menor privilégio (supervisor) sem admin/superadmin -> PERMITIDO", async () => {
+      await setupUser("admin-a", "tenant-a", "admin", "admin-a@tenant-a.com");
+      await setupUser("collector-a4", "tenant-a", "collector", "collector-a4@tenant-a.com");
+
+      const adminAContext = testEnv.authenticatedContext("admin-a", { email: "admin-a@tenant-a.com" });
+      const dbAdminA = adminAContext.firestore();
+
+      await assertSucceeds(
+        dbAdminA.doc("users/collector-a4").set({
+          tenantId: "tenant-a",
+          role: "supervisor",
+          email: "collector-a4@tenant-a.com",
+          active: true,
+        })
+      );
+    });
+
+    test("admin do Tenant A tentando alterar usuário do Tenant B -> NEGADO", async () => {
       await setupUser("admin-a", "tenant-a", "admin", "admin-a@tenant-a.com");
       await setupUser("collector-b", "tenant-b", "collector", "collector-b@tenant-b.com");
 
@@ -217,13 +316,14 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       await assertFails(
         dbAdminA.doc("users/collector-b").set({
           tenantId: "tenant-b",
-          role: "admin",
+          role: "supervisor",
           email: "collector-b@tenant-b.com",
           active: true,
         })
       );
     });
   });
+
 
   // 3. ISOLAMENTO DE SECURITY_LOGS
   describe("3. Isolamento de security_logs", () => {
@@ -276,9 +376,7 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       });
 
       // Superadmin tentará modificar
-      const superadminContext = testEnv.authenticatedContext("super-uid", {
-        email: "controlmaxia@gmail.com",
-      });
+      const superadminContext = await setupUser("super-uid", "super_admin_tenant", "superadmin", "superadmin@controlmax.dev");
       const dbSuper = superadminContext.firestore();
 
       await assertFails(
@@ -353,7 +451,7 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("usuário do Tenant B não pode ler nem escrever sales do Tenant A", async () => {
+    test("usuário do Tenant B não pode ler sales do Tenant A", async () => {
       await testEnv.withSecurityRulesDisabled(async (context) => {
         const adminDb = context.firestore();
         await adminDb.doc("sales/sale-tenant-a").set({
@@ -367,21 +465,100 @@ describe("Testes de Regras de Segurança do Firestore", () => {
 
       // Negar leitura
       await assertFails(dbB.doc("sales/sale-tenant-a").get());
+    });
 
-      // Negar escrita
+    test("usuário do próprio Tenant A NÃO consegue criar sales diretamente (deve usar BFF)", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
       await assertFails(
-        dbB.doc("sales/sale-tenant-a-new").set({
+        dbA.doc("sales/sale-tenant-a-new").set({
           tenantId: "tenant-a",
           amount: 10000,
         })
       );
     });
 
-    test("casos legítimos: usuário do Tenant A consegue ler e escrever seus próprios recursos", async () => {
+    test("usuário do próprio Tenant A NÃO consegue atualizar sales diretamente (deve usar BFF)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc("sales/sale-tenant-a-exist").set({
+          tenantId: "tenant-a",
+          amount: 50000,
+        });
+      });
+
       const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const dbA = userAContext.firestore();
 
-      // Escritas válidas
+      await assertFails(
+        dbA.doc("sales/sale-tenant-a-exist").update({
+          amount: 1000,
+        })
+      );
+    });
+
+    test("usuário do próprio Tenant A NÃO consegue escrever em payments diretamente (deve usar BFF)", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("payments/pay-tenant-a-new").set({
+          tenantId: "tenant-a",
+          amount: 5000,
+        })
+      );
+    });
+
+    test("usuário do próprio Tenant A NÃO consegue escrever em expenses diretamente (deve usar BFF)", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("expenses/exp-tenant-a-new").set({
+          tenantId: "tenant-a",
+          amount: 2000,
+        })
+      );
+    });
+
+    test("usuário do próprio Tenant A NÃO consegue escrever em incomes diretamente (deve usar BFF)", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("incomes/inc-tenant-a-new").set({
+          tenantId: "tenant-a",
+          amount: 10000,
+        })
+      );
+    });
+
+    test("usuário do próprio Tenant A NÃO consegue atualizar boxes diretamente (deve usar BFF)", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc("boxes/box-tenant-a-exist").set({
+          tenantId: "tenant-a",
+          status: "open",
+        });
+      });
+
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("boxes/box-tenant-a-exist").update({
+          status: "confirmed",
+        })
+      );
+    });
+
+
+    test("casos legítimos: usuário do Tenant A consegue ler seus próprios recursos", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      // Escrita de client/customer (permitido no client-side)
       await assertSucceeds(
         dbA.doc("clients/client-tenant-a-valid").set({
           tenantId: "tenant-a",
@@ -396,12 +573,14 @@ describe("Testes de Regras de Segurança do Firestore", () => {
         })
       );
 
-      await assertSucceeds(
-        dbA.doc("sales/sale-tenant-a-valid").set({
+      // Injeta uma venda via Admin para poder ler no client-side
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc("sales/sale-tenant-a-valid").set({
           tenantId: "tenant-a",
           amount: 35000,
-        })
-      );
+        });
+      });
 
       // Leituras válidas
       await assertSucceeds(dbA.doc("clients/client-tenant-a-valid").get());

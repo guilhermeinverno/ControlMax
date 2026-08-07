@@ -1,6 +1,8 @@
 import { FileText, MapPin, Smartphone, Users } from 'lucide-react';
 import { Box, Screen } from '../../../types';
 import { PerformanceMetrics } from '../../../utils/performanceMetrics';
+import { parseUnknownTimestamp } from '../../../utils/timestampParsing';
+
 
 interface PerformanceActionsCardProps {
   box: Box;
@@ -58,20 +60,20 @@ export function PerformanceActionsCard({
           <div className="flex justify-between">
             <span className="text-blue-100 font-medium">Fecha Apertura:</span>
             <span className="font-mono text-[11px] text-white">
-              {box.openedAt ? box.openedAt.toDate().toLocaleString('pt-BR') : '---'}
+              {parseUnknownTimestamp(box.openedAt)?.toLocaleString('pt-BR') || '---'}
             </span>
           </div>
           <div className="flex justify-between">
             <span className="text-blue-100 font-medium">Inicio Móvil:</span>
             <span className="font-mono text-[11px] text-white">
-              {box.openedAt ? box.openedAt.toDate().toLocaleString('pt-BR') : '---'}
+              {parseUnknownTimestamp(box.openedAt)?.toLocaleString('pt-BR') || '---'}
             </span>
           </div>
           <div className="flex justify-between items-center pt-0.5">
             <span className="text-blue-100 font-medium">Fecha Cierre:</span>
             {box.closedAt ? (
               <span className="bg-red-500/30 text-red-200 font-bold px-1.5 py-0.5 rounded text-[10px] uppercase font-mono">
-                {box.closedAt.toDate().toLocaleString('pt-BR')}
+                {parseUnknownTimestamp(box.closedAt)?.toLocaleString('pt-BR') || '---'}
               </span>
             ) : (
               <span className="bg-green-500/30 text-green-200 font-bold px-1.5 py-0.5 rounded text-[10px] uppercase">

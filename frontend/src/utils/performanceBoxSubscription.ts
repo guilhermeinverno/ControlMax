@@ -9,6 +9,8 @@ import {
 import { db } from '../lib/firebase';
 import { Box } from '../types';
 
+import { parseUnknownTimestamp } from './timestampParsing';
+
 function parseBoxFromSnapshot(docSnap: { id: string; data: () => Record<string, unknown> }): Box {
   return { id: docSnap.id, ...docSnap.data() } as Box;
 }
@@ -16,12 +18,17 @@ function parseBoxFromSnapshot(docSnap: { id: string; data: () => Record<string, 
 function findTodayBoxFromFallback(boxes: Box[], uid: string, startOfToday: Date): Box | null {
   const filtered = boxes.filter((box) => {
     const isUser = box.userId === uid;
-    const isToday = box.openedAt && box.openedAt.toDate() >= startOfToday;
+    const openDate = parseUnknownTimestamp(box.openedAt);
+    const isToday = openDate && openDate >= startOfToday;
     return isUser && isToday;
   });
 
   if (filtered.length === 0) return null;
-  filtered.sort((a, b) => b.openedAt.toMillis() - a.openedAt.toMillis());
+  filtered.sort((a, b) => {
+    const tA = parseUnknownTimestamp(a.openedAt)?.getTime() || 0;
+    const tB = parseUnknownTimestamp(b.openedAt)?.getTime() || 0;
+    return tB - tA;
+  });
   return filtered[0];
 }
 

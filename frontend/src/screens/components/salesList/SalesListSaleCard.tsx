@@ -2,21 +2,26 @@ import { fmtCents } from '../../../utils/fmtCents';
 import { Coins, Edit3, History, User, Camera, Check, X, Mail } from 'lucide-react';
 import { Screen } from '../../../types';
 import { formatSalesListCents } from '../../../utils/salesListFormat';
-import { SalesListSale } from '../../../utils/salesListMapper';
+import { SalesListSale, SalesListCollection } from '../../../utils/salesListMapper';
 import { useTenant } from '../../../hooks/useTenant';
 
 interface SalesListSaleCardProps {
   sale: SalesListSale;
+  collections?: SalesListCollection[];
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
 }
 
-export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) {
+export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSaleCardProps) {
   const { role } = useTenant();
   const interest = Math.round(sale.amount * 0.2);
   const totalWithInterest = sale.amount + interest;
   const fmt = formatSalesListCents;
 
   const isCollector = role === 'collector';
+
+  const saleCollections = (collections || []).filter(c => c.saleId === sale.id);
+  const hasPaidToday = saleCollections.some(c => c.amount > 0);
+  const hasNoPaymentToday = saleCollections.some(c => c.amount === 0);
 
   if (isCollector) {
     const lateDays = Math.max(0, Math.abs(sale.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)) % 6);
@@ -31,12 +36,11 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
     const freq = getSaleFrequency(sale.id);
     const indicatorChar = freq === 'diario' ? 'D' : freq === 'semanal' ? 'S' : freq === 'quinzenal' ? 'Q' : 'M';
 
-    // A card is a "Venda" if there are no paid installments, meaning it's a fresh/new credit.
     const isNewSale = sale.paidInstallments === 0 || sale.amount === sale.saldoPendienteCents;
+    const pendingInstallments = Math.max(0, sale.installments - (sale.paidInstallments || 0));
 
     if (isNewSale) {
-      // Render the Sales (Venda) card layout - exactly like Image 3
-      const indicatorColor = 'text-green-600 border-green-600'; // In Image 3, Guilherme has a green 'D' circle badge
+      const indicatorColor = 'text-green-600 border-green-600';
 
       return (
         <div className="bg-white border-y border-r border-gray-200/90 border-l-4 border-l-red-600 rounded-r-xl rounded-l-none shadow-md p-2.5 pb-2 flex flex-col hover:border-[#6B21A8]/40 transition-all duration-200 relative overflow-hidden">
@@ -61,32 +65,40 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
             </div>
           </div>
 
-          {/* Details Block (Vr. Parcela, Parcelas, Pagamento + Button 1) */}
+          {/* Details Block (Vr. Parcela, Pendentes, Pagamento + Button 1) */}
           <div className="flex items-center justify-between border-t border-b border-gray-100 py-1 my-1 text-left min-h-[52px]">
             <div>
-              <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Vr. Parcela</span>
-              <span className="font-extrabold text-[#333333] text-xs">${(sale.installmentAmount / 100).toFixed(0)}</span>
+              <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pendentes</span>
+              <span className="font-extrabold text-[#6B119C] text-xs">
+                R$ {((sale.saldoPendienteCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
             </div>
             <div>
               <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Parcelas</span>
-              <span className="font-extrabold text-[#333333] text-xs">{sale.installments}</span>
+              <span className="font-extrabold text-[#333333] text-xs block">
+                Faltam {pendingInstallments.toFixed(0)} de {sale.installments.toFixed(0)}
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <div>
                 <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pagamento</span>
-                <span className="font-extrabold text-red-600 text-xs">$0</span>
+                <span className={`font-extrabold text-xs ${hasPaidToday ? 'text-green-600' : 'text-red-600'}`}>
+                  {hasPaidToday ? '✓ Pago' : '$0'}
+                </span>
               </div>
               {/* Button 1: Registrar Pagamento */}
               <button
                 onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'payment' })}
-                className="flex items-center justify-center hover:bg-purple-50 rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0"
+                className={`flex items-center justify-center rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0 ${
+                  hasPaidToday ? 'bg-green-100 ring-2 ring-green-500' : 'hover:bg-purple-50'
+                }`}
                 title="Registrar pagamento"
               >
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill="#FAF5FF" stroke="#6A008A" strokeWidth="2.5"/>
-                  <circle cx="20" cy="22" r="4" stroke="#6A008A" strokeWidth="2"/>
-                  <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke="#6A008A" strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="36" cy="34" r="8" fill="#6A008A"/>
+                <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasPaidToday ? "#DCFCE7" : "#FAF5FF"} stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2.5"/>
+                  <circle cx="20" cy="22" r="4" stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2"/>
+                  <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
+                  <circle cx="36" cy="34" r="8" fill={hasPaidToday ? "#16A34A" : "#6A008A"}/>
                   <path d="M32 34L35 37L40 31" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
@@ -116,7 +128,7 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
                 <Mail size={14} className="stroke-[2.5]" />
               </button>
 
-              {/* Overdue/Status numeric badge (always green 0 for new active sale) */}
+              {/* Overdue/Status numeric badge */}
               <div className="w-7.5 h-7.5 rounded flex items-center justify-center text-white font-extrabold text-xs bg-[#16A34A]">
                 0
               </div>
@@ -133,22 +145,24 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
 
               <div className="flex items-center space-x-1">
                 <div className="flex flex-col leading-none">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Saldo devedor</span>
-                  <span className="text-xs font-black text-[#333333] mt-0.5">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Total Pendente</span>
+                  <span className="text-xs font-black text-[#DC2626] mt-0.5">
                     ${fmtCents(sale.saldoPendienteCents)}
                   </span>
                 </div>
                 {/* Button 2: Registrar Não Pagamento */}
                 <button
                   onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'no-payment' })}
-                  className="flex items-center justify-center hover:bg-purple-50 rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0"
+                  className={`flex items-center justify-center rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0 ${
+                    hasNoPaymentToday ? 'bg-red-100 ring-2 ring-red-500' : 'hover:bg-purple-50'
+                  }`}
                   title="Registrar não pagamento"
                 >
-                  <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill="#FAF5FF" stroke="#6A008A" strokeWidth="2.5"/>
-                    <circle cx="20" cy="22" r="4" stroke="#6A008A" strokeWidth="2"/>
-                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke="#6A008A" strokeWidth="2.5" strokeLinecap="round"/>
-                    <circle cx="36" cy="34" r="8" fill="#6A008A"/>
+                  <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "#FEE2E2" : "#FAF5FF"} stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5"/>
+                    <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2"/>
+                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
+                    <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "#DC2626" : "#6A008A"}/>
                     <path d="M33 31L39 37M39 31L33 37" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
@@ -160,7 +174,6 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
     } else {
       // Render the Collections (Coleção) card layout - exactly like Image 2
       const indicatorColor = lateDays > 0 ? 'text-red-500 border-red-500' : 'text-green-600 border-green-600';
-      const pendingInstallments = Math.max(0, sale.installments - sale.paidInstallments);
 
       return (
         <div className="bg-white border border-gray-200/90 rounded-xl shadow-md p-2.5 pb-2 flex flex-col hover:border-[#6B21A8]/40 transition-all duration-200">
@@ -185,34 +198,38 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
             </div>
           </div>
 
-          {/* Details Block (Vr. Parcela, Pendintes, Pagamento + Button 1) */}
+          {/* Details Block (Vr. Parcela, Pendentes, Pagamento + Button 1) */}
           <div className="flex items-center justify-between border-t border-b border-gray-100 py-1 my-1 text-left min-h-[52px]">
             <div>
               <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Vr. Parcela</span>
               <span className="font-extrabold text-[#333333] text-xs">${(sale.installmentAmount / 100).toFixed(0)}</span>
             </div>
             <div>
-              <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pendintes</span>
-              <span className="font-extrabold text-[#333333] text-xs">
-                {pendingInstallments.toFixed(1)} / {sale.installments.toFixed(1)}
+              <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pendentes</span>
+              <span className="font-extrabold text-[#6B119C] text-xs block">
+                {pendingInstallments.toFixed(0)} de {sale.installments.toFixed(0)}
               </span>
             </div>
             <div className="flex items-center space-x-2">
               <div>
                 <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pagamento</span>
-                <span className="font-extrabold text-gray-400 text-xs">--</span>
+                <span className={`font-extrabold text-xs ${hasPaidToday ? 'text-green-600' : 'text-gray-400'}`}>
+                  {hasPaidToday ? '✓ Pago' : '--'}
+                </span>
               </div>
               {/* Button 1: Registrar Pagamento */}
               <button
                 onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'payment' })}
-                className="flex items-center justify-center hover:bg-purple-50 rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0"
+                className={`flex items-center justify-center rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0 ${
+                  hasPaidToday ? 'bg-green-100 ring-2 ring-green-500' : 'hover:bg-purple-50'
+                }`}
                 title="Registrar pagamento"
               >
-                <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill="#FAF5FF" stroke="#6A008A" strokeWidth="2.5"/>
-                  <circle cx="20" cy="22" r="4" stroke="#6A008A" strokeWidth="2"/>
-                  <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke="#6A008A" strokeWidth="2.5" strokeLinecap="round"/>
-                  <circle cx="36" cy="34" r="8" fill="#6A008A"/>
+                <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasPaidToday ? "#DCFCE7" : "#FAF5FF"} stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2.5"/>
+                  <circle cx="20" cy="22" r="4" stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2"/>
+                  <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasPaidToday ? "#16A34A" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
+                  <circle cx="36" cy="34" r="8" fill={hasPaidToday ? "#16A34A" : "#6A008A"}/>
                   <path d="M32 34L35 37L40 31" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </button>
@@ -263,22 +280,24 @@ export function SalesListSaleCard({ sale, onNavigate }: SalesListSaleCardProps) 
 
               <div className="flex items-center space-x-1">
                 <div className="flex flex-col leading-none">
-                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Saldo devedor</span>
-                  <span className="text-xs font-black text-[#333333] mt-0.5">
+                  <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Total Pendente</span>
+                  <span className="text-xs font-black text-[#DC2626] mt-0.5">
                     ${fmtCents(sale.saldoPendienteCents)}
                   </span>
                 </div>
                 {/* Button 2: Registrar Não Pagamento */}
                 <button
                   onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'no-payment' })}
-                  className="flex items-center justify-center hover:bg-purple-50 rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0"
+                  className={`flex items-center justify-center rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0 ${
+                    hasNoPaymentToday ? 'bg-red-100 ring-2 ring-red-500' : 'hover:bg-purple-50'
+                  }`}
                   title="Registrar não pagamento"
                 >
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill="#FAF5FF" stroke="#6A008A" strokeWidth="2.5"/>
-                    <circle cx="20" cy="22" r="4" stroke="#6A008A" strokeWidth="2"/>
-                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke="#6A008A" strokeWidth="2.5" strokeLinecap="round"/>
-                    <circle cx="36" cy="34" r="8" fill="#6A008A"/>
+                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "#FEE2E2" : "#FAF5FF"} stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5"/>
+                    <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2"/>
+                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
+                    <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "#DC2626" : "#6A008A"}/>
                     <path d="M33 31L39 37M39 31L33 37" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
