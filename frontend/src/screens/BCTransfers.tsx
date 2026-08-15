@@ -260,9 +260,9 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <div>
-            <h1 className="text-lg font-black tracking-wide">Transferências</h1>
-            <span className="text-xs text-purple-200 block font-semibold mt-0.5">
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-black tracking-wide whitespace-nowrap shrink-0">Transferências</h1>
+            <span className="text-xs text-purple-200 block font-semibold mt-0.5 truncate">
               {activeBox?.unitName ? activeBox.unitName.substring(0, 3) : '65'} / {activeBox?.cnName ? activeBox.cnName.substring(0, 3) : '3'} / {activeBox?.id ? activeBox.id.substring(0, 7) : '1007967'}
             </span>
           </div>

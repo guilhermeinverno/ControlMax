@@ -46,7 +46,7 @@ export function PerformanceWorkerCard({ box, metrics }: PerformanceWorkerCardPro
               key={String(label)}
               className="flex justify-between items-center border-b border-purple-500/20 pb-1.5 last:border-b-0"
             >
-              <span className="text-purple-200 font-medium">{label}</span>
+              <span className="text-purple-200 font-medium whitespace-nowrap shrink-0">{label}</span>
               <span className={`${color} font-black font-mono`}>
                 {sign}$ {fmtCents(Number(amount))}
               </span>

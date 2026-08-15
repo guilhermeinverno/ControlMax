@@ -57,11 +57,11 @@ export function LayoutMobileDrawer({
   return (
     <>
       {drawerOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40 transition-opacity lg:hidden" onClick={() => setDrawerOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40 transition-opacity" onClick={() => setDrawerOpen(false)} />
       )}
 
       <div
-        className={`fixed top-0 left-0 bottom-0 w-[290px] bg-white z-50 transform transition-transform duration-300 ease-in-out border-r border-gray-200 shadow-2xl overflow-y-auto flex flex-col lg:hidden ${
+        className={`fixed top-0 left-0 bottom-0 w-[290px] bg-white z-50 transform transition-transform duration-300 ease-in-out border-r border-gray-200 shadow-2xl overflow-y-auto flex flex-col ${
           drawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -147,7 +147,7 @@ export function LayoutMobileDrawer({
                 <div className="w-8 h-8 rounded-full bg-[#6A008A] flex items-center justify-center text-white mr-3.5 shrink-0 group-hover:scale-105 transition-transform">
                   <ArrowLeftRight className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-xs font-black text-slate-700 tracking-wide">Transferências</span>
+                <span className="text-xs font-black text-slate-700 tracking-wide whitespace-nowrap shrink-0">Transferências</span>
               </button>
 
               <button
@@ -308,7 +308,7 @@ export function LayoutMobileDrawer({
                   <div className="bg-gray-50/50 flex flex-col py-1 text-xs text-gray-600 pl-4 border-l-2 border-[#6A008A] max-h-[350px] overflow-y-auto">
                     <button onClick={() => nav('bc-incomes')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Ingresos</button>
                     <button onClick={() => nav('bc-expenses')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Egresos</button>
-                    <button onClick={() => nav('bc-transfers')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Transferencia de dinero</button>
+                    <button onClick={() => nav('bc-transfers')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 whitespace-nowrap shrink-0">Transferência de dinheiro</button>
                     <button onClick={() => nav('bc-approvals')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Aprobar transferencias</button>
                     <button onClick={() => nav('open-box')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 font-semibold text-[#6A008A]">Abrir Caixa</button>
                     <button onClick={() => nav('close-box')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 font-semibold text-[#6A008A]">Fechar Caixa (Fechamento)</button>

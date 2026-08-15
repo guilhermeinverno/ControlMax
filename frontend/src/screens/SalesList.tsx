@@ -131,7 +131,11 @@ export function SalesList({
             <div className="flex items-center space-x-3">
               <button
                 type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent('controlmax_open_drawer'))}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  window.dispatchEvent(new CustomEvent('controlmax_open_drawer'));
+                }}
                 className="text-white hover:bg-white/10 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">

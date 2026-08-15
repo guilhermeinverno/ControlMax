@@ -2,6 +2,7 @@ import {
   Home, CircleDollarSign, Crosshair, UserCog, Calculator, ChevronDown, ChevronRight,
   Users, BarChart3, ShieldCheck, ClipboardList, CalendarDays,
 } from 'lucide-react';
+import { useState } from 'react';
 import type { Screen } from '../../../types';
 import type { MouseEvent } from 'react';
 
@@ -213,8 +214,8 @@ function LayoutCentrosDropdown({
           <button onClick={() => nav('bc-expenses')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Egresos <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
-          <button onClick={() => nav('bc-transfers')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Transferencia de dinheiro <ChevronRight className="w-3 h-3 text-gray-400" />
+          <button onClick={() => nav('bc-transfers')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between whitespace-nowrap">
+            Transferência de dinheiro <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
           <button onClick={() => nav('bc-approvals')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Aprobar transferencias <ChevronRight className="w-3 h-3 text-gray-400" />
@@ -269,8 +270,9 @@ function LayoutAdminDropdown({
   handleDropdownClick,
   nav,
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'role' | 'showSuperAdmin' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
-  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'platform-management', 'forms', 'holidays', 'profiles', 'vendedor-mobile'];
+  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'platform-management', 'forms', 'holidays', 'profiles', 'vendedor-mobile', 'business-centers', 'route-list'];
   const isActive = activeDropdown === 'admin' || adminScreens.includes(currentScreen);
+  const [hoverSubmenu, setHoverSubmenu] = useState<'plataforma' | 'usuarios' | 'clientes' | null>(null);
 
   return (
     <div className="relative flex items-stretch border-r border-gray-200">
@@ -286,52 +288,68 @@ function LayoutAdminDropdown({
       </button>
 
       {activeDropdown === 'admin' && (
-        <div className="absolute top-[64px] left-0 w-64 bg-white rounded-b-md shadow-xl border-t-2 border-[#6A008A] py-1 z-50">
-          {showSuperAdmin && (
-            <button onClick={() => nav('superadmin')} className="w-full text-left px-4 py-2 text-xs font-bold text-[#6A008A] hover:bg-purple-100 border-b border-gray-100 flex items-center justify-between">
-              ★ Panel Super Admin <ChevronRight className="w-3 h-3 text-purple-600" />
-            </button>
-          )}
-          <button onClick={() => nav('platform-management')} className="w-full text-left px-4 py-2 text-xs font-bold text-[#6A008A] hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            ⚙ Gestión de la Plataforma <ChevronRight className="w-3 h-3 text-purple-600" />
-          </button>
-          <button onClick={() => nav('user-list')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Gestión de Usuarios <ChevronRight className="w-3 h-3 text-gray-400" />
-          </button>
-          <button onClick={() => nav('profiles')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Perfiles / Permisos <ChevronRight className="w-3 h-3 text-gray-400" />
-          </button>
-          <button onClick={() => nav('vendedor-mobile')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            📱 App Vendedor (Mobile) <ChevronRight className="w-3 h-3 text-gray-400" />
-          </button>
-          {(role === 'admin' || role === 'supervisor') && (
-            <button onClick={() => nav('collector-map')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-              Mapa de Cobradores <ChevronRight className="w-3 h-3 text-gray-400" />
-            </button>
-          )}
-          <button onClick={() => nav('device-list')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Gestión de Dispositivos <ChevronRight className="w-3 h-3 text-gray-400" />
-          </button>
-          <button onClick={() => nav('company-list')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Gestión de Clientes <ChevronRight className="w-3 h-3 text-gray-400" />
-          </button>
-          {(role === 'admin' || role === 'supervisor') && (
-            <>
-              <button onClick={() => nav('forms')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <ClipboardList className="w-3.5 h-3.5 text-[#6A008A]" />
-                  Formularios Dinámicos
-                </span>
-                <ChevronRight className="w-3 h-3 text-gray-400" />
+        <div className="absolute top-[64px] left-0 flex z-50">
+          {/* Main Flyout Column 1 */}
+          <div className="w-64 bg-white rounded-b-md shadow-xl border-t-2 border-[#8CC63F] py-1 border-r border-gray-100">
+            {showSuperAdmin && (
+              <button onClick={() => nav('superadmin')} className="w-full text-left px-4 py-2.5 text-xs font-bold text-[#6A008A] hover:bg-purple-100 border-b border-gray-100 flex items-center justify-between">
+                ★ Panel Super Admin <ChevronRight className="w-3 h-3 text-purple-600" />
               </button>
-              <button onClick={() => nav('holidays')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <CalendarDays className="w-3.5 h-3.5 text-[#6A008A]" />
-                  Feriados / Calendario
-                </span>
-                <ChevronRight className="w-3 h-3 text-gray-400" />
+            )}
+            <div 
+              onMouseEnter={() => setHoverSubmenu('plataforma')}
+              className={`w-full text-left px-4 py-3 text-xs font-bold transition-colors cursor-pointer flex items-center justify-between ${
+                hoverSubmenu === 'plataforma' ? 'bg-[#8CC63F] text-[#6A008A]' : 'text-[#6A008A] hover:bg-purple-50'
+              }`}
+            >
+              <span>Gestión de Plataforma</span>
+              <ChevronRight className="w-4 h-4" />
+            </div>
+
+            <div 
+              onMouseEnter={() => setHoverSubmenu('usuarios')}
+              onClick={() => nav('user-list')}
+              className="w-full text-left px-4 py-3 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between cursor-pointer"
+            >
+              <span>Gestión de Usuarios</span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            </div>
+
+            <div 
+              onMouseEnter={() => setHoverSubmenu('clientes')}
+              onClick={() => nav('company-list')}
+              className="w-full text-left px-4 py-3 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between cursor-pointer"
+            >
+              <span>Gestión de Clientes</span>
+              <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
+            </div>
+          </div>
+
+          {/* Flyout Submenu Column 2 */}
+          {hoverSubmenu === 'plataforma' && (
+            <div className="w-64 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 ml-1 text-xs text-gray-700 space-y-1">
+              <button onClick={() => nav('platform-management')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Sociedades
               </button>
-            </>
+              <button onClick={() => nav('business-centers')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Centros de negocios
+              </button>
+              <button onClick={() => nav('route-list')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Unidades
+              </button>
+              <button onClick={() => nav('user-list')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Trabajadores
+              </button>
+              <button onClick={() => nav('platform-management')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Tipos de movimientos
+              </button>
+              <button onClick={() => nav('device-list')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Dispositivos
+              </button>
+              <button onClick={() => nav('close-box')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Liquidación del trabajador
+              </button>
+            </div>
           )}
         </div>
       )}
@@ -345,7 +363,7 @@ function LayoutReportesDropdown({
   handleDropdownClick,
   nav,
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
-  const isActive = activeDropdown === 'reportes' || ['performance', 'statistics'].includes(currentScreen);
+  const isActive = activeDropdown === 'reportes' || ['performance', 'statistics', 'collector-map', 'device-list'].includes(currentScreen);
 
   return (
     <div className="relative flex items-stretch border-r border-gray-200">
@@ -361,12 +379,36 @@ function LayoutReportesDropdown({
       </button>
 
       {activeDropdown === 'reportes' && (
-        <div className="absolute top-[64px] left-0 w-64 bg-white rounded-b-md shadow-xl border-t-2 border-[#6A008A] py-1 z-50">
-          <button onClick={() => nav('performance')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Reportes de Desempeño <ChevronRight className="w-3 h-3 text-gray-400" />
+        <div className="absolute top-[64px] left-0 w-72 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 z-50 text-xs font-semibold text-gray-600 space-y-1">
+          <button onClick={() => nav('sales')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Ventas
           </button>
-          <button onClick={() => nav('statistics')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between">
-            Estadísticas <ChevronRight className="w-3 h-3 text-gray-400" />
+          <button onClick={() => nav('platform-management')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Plataforma
+          </button>
+          <button onClick={() => nav('sales')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Procesos encolados
+          </button>
+          <button onClick={() => nav('statistics')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Log de Acciones
+          </button>
+          <button onClick={() => nav('vendedor-mobile')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Log Móvil
+          </button>
+          <button onClick={() => nav('performance')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Reportes Personalizados
+          </button>
+          <button onClick={() => nav('collector-map')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Ubicar Mis Trabajadores
+          </button>
+          <button onClick={() => nav('performance')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Reportes Rápidos
+          </button>
+          <button onClick={() => nav('device-list')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Reporte Dispositivos Vinculados
+          </button>
+          <button onClick={() => nav('statistics')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Histórico de alertas de pánico
           </button>
         </div>
       )}

@@ -22,10 +22,13 @@ export class PaymentExecutor implements OperationHandler<PaymentPayload, Payment
     }
 
     // Chamada BFF
-    return await this.httpClient.request<PaymentResponse, PaymentPayload>(
+    return await this.httpClient.request<PaymentResponse, any>(
       HttpMethod.POST,
       "/api/transactions/collection",
-      payload,
+      {
+        ...payload,
+        idempotencyKey: payload.id,
+      },
       {
         "X-Tenant-ID": payload.tenantId,
         "X-Idempotency-Key": payload.id,

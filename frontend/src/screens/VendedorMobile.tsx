@@ -11,13 +11,15 @@ import {
   ArrowLeft, Smartphone, Shield, Calculator, Users, 
   ArrowLeftRight, TrendingUp, TrendingDown, Clock, Key, 
   Settings, LogOut, MapPin, UserPlus, FileText, CheckCircle2,
-  AlertTriangle, RotateCw, Loader2, Plus, ChevronDown
+  AlertTriangle, RotateCw, Loader2, Plus, ChevronDown, MoreVertical,
+  MessageSquare, Image
 } from 'lucide-react';
 import { Screen } from '../types';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat } from '../utils/currency';
 
 interface VendedorMobileProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
+  params?: Record<string, unknown>;
 }
 
 function promiseWithTimeout<T>(promise: Promise<T>, ms: number, errorMsg = 'Timeout'): Promise<T> {
@@ -27,12 +29,12 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, errorMsg = 'Time
   ]);
 }
 
-export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
+export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   const { tenantId, role, userName, usuarioUnidades } = useTenant();
   const { activeBox } = useBox();
 
   // Screen routing states
-  const [activeView, setActiveView] = useState<'dashboard' | 'new-customer' | 'new-sale'>('dashboard');
+  const [activeView, setActiveView] = useState<'dashboard' | 'new-customer' | 'new-sale'>((params?.activeView as any) || 'dashboard');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Vendas' | 'Coleção'>('Vendas');
   const [search, setSearch] = useState('');
@@ -40,7 +42,10 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
   const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
 
   // Gallery modal state
-  const [galleryModal, setGalleryModal] = useState<{ open: boolean; clientName: string; photos: string[] }>({ open: false, clientName: '', photos: [] });
+  const [galleryModal, setGalleryModal] = useState<{ open: boolean; clientName: string; saleId: string; photos: any[] }>({ open: false, clientName: '', saleId: '', photos: [] });
+
+  // Sale card context menu state
+  const [saleContextMenu, setSaleContextMenu] = useState<{ open: boolean; sale: any | null }>({ open: false, sale: null });
 
   // Form states for "Cliente Novo"
   const [docType1, setDocType1] = useState('SIN TIPO DE DOCUMENTO');
@@ -66,9 +71,12 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
   const [longitudeVal, setLongitudeVal] = useState<number | null>(null);
 
   // Form states for "Nova Venda"
-  const [saleClient, setSaleClient] = useState({ name: '', id: '' });
+  const [saleClient, setSaleClient] = useState({ 
+    name: (params?.clientName as string) || '', 
+    id: (params?.clientId as string) || '' 
+  });
   const [saleAmount, setSaleAmount] = useState('');
-  const [saleInterest, setSaleInterest] = useState('1.0');
+  const [saleInterest, setSaleInterest] = useState('20');
   const [saleFrequency, setSaleFrequency] = useState<'diaria' | 'semanal_juros' | 'quinzenal' | 'mensal' | 'semanal_fixa'>('diaria');
   const [saleInstallments, setSaleInstallments] = useState(20);
   const [saleInstallmentValue, setSaleInstallmentValue] = useState('');
@@ -287,7 +295,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
       setCustomers(prev => [newClientObj, ...prev]);
       setSaleClient(newClientObj);
 
-      setFormSuccess('¡Cliente registrado con éxito! Redirigiendo a Nueva Venda...');
+      setFormSuccess(null);
       
       // Clear form
       setNickname('');
@@ -305,10 +313,9 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
       setLatitudeVal(null);
       setLongitudeVal(null);
 
-      setTimeout(() => {
-        setFormSuccess(null);
-        setActiveView('new-sale');
-      }, 1500);
+      // Navigate immediately to new-sale with client pre-selected
+      alert('¡Cliente registrado con éxito! Redirigiendo a Nueva Venda...');
+      setActiveView('new-sale');
 
     } catch (err: any) {
       console.error('Error saving customer:', err);
@@ -428,20 +435,17 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
         }
       }
 
-      setFormSuccess('¡Venta registrada con éxito!');
-      
-      // Clear sale form
+      // Clear sale form first to avoid DOM mismatch
       setSaleAmount('');
-      setSaleInterest('1.0');
+      setSaleInterest('20');
       setSaleNotes('');
       setSalePhotoUrl('');
       setSalePhotoName('');
       setSaleInstallments(20);
 
-      setTimeout(() => {
-        setFormSuccess(null);
-        setActiveView('dashboard');
-      }, 1500);
+      // Show success and navigate back after delay
+      alert('¡Venta registrada con éxito!');
+      setActiveView('dashboard');
 
     } catch (err: any) {
       console.error('Error saving sale:', err);
@@ -457,7 +461,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -493,7 +497,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
 
     const reader = new FileReader();
     reader.onload = (event) => {
-      const img = new Image();
+      const img = new window.Image();
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -554,6 +558,8 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
     );
   };
 
+  const ctxSale = saleContextMenu.sale;
+
   return (
     <div className="min-h-screen bg-[#F0F2F5] select-none flex flex-col font-sans max-w-md mx-auto w-full border-x border-gray-200 relative shadow-2xl">
       
@@ -568,23 +574,40 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
             {activeView === 'dashboard' ? (
               <button
                 type="button"
-                onClick={() => setIsDrawerOpen(true)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDrawerOpen(true);
+                }}
                 className="text-white hover:bg-white/10 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
               >
                 <Menu size={24} strokeWidth={2.5} />
               </button>
             ) : (
-              <button
-                type="button"
-                onClick={() => setActiveView('dashboard')}
-                className="text-white hover:bg-white/10 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
-              >
-                <ArrowLeft size={24} strokeWidth={2.5} />
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setIsDrawerOpen(true);
+                  }}
+                  className="text-white hover:bg-white/10 p-2 -ml-2 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Menu size={24} strokeWidth={2.5} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('dashboard')}
+                  className="text-white hover:bg-white/10 p-1.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  <ArrowLeft size={20} strokeWidth={2.5} />
+                </button>
+              </>
             )}
             <span className="text-lg font-black tracking-wide flex items-center">
               {activeView === 'dashboard' ? (
-                <img src="/logo.png" alt="ControlMax Logo" className="h-7 w-auto object-contain brightness-0 invert" />
+                <span className="text-white font-black text-lg tracking-tight">ControlMax</span>
               ) : activeView === 'new-customer' ? 'Cliente Novo' : 'Nova Venda'}
             </span>
           </div>
@@ -721,7 +744,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                 <div className="w-8 h-8 rounded-full bg-[#6B119C] flex items-center justify-center text-white mr-3 shrink-0">
                   <ArrowLeftRight className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-xs font-black text-slate-700 tracking-wide">Transferências</span>
+                <span className="text-xs font-black text-slate-700 tracking-wide whitespace-nowrap">Transferências</span>
               </button>
 
               <button onClick={() => { nav('new-expense'); setIsDrawerOpen(false); }} className="flex items-center text-left py-2 px-3 rounded-xl hover:bg-purple-50 transition-colors w-full cursor-pointer group">
@@ -850,13 +873,15 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                     {/* Left part: Main Content */}
                     <div className="flex-1 flex flex-col min-w-0 pr-4">
                       
-                      {/* Header: ID + Name */}
-                      <div className="flex items-center space-x-2.5 min-w-0 mb-3">
+                      {/* Header: ID + Name + Menu Button */}
+                      <div 
+                        className="flex items-center space-x-2.5 min-w-0 mb-3"
+                      >
                         {/* Circle Status Letter Indicator */}
                         <div className={`w-8 h-8 rounded-full border-2 ${status.color} flex items-center justify-center font-black text-xs shrink-0 select-none`}>
                           {status.char}
                         </div>
-                        <div className="flex flex-col leading-none min-w-0">
+                        <div className="flex flex-col leading-none min-w-0 flex-1">
                           <span className="font-extrabold text-[#333333] text-[13px] truncate">
                             {sale.id.slice(0, 7)} {sale.clientName}
                           </span>
@@ -864,6 +889,14 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                             {sale.clientName.toLowerCase()}
                           </span>
                         </div>
+                        {/* Context Menu Button ⋮ */}
+                        <button
+                          onClick={() => setSaleContextMenu({ open: true, sale })}
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-gray-400 hover:text-[#6B119C] hover:bg-purple-50 active:bg-purple-100 active:scale-95 transition-all cursor-pointer border-none outline-none shrink-0"
+                          title="Menu de opções"
+                        >
+                          <MoreVertical size={18} strokeWidth={2.5} />
+                        </button>
                       </div>
 
                       {/* Middle details info row */}
@@ -914,9 +947,9 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                                     if (Array.isArray(urls)) customerPhotos.push(...urls);
                                   });
                                 }
-                                setGalleryModal({ open: true, clientName: sale.clientName, photos: customerPhotos });
+                                setGalleryModal({ open: true, clientName: sale.clientName, saleId: sale.id, photos: customerPhotos });
                               } catch (e) {
-                                setGalleryModal({ open: true, clientName: sale.clientName, photos: [] });
+                                setGalleryModal({ open: true, clientName: sale.clientName, saleId: sale.id, photos: [] });
                               }
                             }}
                             className="w-8 h-8 rounded bg-[#4CAF50] text-white flex items-center justify-center hover:opacity-95 active:scale-95 transition-all shadow-xs cursor-pointer border-none outline-none"
@@ -940,7 +973,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
 
                         {/* Outstanding Balance */}
                         <div className="flex flex-col leading-none text-right">
-                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Total Pendente</span>
+                          <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">Saldo Devedor</span>
                           <span className="text-xs font-black text-[#DC2626] mt-1">
                             $ {(sale.saldoPendienteCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
@@ -1748,6 +1781,190 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
         </form>
       )}
 
+      {/* Sale Card Context Menu Modal */}
+      {saleContextMenu.open && saleContextMenu.sale && (
+          <div 
+            className="fixed inset-0 bg-black/55 backdrop-blur-3xs z-[9999] flex items-end sm:items-center justify-center"
+            onClick={() => setSaleContextMenu({ open: false, sale: null })}
+          >
+            <div 
+              className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-in slide-in-from-bottom-5 duration-300"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header with client name */}
+              <div className="bg-[#6B119C] text-white px-5 py-4 flex items-center justify-between shrink-0">
+                <div className="flex flex-col leading-tight min-w-0 pr-4">
+                  <span className="font-black text-base truncate">{ctxSale.clientName}</span>
+                  <span className="text-purple-200 text-xs font-semibold mt-0.5">{ctxSale.id.slice(0, 7)}</span>
+                </div>
+                <button 
+                  onClick={() => setSaleContextMenu({ open: false, sale: null })}
+                  className="text-white/80 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+                >
+                  <X size={22} strokeWidth={2.5} />
+                </button>
+              </div>
+
+              {/* Options List */}
+              <div className="overflow-y-auto flex-1 py-2 divide-y divide-gray-50">
+                {/* 1. WhatsApp */}
+                <button
+                  onClick={async () => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    try {
+                      const { doc, getDoc } = await import('firebase/firestore');
+                      let phone = '';
+                      if (ctxSale.clientId) {
+                        const snap = await getDoc(doc(db, 'customers', ctxSale.clientId));
+                        if (snap.exists()) {
+                          const d = snap.data();
+                          phone = d.phone || d.whatsapp || d.celular || d.telefone || '';
+                        }
+                      }
+                      const cleanPhone = phone.replace(/\D/g, '');
+                      if (!cleanPhone) {
+                        alert(`⚠️ Cliente ${ctxSale.clientName} não possui número de WhatsApp/Telefone cadastrado na ficha.`);
+                        return;
+                      }
+                      const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
+                      const msg = encodeURIComponent(`Olá ${ctxSale.clientName}, tudo bem? Entro em contato referente ao ControlMax.`);
+                      window.open(`https://wa.me/${formattedPhone}?text=${msg}`, '_blank');
+                    } catch (err) {
+                      alert(`Não foi possível abrir o WhatsApp do cliente ${ctxSale.clientName}.`);
+                    }
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-green-50 active:bg-green-100 transition-colors cursor-pointer flex items-center space-x-3 font-bold text-green-700"
+                >
+                  <MessageSquare size={18} className="text-green-600 shrink-0" />
+                  <span className="text-sm">WhatsApp</span>
+                </button>
+
+                {/* 2. Localização (Navegação GPS) */}
+                <button
+                  onClick={async () => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    try {
+                      const { doc, getDoc } = await import('firebase/firestore');
+                      let lat: number | null = null;
+                      let lng: number | null = null;
+                      let address = '';
+                      if (ctxSale.clientId) {
+                        const snap = await getDoc(doc(db, 'customers', ctxSale.clientId));
+                        if (snap.exists()) {
+                          const d = snap.data();
+                          lat = d.latitude || d.lat || null;
+                          lng = d.longitude || d.lng || null;
+                          address = d.address || d.endereco || d.street || '';
+                        }
+                      }
+                      if (lat && lng) {
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+                      } else if (address) {
+                        window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`, '_blank');
+                      } else {
+                        alert(`📍 Cliente ${ctxSale.clientName} não possui coordenadas GPS ou endereço cadastrado na ficha.`);
+                      }
+                    } catch (err) {
+                      alert(`Não foi possível carregar a localização do cliente ${ctxSale.clientName}.`);
+                    }
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-[#8CC63F]/15 active:bg-[#8CC63F]/30 transition-colors cursor-pointer flex items-center space-x-3 font-bold text-slate-800"
+                >
+                  <MapPin size={18} className="text-[#8CC63F] shrink-0" />
+                  <span className="text-sm">Localização (Navegação GPS)</span>
+                </button>
+
+                {/* 3. Editar / Renovar */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    onNavigate?.('company-list', { clientId: ctxSale.clientId || ctxSale.id, edit: true });
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3 font-bold text-[#6B119C]"
+                >
+                  <span className="text-sm">Editar / Renovar</span>
+                </button>
+
+                {/* 2. Compartilhar extrato */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    const totalValue = (ctxSale.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                    const pendingValue = ((ctxSale.saldoPendienteCents || 0) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+                    const paidCount = ctxSale.paidInstallments || 0;
+                    const totalInst = ctxSale.installments || 0;
+                    const text = `📋 Extrato - ${ctxSale.clientName}\n\nValor Total: $ ${totalValue}\nSaldo Devedor: $ ${pendingValue}\nParcelas Pagas: ${paidCount}/${totalInst}\n\n— ControlMax`;
+                    if (navigator.share) {
+                      navigator.share({ title: `Extrato - ${ctxSale.clientName}`, text }).catch(() => {});
+                    } else {
+                      navigator.clipboard.writeText(text).then(() => alert('Extrato copiado!')).catch(() => {});
+                    }
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3"
+                >
+                  <span className="text-sm font-semibold text-gray-800">Compartilhar extrato</span>
+                </button>
+
+                {/* 3. Registrar pagamento */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    onNavigate?.('register-payment', { saleId: ctxSale.id, mode: 'payment' });
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3 font-bold text-gray-900"
+                >
+                  <span className="text-sm">Registrar pagamento</span>
+                </button>
+
+                {/* 4. Informações da venda */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    onNavigate?.('sale-detail', { saleId: ctxSale.id });
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3"
+                >
+                  <span className="text-sm font-semibold text-gray-800">Informações da venda</span>
+                </button>
+
+                {/* 5. Histórico de pagamentos */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    onNavigate?.('payment-history', { saleId: ctxSale.id });
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3"
+                >
+                  <span className="text-sm font-semibold text-gray-800">Histórico de pagamentos</span>
+                </button>
+
+                {/* 6. Fotos */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    setGalleryModal({ open: true, clientName: ctxSale.clientName, saleId: ctxSale.id, photos: [] });
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3"
+                >
+                  <span className="text-sm font-semibold text-gray-800">Fotos</span>
+                </button>
+
+                {/* 7. Agendar Alarme / Lembrete */}
+                <button
+                  onClick={() => {
+                    setSaleContextMenu({ open: false, sale: null });
+                    const mins = prompt('Em quantos minutos deseja ser lembrado?', '30');
+                    if (mins) alert(`⏰ Alarme configurado para ${mins} minutos para ${ctxSale.clientName}!`);
+                  }}
+                  className="w-full text-left px-5 py-3.5 hover:bg-purple-50 active:bg-purple-100 transition-colors cursor-pointer flex items-center space-x-3 text-amber-700 font-bold"
+                >
+                  <span className="text-sm">Agendar Alarme / Lembrete</span>
+                </button>
+              </div>
+            </div>
+          </div>
+      )}
+
       {/* Photo Gallery Modal */}
       {galleryModal.open && (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
@@ -1758,7 +1975,7 @@ export function VendedorMobile({ onNavigate }: VendedorMobileProps) {
                 <span className="font-bold text-sm">Fotos - {galleryModal.clientName}</span>
               </div>
               <button 
-                onClick={() => setGalleryModal({ open: false, clientName: '', photos: [] })}
+                onClick={() => setGalleryModal({ open: false, clientName: '', saleId: '', photos: [] })}
                 className="text-white/80 hover:text-white p-1 rounded-full text-lg font-bold cursor-pointer"
               >
                 ✕

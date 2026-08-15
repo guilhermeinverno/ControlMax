@@ -14,7 +14,7 @@ interface CompanyListProps {
   params?: Record<string, unknown>;
 }
 
-export function CompanyList({ params }: CompanyListProps) {
+export function CompanyList({ params, onNavigate }: CompanyListProps) {
   const { tenantId } = useTenant();
   const [activeTab, setActiveTab] = useState<'list' | 'create'>(() => 
     params?.initialTab === 'create' ? 'create' : 'list'
@@ -111,6 +111,13 @@ export function CompanyList({ params }: CompanyListProps) {
             listData.selectedCustomerForModal
           }
           onClose={() => listData.setSelectedCustomerForModal(null)}
+          onSaveSuccess={(cust) => {
+            listData.setSelectedCustomerForModal(null);
+            if (onNavigate) {
+              const fullName = `${cust.name || ''} ${cust.apellidos || ''}`.trim() || cust.apodo || 'Cliente';
+              onNavigate('vendedor-mobile', { activeView: 'new-sale', clientId: cust.id, clientName: fullName });
+            }
+          }}
         />
       )}
     </div>

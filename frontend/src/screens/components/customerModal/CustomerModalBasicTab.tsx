@@ -10,6 +10,7 @@ interface CustomerModalBasicTabProps {
   onClose: () => void;
   onDisplayNameChange: (name: CustomerDisplayName) => void;
   onContactChange: (contact: CustomerWhatsappContact) => void;
+  onSaveSuccess?: (customer: any) => void;
 }
 
 export interface BasicFormFields {
@@ -101,6 +102,7 @@ export function CustomerModalBasicTab({
   onClose,
   onDisplayNameChange,
   onContactChange,
+  onSaveSuccess
 }: CustomerModalBasicTabProps) {
   const [form, setForm] = useState<BasicFormFields>(() => readBasicFields(customer));
   const [gettingLocation, setGettingLocation] = useState(false);
@@ -151,7 +153,13 @@ export function CustomerModalBasicTab({
         longitude: form.longitude,
       });
       setNotification({ type: 'success', message: 'Datos básicos guardados correctamente.' });
-      setTimeout(() => setNotification(null), 3000);
+      if (onSaveSuccess) {
+        setTimeout(() => {
+          onSaveSuccess({ ...customer, name: form.firstName, apellidos: form.firstApellido });
+        }, 1000);
+      } else {
+        setTimeout(() => setNotification(null), 3000);
+      }
     } catch (err) {
       console.error(err);
       setNotification({ type: 'error', message: 'Error al actualizar los datos.' });

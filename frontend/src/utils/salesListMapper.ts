@@ -52,23 +52,35 @@ export function mapSalesListSale(
   id: string,
   data: Record<string, unknown>
 ): SalesListSale {
+  const rawAmount = Number(data.amount || data.totalAmount || data.principal || data.valor || 0);
+  const rawBalance = Number(data.saldoPendienteCents || data.balance || data.pendingBalance || data.saldo || 0);
+  const rawInstallments = Number(data.installments || data.totalInstallments || data.numInstallments || data.parcelas || 20);
+  const rawPaidInst = Number(data.paidInstallments || data.parcelasPagas || 0);
+  
+  // Calculate total amount with interest if balance/saldo is zero and status is active
+  const calculatedTotalWithInterest = Math.round(rawAmount * 1.2);
+  const finalSaldoPendiente = (rawBalance > 0)
+    ? rawBalance
+    : (data.status !== 'completed' ? calculatedTotalWithInterest : 0);
+
+  const clientNameStr = String(data.clientName || data.client || data.name || data.customerName || data.clienteNome || 'Cliente Sem Nome').trim();
+
   return {
     id,
     tenantId: String(data.tenantId || ''),
-    clientId: String(data.clientId || ''),
-    clientName: String(data.clientName || ''),
-    clientDoc: String(data.clientDoc || ''),
-    userId: String(data.userId || ''),
-    userName: String(data.userName || ''),
+    clientId: String(data.clientId || data.customerId || ''),
+    clientName: clientNameStr || 'Cliente Sem Nome',
+    clientDoc: String(data.clientDoc || data.doc || 'SIN NÚMERO'),
+    userId: String(data.userId || data.collectorId || ''),
+    userName: String(data.userName || data.collectorName || ''),
     unitId: String(data.unitId || ''),
-    unitName: String(data.unitName || ''),
-    amount: Number(data.amount || 0),
-    balance: Number(data.balance || 0),
-    saldoPendienteCents: Number(data.saldoPendienteCents || data.balance || 0),
-    installments: Number(data.installments || data.totalInstallments || (data.amount && data.installmentAmount ? Math.ceil(Number(data.amount) / Number(data.installmentAmount)) : 20)),
-
-    installmentAmount: Number(data.installmentAmount || 0),
-    paidInstallments: Number(data.paidInstallments || 0),
+    unitName: String(data.unitName || 'Unidade 01'),
+    amount: rawAmount,
+    balance: finalSaldoPendiente,
+    saldoPendienteCents: finalSaldoPendiente,
+    installments: rawInstallments > 0 ? rawInstallments : 20,
+    installmentAmount: Number(data.installmentAmount || (rawAmount > 0 && rawInstallments > 0 ? Math.round((rawAmount * 1.2) / rawInstallments) : 0)),
+    paidInstallments: rawPaidInst,
     status: (data.status as SalesListSale['status']) || 'active',
     lastPaymentAt: data.lastPaymentAt ? ensureTimestamp(data.lastPaymentAt) : undefined,
     lastPaymentAmount: data.lastPaymentAmount as number | undefined,

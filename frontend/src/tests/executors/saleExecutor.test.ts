@@ -60,7 +60,10 @@ describe('SaleExecutor', () => {
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
       '/api/sales',
-      validPayload,
+      {
+        ...validPayload,
+        idempotencyKey: 'sale-123',
+      },
       {
         'X-Tenant-ID': 'tenant-abc',
         'X-Idempotency-Key': 'sale-123',

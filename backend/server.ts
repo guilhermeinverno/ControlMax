@@ -28,15 +28,15 @@ console.log(`[CORS] Permitindo acesso exclusivamente à origem: ${allowedOrigin}
 
 app.use(express.json({ limit: "50mb" }));
 
-const apiKey = process.env.GEMINI_API_KEY;
-const ai = new GoogleGenAI({
-  apiKey: apiKey || "",
+const apiKey = process.env.GEMINI_API_KEY || "";
+const ai = apiKey ? new GoogleGenAI({
+  apiKey,
   httpOptions: {
     headers: {
       'User-Agent': 'aistudio-build',
     }
   }
-});
+}) : undefined;
 
 import adminRoutes from "./adminRoutes";
 
@@ -45,35 +45,10 @@ app.use("/api/boxes", authMiddleware, boxRoutes);
 app.use("/api/transactions", authMiddleware, transactionRoutes);
 app.use("/api/admin", authMiddleware, adminRoutes);
 
-async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
-    const { createServer } = await import("vite");
-    const vite = await createServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-      root: path.join(__dirname, "../frontend"),
-    });
-    app.use(vite.middlewares);
-  } else {
-    const isCompiled = __dirname.endsWith("dist");
-    const distPath = isCompiled
-      ? path.resolve(__dirname, "../../frontend/dist")
-      : path.resolve(__dirname, "../frontend/dist");
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
-  if (process.env.NODE_ENV !== "production" && !process.env.FUNCTIONS_EMULATOR) {
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  }
-}
-
 if (process.env.LOCAL_DEV === 'true') {
-  startServer();
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server local rodando na porta ${PORT}`);
+  });
 }
 
 import { onRequest } from 'firebase-functions/v2/https';

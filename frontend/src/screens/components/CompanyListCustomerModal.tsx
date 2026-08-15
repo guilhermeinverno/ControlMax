@@ -12,9 +12,10 @@ import { CustomerDisplayName, CustomerModalSubTab, CustomerWhatsappContact } fro
 interface CustomerDetailModalProps {
   customer: Customer;
   onClose: () => void;
+  onSaveSuccess?: (customer: Customer) => void;
 }
 
-export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalProps) {
+export function CustomerDetailModal({ customer, onClose, onSaveSuccess }: CustomerDetailModalProps) {
   const [activeSubTab, setActiveSubTab] = useState<CustomerModalSubTab>('basic');
   const [displayName, setDisplayName] = useState<CustomerDisplayName>({
     first: customer.name || 'cliente',
@@ -50,6 +51,7 @@ export function CustomerDetailModal({ customer, onClose }: CustomerDetailModalPr
               onClose={onClose}
               onDisplayNameChange={setDisplayName}
               onContactChange={setWhatsappContact}
+              onSaveSuccess={onSaveSuccess}
             />
           )}
           {activeSubTab === 'locations' && <CustomerModalLocationsTab customer={customer} />}

@@ -106,21 +106,21 @@ export async function handleConfirmBox(req: AuthenticatedRequest, res: Response)
       return res.status(403).json({ error: "Acesso negado: Permissão insuficiente (caja:confirmar)." });
     }
 
-    // Validar se unidad_id pertence ao array usuario_unidades
+    // Validar se unidad_id é válida e pertence ao array usuario_unidades
     const userUnits = userData.usuario_unidades || userData.usuarioUnidades || [];
-    if (boxUnitId && Array.isArray(userUnits) && userUnits.length > 0 && !userUnits.includes(boxUnitId)) {
+    if (!boxUnitId || !Array.isArray(userUnits) || !userUnits.includes(boxUnitId)) {
       await adminDb.collection("security_logs").add({
         timestamp: new Date().toISOString(),
         tenantId,
         usuario_id: userId,
         operador_role: role,
         acao: 'CONFIRM_BOX',
-        unidad_id: boxUnitId,
+        unidad_id: boxUnitId || 'unknown',
         ip_origem,
         status: 'DENIED',
-        detalhes: 'Caixa pertence a uma unidade não atribuída ao usuário.'
+        detalhes: 'Caixa pertence a uma unidade ausente ou não atribuída ao usuário.'
       });
-      return res.status(403).json({ error: "Acesso negado: O caixa pertence a uma unidade não atribuída a este usuário." });
+      return res.status(403).json({ error: "Acesso negado: O caixa pertence a uma unidade ausente ou não atribuída a este usuário." });
     }
 
     // Transação atômica para confirmar o caixa

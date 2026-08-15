@@ -65,20 +65,26 @@ export async function handleMissingUserDoc(
   userDocRef: ReturnType<typeof doc>,
   setters: TenantSetters
 ) {
+  let foundData: Record<string, unknown> | null = null;
   try {
     const foundDoc = await findRegisteredUserByEmail(user, emailLower);
-    if (!foundDoc) {
-      applyGuestState(user, emailLower, false, setters);
-      return;
+    if (foundDoc) {
+      foundData = foundDoc.data();
     }
-
-    const foundData = foundDoc.data();
-    await setDoc(userDocRef, buildLinkedUserPayload(user, emailLower, foundData), { merge: true });
-    await applyLinkedUser(user, emailLower, foundData, setters);
-  } catch (err) {
-    console.error('Error auto-linking registered user by email:', err);
-    toast.error('Falha de conexão. O sistema operará em modo restrito devido à instabilidade na rede.');
-    applyGuestState(user, emailLower, false, setters);
+  } catch (findErr) {
+    console.warn('Error finding registered user by email:', findErr);
   }
+
+  if (foundData) {
+    try {
+      await setDoc(userDocRef, buildLinkedUserPayload(user, emailLower, foundData), { merge: true });
+    } catch (writeErr) {
+      console.warn('setDoc failed (permissions), applying profile locally:', writeErr);
+    }
+    await applyLinkedUser(user, emailLower, foundData, setters);
+    return;
+  }
+
+  applyGuestState(user, emailLower, false, setters);
 }
 

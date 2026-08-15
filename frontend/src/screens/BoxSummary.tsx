@@ -264,9 +264,9 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
                   <span className="text-[#555555]">Gastos</span>
                   <span className="font-semibold text-[#DC2626]">- $ {fmtCents(box.totalExpenses)}</span>
                 </div>
-                <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
-                  <span className="text-[#555555]">Transferencias</span>
-                  <span className="font-semibold text-[#DC2626]">- $ {fmtCents(box.totalTransfers)}</span>
+                <div className="flex justify-between items-center border-b border-dashed border-gray-100 pb-1 gap-2">
+                  <span className="text-[#555555] whitespace-nowrap shrink-0">Transferências</span>
+                  <span className="font-semibold text-[#DC2626] whitespace-nowrap">- $ {fmtCents(box.totalTransfers)}</span>
                 </div>
                 <div className="flex justify-between border-b border-dashed border-gray-100 pb-1">
                   <span className="text-[#555555]">Recaudo</span>

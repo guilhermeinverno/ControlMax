@@ -78,8 +78,73 @@ export function CustomerModalLocationsTab({ customer }: CustomerModalLocationsTa
     await persistPhones(updated);
   };
 
+  const [capturingGps, setCapturingGps] = useState(false);
+  const [currentGps, setCurrentGps] = useState<{ lat: number; lng: number } | null>(
+    customer.latitude && customer.longitude ? { lat: customer.latitude, lng: customer.longitude } : null
+  );
+
+  const handleCaptureCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      alert('⚠️ Geolocalização não é suportada por este navegador.');
+      return;
+    }
+    setCapturingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setCurrentGps({ lat, lng });
+        if (customer.id) {
+          try {
+            await updateDoc(doc(db, 'customers', customer.id), {
+              latitude: lat,
+              longitude: lng,
+              lat: lat,
+              lng: lng,
+              updatedAt: new Date()
+            });
+            alert(`📍 Localização GPS capturada e salva com sucesso!\nLat: ${lat.toFixed(6)}, Lng: ${lng.toFixed(6)}`);
+          } catch (err) {
+            console.error(err);
+            alert('Ocorreu um erro ao salvar a localização no banco de dados.');
+          }
+        }
+        setCapturingGps(false);
+      },
+      (err) => {
+        setCapturingGps(false);
+        alert(`Não foi possível obter a localização GPS: ${err.message}`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
   return (
     <div className="space-y-4">
+      {/* GPS Location Capture Banner */}
+      <div className="bg-[#8CC63F]/10 border border-[#8CC63F]/40 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center space-x-3 text-left">
+          <div className="w-10 h-10 rounded-full bg-[#8CC63F] text-white flex items-center justify-center shrink-0 shadow-md">
+            <MapPin size={20} className="stroke-[2.5]" />
+          </div>
+          <div>
+            <h4 className="font-extrabold text-sm text-gray-900 leading-tight">Localização GPS do Cliente</h4>
+            <span className="text-xs text-gray-600 font-medium">
+              {currentGps ? `Coordenadas: ${currentGps.lat.toFixed(5)}, ${currentGps.lng.toFixed(5)}` : 'Nenhuma coordenada GPS salva ainda.'}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={handleCaptureCurrentLocation}
+          disabled={capturingGps}
+          className="w-full sm:w-auto px-4 py-2.5 bg-[#8CC63F] hover:bg-[#7cb335] active:scale-95 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center space-x-2 cursor-pointer border-none outline-none shrink-0"
+        >
+          <MapPin size={16} />
+          <span>{capturingGps ? 'Capturando GPS...' : 'Salvar Localização Atual'}</span>
+        </button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-50 p-4 rounded-2xl space-y-3 border border-gray-100 flex flex-col justify-between">
           <div className="space-y-3">

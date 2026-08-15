@@ -165,7 +165,7 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
 
             <div className="relative pl-4.5">
               <span className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-[#6A008A]" />
-              <p className="text-xs font-black text-slate-800 leading-none">Transferências CN -&gt; UGI</p>
+              <p className="text-xs font-black text-slate-800 leading-none whitespace-nowrap shrink-0">Transferências CN -&gt; UGI</p>
               <p className="text-sm font-extrabold text-slate-900 mt-1">$0</p>
             </div>
 
@@ -200,7 +200,7 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
 
             <div className="relative pl-4.5">
               <span className="absolute left-0 top-1.5 w-2 h-2 rounded-full bg-[#6A008A]" />
-              <p className="text-xs font-black text-slate-800 leading-none">Transferências UGI -&gt; CN</p>
+              <p className="text-xs font-black text-slate-800 leading-none whitespace-nowrap shrink-0">Transferências UGI -&gt; CN</p>
               <p className="text-sm font-extrabold text-slate-900 mt-1">$0</p>
             </div>
 

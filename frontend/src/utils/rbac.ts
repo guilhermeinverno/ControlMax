@@ -16,8 +16,9 @@ export function hasPermission(
 
   const roleLower = String(user.role || '').toLowerCase();
 
-  // Roles that correspond to Managers or Supervisors
+  // Roles that correspond to Managers, Supervisors, or SuperAdmins
   const isManagerOrSupervisor =
+    roleLower === 'superadmin' ||
     roleLower === 'admin' ||
     roleLower === 'gerente' ||
     roleLower === 'supervisor' ||

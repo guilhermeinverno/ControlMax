@@ -177,14 +177,13 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
             <Menu className="w-7 h-7" />
           </button>
 
-          {/* Logo em círculo elegante */}
+          {/* Logotipo escrito puro sem imagem */}
           <div 
             onClick={() => onNavigate(role === 'collector' ? 'sales' : 'dashboard')}
-            className="flex items-center cursor-pointer select-none py-1"
+            className="flex items-center cursor-pointer select-none py-1 space-x-1"
           >
-            <div className="w-10 h-10 lg:w-11 lg:h-11 rounded-full bg-white border-2 border-white/40 shadow-md flex items-center justify-center overflow-hidden shrink-0">
-              <img src="/logo.png" alt="ControlMax Logo" className="h-8 lg:h-9 w-auto object-contain" />
-            </div>
+            <span className="text-white font-black text-xl lg:text-2xl tracking-tight uppercase">Control</span>
+            <span className="text-[#8CC63F] font-black text-xl lg:text-2xl tracking-tight uppercase">Max</span>
           </div>
         </div>
 
@@ -202,37 +201,21 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
         <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-4 lg:px-6 space-x-4">
           <SyncStatusBadge />
 
-          {(role === 'admin' || role === 'supervisor' || showSuperAdmin) && (
-            <button 
-              onClick={() => nav('ai-assistant')} 
-              className={`p-1.5 rounded-full hover:bg-white/10 transition-colors flex items-center justify-center relative cursor-pointer ${
-                currentScreen === 'ai-assistant' ? 'bg-white/15 text-white' : 'text-white'
-              }`}
-              title="Assistente de Voz IA"
-            >
-              <span className="text-xl">🤖</span>
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[#84CC16] rounded-full ring-1 ring-[#6A008A]"></span>
-            </button>
-          )}
-
-          <div className="hidden xl:flex flex-col text-right">
-            <span className="text-white text-xs font-bold uppercase">{displayRole}</span>
-            <span className="text-white/70 text-[10px]">{userEmail}</span>
-          </div>
-
-          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none cursor-pointer" onClick={() => nav('superadmin')} title="Super Administrador">
+          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none cursor-pointer" onClick={() => nav('worker-profile')} title="Perfil do Usuário">
             <div className="border-2 border-white/80 rounded-full p-1 bg-white/10 flex items-center justify-center">
               <User className="w-5 h-5 text-white" />
             </div>
           </button>
           
-          <button 
-            className="text-white p-1 hover:text-red-300 focus:outline-none transition-colors" 
-            onClick={handleLogout} 
-            title="Cerrar Sesión"
-          >
-            <LogOut className="w-6 h-6" />
-          </button>
+          {role !== 'collector' && (
+            <button 
+              className="text-white p-1 hover:text-red-300 focus:outline-none transition-colors" 
+              onClick={handleLogout} 
+              title="Cerrar Sesión"
+            >
+              <LogOut className="w-6 h-6" />
+            </button>
+          )}
         </div>
 
       </header>

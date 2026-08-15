@@ -13,7 +13,8 @@
     "start": "cross-env LOCAL_DEV=true node dist/server.js",
     "seed:qa-user": "tsx scripts/seedQaUser.ts",
     "seed:client": "tsx scripts/seedInitialClient.ts",
-    "test:bff": "vitest run tests/bff.test.ts"
+    "test:bff": "vitest run tests/bff.test.ts",
+    "test": "vitest run tests/"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

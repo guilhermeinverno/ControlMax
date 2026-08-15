@@ -22,10 +22,13 @@ export class CloseBoxExecutor implements OperationHandler<CloseBoxPayload, Close
     }
 
     // Chamada BFF
-    return await this.httpClient.request<CloseBoxResponse, CloseBoxPayload>(
+    return await this.httpClient.request<CloseBoxResponse, any>(
       HttpMethod.POST,
       "/api/boxes/close",
-      payload,
+      {
+        ...payload,
+        idempotencyKey: payload.id,
+      },
       {
         "X-Tenant-ID": payload.tenantId,
         "X-Idempotency-Key": payload.id,

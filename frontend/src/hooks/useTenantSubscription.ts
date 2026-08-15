@@ -3,7 +3,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { User } from 'firebase/auth';
 import { logFirestoreError } from '../utils/firestoreError';
 import { getErrorMessage } from '../utils/errorMessage';
-import { applyExistingUserDoc, TenantSetters } from './useTenantState';
+import { applyExistingUserDoc, applyGuestState, TenantSetters } from './useTenantState';
 import { handleMissingUserDoc } from './useTenantLink';
 
 function clearTenantSession(setters: TenantSetters) {
@@ -31,16 +31,11 @@ function subscribeToUserProfile(user: User, emailLower: string, setters: TenantS
       await handleMissingUserDoc(user, emailLower, userDocRef, setters);
     },
     (snapshotError) => {
-      setters.setLoading(false);
-      const message = getErrorMessage(snapshotError) || 'Erro ao carregar perfil do usuário.';
-      setters.setError(message);
-      if (auth.currentUser?.uid === user.uid) {
-        try {
-          logFirestoreError(snapshotError, 'get', `users/${user.uid}`, { throwError: true });
-        } catch {
-          // Captured and logged
-        }
-      }
+      console.warn('Snapshot permission warning, falling back to guest/email state:', snapshotError);
+      // Evita travar a sessão com tela de erro de permissão
+      handleMissingUserDoc(user, emailLower, userDocRef, setters).catch(() => {
+        applyGuestState(user, emailLower, false, setters);
+      });
     }
   );
 }

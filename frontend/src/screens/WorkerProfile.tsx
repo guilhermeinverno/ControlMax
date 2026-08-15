@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, User, Key, Check, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, User, Key, Check, Loader2, AlertCircle, LogOut, Download } from 'lucide-react';
 import { useNavigation } from '../context/NavigationContext';
 import { auth } from '../lib/firebase';
-import { updatePassword } from 'firebase/auth';
+import { updatePassword, signOut } from 'firebase/auth';
+import { useLayoutUi } from '../hooks/useLayoutUi';
 
 export function WorkerProfile() {
   const { navigate } = useNavigation();
@@ -206,24 +207,38 @@ export function WorkerProfile() {
           </div>
 
           {/* Action Buttons */}
-          <div className="pt-4 flex flex-col space-y-3">
+          <div className="pt-2 flex flex-col space-y-2">
             <button
               type="submit"
-              className="w-full bg-[#6A008A] hover:bg-[#52006A] text-white font-black text-xs uppercase tracking-wide py-3 px-4 rounded-xl shadow-xs transition-colors cursor-pointer"
+              className="w-full bg-[#6A008A] hover:bg-[#580073] active:bg-[#48005e] text-white font-extrabold py-3 px-4 rounded-xl shadow-md transition-all uppercase tracking-wider text-xs cursor-pointer"
             >
               Salvar Alterações
             </button>
-
             <button
               type="button"
               onClick={() => setIsPasswordModalOpen(true)}
-              className="w-full border-2 border-[#6A008A] text-[#6A008A] bg-transparent hover:bg-purple-50 font-black text-xs uppercase tracking-wider py-3 px-4 rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5"
+              className="w-full border border-[#6A008A] text-[#6A008A] hover:bg-purple-50 active:bg-purple-100 font-extrabold py-3 px-4 rounded-xl transition-all uppercase tracking-wider text-xs cursor-pointer flex items-center justify-center space-x-2"
             >
               <Key className="w-4 h-4" />
-              <span>alterar a senha</span>
+              <span>Alterar Senha</span>
             </button>
           </div>
         </form>
+
+        {/* PROMINENT LOGOUT / CERRAR SESION BUTTON */}
+        <div className="pt-4">
+          <button
+            type="button"
+            onClick={() => {
+              signOut(auth);
+              navigate('dashboard');
+            }}
+            className="w-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-black py-4 px-4 rounded-2xl shadow-lg transition-all flex items-center justify-center space-x-2 cursor-pointer uppercase tracking-wider text-sm border-none outline-none"
+          >
+            <LogOut className="w-5 h-5" />
+            <span>Cerrar Sesión (Sair da Conta)</span>
+          </button>
+        </div>
       </div>
 
       {/* Change Password Modal */}

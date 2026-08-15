@@ -54,7 +54,10 @@ describe('CloseBoxExecutor', () => {
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
       '/api/boxes/close',
-      validPayload,
+      {
+        ...validPayload,
+        idempotencyKey: 'close-123',
+      },
       {
         'X-Tenant-ID': 'tenant-abc',
         'X-Idempotency-Key': 'close-123',

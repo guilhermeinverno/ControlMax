@@ -52,7 +52,10 @@ describe('OpenBoxExecutor', () => {
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
       '/api/boxes/open',
-      validPayload,
+      {
+        ...validPayload,
+        idempotencyKey: 'open-123',
+      },
       {
         'X-Tenant-ID': 'tenant-abc',
         'X-Idempotency-Key': 'open-123',

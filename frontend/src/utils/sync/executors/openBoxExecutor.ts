@@ -22,10 +22,13 @@ export class OpenBoxExecutor implements OperationHandler<OpenBoxPayload, OpenBox
     }
 
     // Chamada BFF
-    return await this.httpClient.request<OpenBoxResponse, OpenBoxPayload>(
+    return await this.httpClient.request<OpenBoxResponse, any>(
       HttpMethod.POST,
       "/api/boxes/open",
-      payload,
+      {
+        ...payload,
+        idempotencyKey: payload.id,
+      },
       {
         "X-Tenant-ID": payload.tenantId,
         "X-Idempotency-Key": payload.id,

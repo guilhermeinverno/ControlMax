@@ -22,10 +22,13 @@ export class SaleExecutor implements OperationHandler<SalePayload, SaleResponse>
     }
 
     // Chamada BFF
-    return await this.httpClient.request<SaleResponse, SalePayload>(
+    return await this.httpClient.request<SaleResponse, any>(
       HttpMethod.POST,
       "/api/sales",
-      payload,
+      {
+        ...payload,
+        idempotencyKey: payload.id,
+      },
       {
         "X-Tenant-ID": payload.tenantId,
         "X-Idempotency-Key": payload.id,

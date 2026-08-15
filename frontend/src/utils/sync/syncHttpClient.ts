@@ -1,5 +1,4 @@
-// src/utils/sync/syncHttpClient.ts
-
+import { auth } from "../../lib/firebase";
 import { HttpMethod } from "./httpMethod";
 
 /**
@@ -12,7 +11,7 @@ export class SyncHttpClient {
   private static readonly DEFAULT_TIMEOUT = 10_000;
 
   /**
-   * Perform an HTTP request.
+   * Perform an HTTP request with Firebase Auth token attached.
    * @param method HTTP method.
    * @param url Full URL (including base path) to call.
    * @param data Optional request body – will be JSON‑stringified.
@@ -25,6 +24,16 @@ export class SyncHttpClient {
     data?: Request,
     headers: Record<string, string> = {}
   ): Promise<Response> {
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      throw new Error("Usuário não autenticado no Firebase Auth para envio da requisição (auth.currentUser é null).");
+    }
+
+    const token = await currentUser.getIdToken();
+    if (!token) {
+      throw new Error("Não foi possível obter token de autenticação Válido do Firebase Auth.");
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SyncHttpClient.DEFAULT_TIMEOUT);
 
@@ -33,6 +42,7 @@ export class SyncHttpClient {
       signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
         ...headers,
       },
     };

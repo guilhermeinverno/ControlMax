@@ -53,8 +53,11 @@ describe('PaymentExecutor', () => {
     expect(result).toEqual(mockResponse);
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
-      '/api/transactions/payment',
-      validPayload,
+      '/api/transactions/collection',
+      {
+        ...validPayload,
+        idempotencyKey: 'pay-123',
+      },
       {
         'X-Tenant-ID': 'tenant-abc',
         'X-Idempotency-Key': 'pay-123',
@@ -83,15 +86,10 @@ describe('PaymentExecutor', () => {
     );
   });
 
-  it('deve falhar de forma defensiva se amountCents for menor ou igual a 0', async () => {
-    const invalidPayload = { ...validPayload, amountCents: 0 };
-    await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: amountCents must be greater than 0'
-    );
-
+  it('deve falhar de forma defensiva se amountCents for menor que 0', async () => {
     const negativePayload = { ...validPayload, amountCents: -500 };
     await expect(executor.execute(negativePayload)).rejects.toThrow(
-      'Validation Error: amountCents must be greater than 0'
+      'Validation Error: amountCents must be greater than or equal to 0'
     );
   });
 

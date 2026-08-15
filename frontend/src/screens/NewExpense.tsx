@@ -123,8 +123,8 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
         }
 
         const status = await persistExpense(payload);
-        setSuccessMsg(expenseSuccessMessage('gasto', status));
-        setTimeout(() => onNavigate?.('dashboard'), 1500);
+        alert(expenseSuccessMessage('gasto', status));
+        onNavigate?.('dashboard');
       } else {
         const payload = {
           tenantId,
@@ -148,8 +148,8 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
         }
 
         await persistIncomeAndUpdateBox(payload);
-        setSuccessMsg('¡Movimiento de entrada registrado correctamente!');
-        setTimeout(() => onNavigate?.('dashboard'), 1500);
+        alert('¡Movimiento de entrada registrado correctamente!');
+        onNavigate?.('dashboard');
       }
     } catch (error) {
       console.error('Error creating movement:', error);

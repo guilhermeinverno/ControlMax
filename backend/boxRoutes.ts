@@ -18,22 +18,33 @@ function hasConfirmPermission(role: string, permissions: any): boolean {
   return isGerenteOrSupervisor;
 }
 
+// Helper para validar valor numérico não negativo (permitindo 0 para caixas zerados)
+function isValidBoxAmount(val: any): boolean {
+  const n = Number(val);
+  return Number.isFinite(n) && !isNaN(n) && n >= 0;
+}
+
 // 1. Abertura de Caixa
 router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { unitId, unitName, cnId, cnName, initialAmount, observation, date, idempotencyKey } = req.body;
+  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const { unitId, unitName, cnId, cnName, initialAmount, observation, date } = req.body;
   const { tenantId, uid: userId, name: userName } = req.user;
 
   if (!unitId || !cnId || !date || initialAmount === undefined) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes." });
   }
 
+  if (!isValidBoxAmount(initialAmount)) {
+    return res.status(400).json({ error: "Valor inicial inválido (deve ser um número maior ou igual a zero)." });
+  }
+
   try {
     const result = await adminDb.runTransaction(async (transaction) => {
       // Validar idempotência
       if (idempotencyKey) {
-        const cached = await checkIdempotency(transaction, idempotencyKey, userId);
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
         if (cached) {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
@@ -84,7 +95,7 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
       const responsePayload = { success: true, boxId: boxRef.id };
 
       if (idempotencyKey) {
-        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload);
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
       }
 
       return { cached: false, response: responsePayload };
@@ -101,18 +112,23 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { boxId, realFinalAmount, idempotencyKey } = req.body;
+  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const { boxId, realFinalAmount } = req.body;
   const { tenantId, uid: userId } = req.user;
 
   if (!boxId || realFinalAmount === undefined) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes." });
   }
 
+  if (!isValidBoxAmount(realFinalAmount)) {
+    return res.status(400).json({ error: "Valor final real inválido (deve ser um número maior ou igual a zero)." });
+  }
+
   try {
     const result = await adminDb.runTransaction(async (transaction) => {
       // Validar idempotência
       if (idempotencyKey) {
-        const cached = await checkIdempotency(transaction, idempotencyKey, userId);
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
         if (cached) {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
@@ -182,7 +198,7 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
       const responsePayload = { success: true };
 
       if (idempotencyKey) {
-        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload);
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
       }
 
       return { cached: false, response: responsePayload };
@@ -199,7 +215,8 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { boxId, idempotencyKey } = req.body;
+  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const { boxId } = req.body;
   const { tenantId, uid: userId } = req.user;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
   const ip_origem = Array.isArray(ip) ? ip[0] : ip;
@@ -212,7 +229,7 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
     const result = await adminDb.runTransaction(async (transaction) => {
       // Validar idempotência
       if (idempotencyKey) {
-        const cached = await checkIdempotency(transaction, idempotencyKey, userId);
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
         if (cached) {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
@@ -224,7 +241,8 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
       const userSnap = await transaction.get(userRef);
 
       if (!userSnap.exists) {
-        await adminDb.collection("security_logs").add({
+        const secLogDoc = adminDb.collection("security_logs").doc();
+        transaction.set(secLogDoc, {
           timestamp: new Date().toISOString(),
           tenantId,
           usuario_id: userId,
@@ -239,7 +257,8 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
 
       const userData = userSnap.data() || {};
       if (userData.tenantId !== tenantId) {
-        await adminDb.collection("security_logs").add({
+        const secLogDoc = adminDb.collection("security_logs").doc();
+        transaction.set(secLogDoc, {
           timestamp: new Date().toISOString(),
           tenantId,
           usuario_id: userId,
@@ -256,7 +275,8 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
       const permissions = userData.permissions || {};
 
       if (!hasConfirmPermission(role, permissions)) {
-        await adminDb.collection("security_logs").add({
+        const secLogDoc = adminDb.collection("security_logs").doc();
+        transaction.set(secLogDoc, {
           timestamp: new Date().toISOString(),
           tenantId,
           usuario_id: userId,
@@ -283,18 +303,19 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
 
       const boxUnitId = boxData.unitId || '';
       const userUnits = userData.usuario_unidades || userData.usuarioUnidades || [];
-      if (boxUnitId && !userUnits.includes(boxUnitId)) {
-        await adminDb.collection("security_logs").add({
+      if (!boxUnitId || !userUnits.includes(boxUnitId)) {
+        const secLogDoc = adminDb.collection("security_logs").doc();
+        transaction.set(secLogDoc, {
           timestamp: new Date().toISOString(),
           tenantId,
           usuario_id: userId,
           operador_role: role,
           acao: 'CONFIRM_BOX',
-          unidad_id: boxUnitId,
+          unidad_id: boxUnitId || 'unknown',
           ip_origem,
           status: 'DENIED'
         });
-        throw new Error("Acesso negado: O caixa pertence a uma unidade não atribuída a este usuário.");
+        throw new Error("Acesso negado: O caixa pertence a uma unidade ausente ou não atribuída a este usuário.");
       }
 
       if (boxData.status !== "closed") {
@@ -307,7 +328,8 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
         confirmedBy: userId
       });
 
-      await adminDb.collection("security_logs").add({
+      const secLogDoc = adminDb.collection("security_logs").doc();
+      transaction.set(secLogDoc, {
         timestamp: new Date().toISOString(),
         tenantId,
         usuario_id: userId,
@@ -318,11 +340,10 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
         status: 'SUCCESS'
       });
 
-
       const responsePayload = { success: true };
 
       if (idempotencyKey) {
-        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload);
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
       }
 
       return { cached: false, response: responsePayload };

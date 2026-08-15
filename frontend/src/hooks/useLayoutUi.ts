@@ -38,12 +38,21 @@ export function useLayoutUi() {
   }, []);
 
   const handleInstallClick = async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`PWA installation response: ${outcome}`);
-    setDeferredPrompt(null);
-    setShowInstallBanner(false);
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`PWA installation response: ${outcome}`);
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+    } else {
+      // Fallback instructions for iOS Safari and other browsers
+      const isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      if (isiOS) {
+        alert("Para instalar no iPhone/iPad:\n1. Toque no botão Compartilhar (no rodapé do Safari)\n2. Role para baixo e selecione 'Adicionar à Tela de Início' 📲");
+      } else {
+        alert("Para instalar no seu Navegador:\n1. Clique no ícone de menu (⋮) do navegador\n2. Selecione 'Instalar aplicativo' ou 'Adicionar à tela inicial' 📲");
+      }
+    }
   };
 
   const handleDropdownClick = (event: MouseEvent, menuId: string) => {
