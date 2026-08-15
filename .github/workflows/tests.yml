@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-backend:
-    name: Backend Integration Tests (Firestore Emulator)
+    name: Backend Integration Tests & Firestore Rules (Firestore Emulator)
     runs-on: ubuntu-latest
 
     steps:
@@ -33,12 +33,12 @@ jobs:
           npm ci
           npm install -g firebase-tools
 
-      - name: Run Backend Tests inside Firestore Emulator
+      - name: Run Backend Tests & Firestore Security Rules inside Emulator
         env:
           FIRESTORE_EMULATOR_HOST: "127.0.0.1:8080"
           LOCAL_DEV: "true"
         run: |
-          npx firebase emulators:exec --only firestore "npm test -w backend"
+          npx firebase emulators:exec --only firestore "npm test -w backend && npm test -w frontend -- src/tests/firestore.rules.test.ts"
 
   test-frontend:
     name: Frontend Unit & Integration Tests

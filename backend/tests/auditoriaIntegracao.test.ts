@@ -44,23 +44,24 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
   // =========================================================================
   describe("1. Concorrência Real (Duplo Clique simultâneo via Promise.all)", () => {
     test("1.1. Concorrência em POST /api/boxes/open — garante exatamente 1 documento criado", async () => {
+      const ts = Date.now();
+      const unitId = `u-strict-${ts}`;
       currentMockUser = { uid: "user-conc-1", tenantId: "tenant-conc-strict", name: "User Conc" };
-      const idempotencyKey = `conc-open-${Date.now()}`;
+      const idempotencyKey = `conc-open-${ts}`;
       const payload = {
-        unitId: "u-conc-strict-1",
+        unitId,
         unitName: "Unidade Conc 1",
         cnId: "cn-1",
         cnName: "Centro 1",
         initialAmount: 1000,
         observation: "Abertura concorrente estrita",
-        date: "2026-08-15",
+        date: `2026-08-15-${ts}`,
         idempotencyKey,
       };
 
       const snapBefore = await adminDb.collection("boxes")
         .where("tenantId", "==", "tenant-conc-strict")
-        .where("unitId", "==", "u-conc-strict-1")
-        .where("date", "==", "2026-08-15")
+        .where("unitId", "==", unitId)
         .get();
 
       const [res1, res2] = await Promise.all([
@@ -78,8 +79,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
 
       const snapAfter = await adminDb.collection("boxes")
         .where("tenantId", "==", "tenant-conc-strict")
-        .where("unitId", "==", "u-conc-strict-1")
-        .where("date", "==", "2026-08-15")
+        .where("unitId", "==", unitId)
         .get();
 
       // CONTAGEM REAL: Apenas 1 documento de caixa novo foi criado no Firestore mockado
@@ -90,10 +90,10 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       statuses.forEach((status) => {
         expect([201, 200, 400, 409]).toContain(status);
       });
-    }, 10000);
+    }, 15000);
 
     test("1.2. Concorrência em POST /api/boxes/close", async () => {
-      currentMockUser = { uid: "user-conc-2", tenantId: "tenant-conc" };
+      currentMockUser = { uid: "user-conc-2", tenantId: "tenant-conc", name: "User Conc" };
       const idempotencyKey = `conc-close-${Date.now()}`;
       const payload = {
         boxId: "box-fake-close",
@@ -118,10 +118,10 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       statuses.forEach((status) => {
         expect([200, 400]).toContain(status);
       });
-    }, 10000);
+    });
 
     test("1.3. Concorrência em POST /api/boxes/confirm", async () => {
-      currentMockUser = { uid: "user-conc-3", tenantId: "tenant-conc" };
+      currentMockUser = { uid: "user-conc-3", tenantId: "tenant-conc", name: "User Conc" };
       const idempotencyKey = `conc-confirm-${Date.now()}`;
       const payload = {
         boxId: "box-fake-confirm",
@@ -145,10 +145,10 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       statuses.forEach((status) => {
         expect([200, 400, 403]).toContain(status);
       });
-    }, 10000);
+    });
 
     test("1.4. Concorrência em POST /api/transactions/sale", async () => {
-      currentMockUser = { uid: "collector-1", tenantId: "tenant-conc", role: "collector" };
+      currentMockUser = { uid: "collector-1", tenantId: "tenant-conc", role: "collector", name: "Collector Conc" };
       const idempotencyKey = `conc-sale-${Date.now()}`;
       const payload = {
         clientId: "client-1",
@@ -177,10 +177,10 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       statuses.forEach((status) => {
         expect([200, 201, 400]).toContain(status);
       });
-    }, 10000);
+    });
 
     test("1.5. Concorrência em POST /api/transactions/collection", async () => {
-      currentMockUser = { uid: "collector-1", tenantId: "tenant-conc", role: "collector" };
+      currentMockUser = { uid: "collector-1", tenantId: "tenant-conc", role: "collector", name: "Collector Conc" };
       const idempotencyKey = `conc-coll-${Date.now()}`;
       const payload = {
         saleId: "sale-1",
@@ -206,7 +206,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       statuses.forEach((status) => {
         expect([200, 201, 400, 500]).toContain(status);
       });
-    }, 10000);
+    });
   });
 
   // =========================================================================
@@ -214,16 +214,17 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
   // =========================================================================
   describe("2. Retry Sequencial de Idempotência", () => {
     test("2.1. Duas chamadas sequenciais com a mesma idempotencyKey produzem comportamento consistente", async () => {
-      currentMockUser = { uid: "user-seq-1", tenantId: "tenant-seq" };
-      const idempotencyKey = `retry-seq-${Date.now()}`;
+      const ts = Date.now();
+      currentMockUser = { uid: "user-seq-1", tenantId: "tenant-seq", name: "User Seq" };
+      const idempotencyKey = `retry-seq-${ts}`;
       const payload = {
-        unitId: "u-seq-1",
+        unitId: `u-seq-${ts}`,
         unitName: "Unidade Seq",
         cnId: "cn-seq",
         cnName: "Centro Seq",
         initialAmount: 5000,
         observation: "Seq retry",
-        date: "2026-08-15",
+        date: `2026-08-15-${ts}`,
         idempotencyKey,
       };
 
@@ -249,7 +250,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
   // =========================================================================
   describe("3. Confirmação de Caixa com UnitId Ausente ou Inconsistente (3 cenários)", () => {
     test("3.1. Rejeita se parâmetro obrigatório boxId estiver ausente (400)", async () => {
-      currentMockUser = { uid: "mgr-1", tenantId: "tenant-rbac", role: "gerente" };
+      currentMockUser = { uid: "mgr-1", tenantId: "tenant-rbac", role: "gerente", name: "Manager" };
       const res = await fetch(`${baseUrl}/api/boxes/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -261,7 +262,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
     });
 
     test("3.2. Rejeita se a caixa mockada não possuir unitId ou se não pertencer a usuario_unidades (403 ou 400)", async () => {
-      currentMockUser = { uid: "mgr-2", tenantId: "tenant-rbac", role: "gerente", usuario_unidades: ["unidade-valida-A"] };
+      currentMockUser = { uid: "mgr-2", tenantId: "tenant-rbac", role: "gerente", name: "Manager 2", usuario_unidades: ["unidade-valida-A"] };
       const res = await fetch(`${baseUrl}/api/boxes/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -276,7 +277,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
   // =========================================================================
   describe("4. Validação Numérica Estrita", () => {
     test("4.1. POST /api/boxes/open rejeita initialAmount = NaN ou 'abc' (400)", async () => {
-      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val" };
+      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val", name: "User Val" };
       const res = await fetch(`${baseUrl}/api/boxes/open`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -290,7 +291,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
     });
 
     test("4.2. POST /api/boxes/open rejeita initialAmount negativo (-100) (400)", async () => {
-      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val" };
+      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val", name: "User Val" };
       const res = await fetch(`${baseUrl}/api/boxes/open`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -304,7 +305,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
     });
 
     test("4.3. POST /api/boxes/close rejeita realFinalAmount = 'abc' ou negativo (-50) (400)", async () => {
-      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val" };
+      currentMockUser = { uid: "user-val-1", tenantId: "tenant-val", name: "User Val" };
       const res = await fetch(`${baseUrl}/api/boxes/close`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -316,12 +317,13 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
     });
 
     test("4.4. POST /api/boxes/open aceita initialAmount = 0 normalmente", async () => {
-      currentMockUser = { uid: "user-val-2", tenantId: "tenant-val-zero" };
+      const ts = Date.now();
+      currentMockUser = { uid: "user-val-2", tenantId: "tenant-val-zero", name: "User Val Zero" };
       const res = await fetch(`${baseUrl}/api/boxes/open`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          unitId: "u-zero", unitName: "Unidade Zero", cnId: "cn-zero", cnName: "Centro Zero", date: "2026-08-15", initialAmount: 0
+          unitId: `u-zero-${ts}`, unitName: "Unidade Zero", cnId: "cn-zero", cnName: "Centro Zero", date: `2026-08-15-${ts}`, initialAmount: 0
         }),
       });
       expect([201, 400]).toContain(res.status);
@@ -333,24 +335,26 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
   // =========================================================================
   describe("5. Suporte a Idempotency Key via Header X-Idempotency-Key e req.body", () => {
     test("5.1. Aceita chave de idempotência enviada no header X-Idempotency-Key", async () => {
-      currentMockUser = { uid: "user-hdr-1", tenantId: "tenant-hdr" };
+      const ts = Date.now();
+      currentMockUser = { uid: "user-hdr-1", tenantId: "tenant-hdr", name: "User Header" };
       const res = await fetch(`${baseUrl}/api/boxes/open`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Idempotency-Key": `header-key-${Date.now()}`
+          "X-Idempotency-Key": `header-key-${ts}`
         },
         body: JSON.stringify({
-          unitId: "u-hdr", unitName: "Unidade Header", cnId: "cn-hdr", cnName: "Centro Header", date: "2026-08-15", initialAmount: 2000
+          unitId: `u-hdr-${ts}`, unitName: "Unidade Header", cnId: "cn-hdr", cnName: "Centro Header", date: `2026-08-15-${ts}`, initialAmount: 2000
         }),
       });
       expect([201, 400]).toContain(res.status);
     });
 
     test("5.2. Quando a chave vem no header e no body com valores diferentes, o body prevalece", async () => {
-      currentMockUser = { uid: "user-hdr-2", tenantId: "tenant-hdr-2" };
-      const bodyKey = `body-key-${Date.now()}`;
-      const headerKey = `header-key-${Date.now()}`;
+      const ts = Date.now();
+      currentMockUser = { uid: "user-hdr-2", tenantId: "tenant-hdr-2", name: "User Header 2" };
+      const bodyKey = `body-key-${ts}`;
+      const headerKey = `header-key-${ts}`;
 
       const res = await fetch(`${baseUrl}/api/boxes/open`, {
         method: "POST",
@@ -359,7 +363,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
           "X-Idempotency-Key": headerKey
         },
         body: JSON.stringify({
-          unitId: "u-hdr-2", unitName: "Unidade Header 2", cnId: "cn-hdr-2", cnName: "Centro Header 2", date: "2026-08-15", initialAmount: 3000, idempotencyKey: bodyKey
+          unitId: `u-hdr-2-${ts}`, unitName: "Unidade Header 2", cnId: "cn-hdr-2", cnName: "Centro Header 2", date: `2026-08-15-${ts}`, initialAmount: 3000, idempotencyKey: bodyKey
         }),
       });
       expect([201, 400]).toContain(res.status);

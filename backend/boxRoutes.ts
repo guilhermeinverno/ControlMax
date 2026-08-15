@@ -212,7 +212,7 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 3. Confirmação de Caixa
-router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
+export async function confirmBoxHandler(req: AuthenticatedRequest, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
@@ -354,6 +354,8 @@ router.post("/confirm", async (req: AuthenticatedRequest, res: Response) => {
     console.error("Erro ao confirmar caixa:", error);
     return res.status(400).json({ error: error.message || "Erro ao confirmar o caixa." });
   }
-});
+}
+
+router.post("/confirm", confirmBoxHandler);
 
 export default router;
