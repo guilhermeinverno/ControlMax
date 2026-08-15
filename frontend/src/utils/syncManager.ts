@@ -148,6 +148,18 @@ export class SyncManager {
     };
     await this.store.update(updated);
   }
+
+  /** Reset transaction status back to PENDING (for temporary network errors). */
+  public static async resetToPending(id: string): Promise<void> {
+    const tx = await this.store.get(id);
+    if (!tx) return;
+    const updated = {
+      ...tx,
+      status: SyncStatus.PENDING,
+      updatedAt: new Date().toISOString(),
+    };
+    await this.store.update(updated);
+  }
   /** Recover transactions stuck in SYNCING state longer than timeoutMs (default 5 min). */
   public static async recoverStuckTransactions(timeoutMs: number = 5 * 60 * 1000): Promise<void> {
     const now = Date.now();

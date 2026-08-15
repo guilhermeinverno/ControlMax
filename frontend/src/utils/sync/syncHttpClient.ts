@@ -51,7 +51,8 @@ export class SyncHttpClient {
       init.body = JSON.stringify(data);
     }
 
-    const response = await fetch(url, init);
+    const fullUrl = url.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
+    const response = await fetch(fullUrl, init);
     clearTimeout(timeoutId);
 
     if (!response.ok) {
