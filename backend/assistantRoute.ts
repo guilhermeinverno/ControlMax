@@ -7,7 +7,7 @@ import {
   isPortugueseLanguage,
 } from './assistantPrompts';
 import { generateAssistantAudio, generateAssistantText, noApiKeyResponse } from './geminiAssistant';
-import { AuthenticatedRequest, checkRateLimit } from './authMiddleware';
+import { adminDb, AuthenticatedRequest, checkRateLimit } from './authMiddleware';
 
 interface AssistantRequestBody {
   message?: string;
@@ -31,6 +31,33 @@ async function resolveOperationalContext(
   }
 }
 
+async function resolveGeminiApiKey(tenantId?: string): Promise<string | undefined> {
+  if (process.env.GEMINI_API_KEY) {
+    return process.env.GEMINI_API_KEY;
+  }
+  try {
+    if (tenantId) {
+      const tenantDoc = await adminDb.collection("tenants").doc(tenantId).get();
+      if (tenantDoc.exists) {
+        const data = tenantDoc.data();
+        if (data?.geminiApiKey || data?.gemini_api_key) {
+          return data.geminiApiKey || data.gemini_api_key;
+        }
+      }
+    }
+    const systemDoc = await adminDb.collection("system").doc("config").get();
+    if (systemDoc.exists) {
+      const data = systemDoc.data();
+      if (data?.geminiApiKey || data?.gemini_api_key) {
+        return data.geminiApiKey || data.gemini_api_key;
+      }
+    }
+  } catch (err) {
+    console.error("Erro ao buscar GEMINI_API_KEY no Firestore:", err);
+  }
+  return undefined;
+}
+
 export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: string) {
   return async (req: AuthenticatedRequest, res: Response) => {
     try {
@@ -52,8 +79,8 @@ export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: 
       const { message, audio, language, clientOperationalContext } = body;
       const isPt = isPortugueseLanguage(language, role);
 
-      // Gemini key MUST only come from environment variables
-      const resolvedApiKey = process.env.GEMINI_API_KEY;
+      // Gemini key can come from process.env, tenant doc or system/config doc in Firestore
+      const resolvedApiKey = await resolveGeminiApiKey(tenantId);
 
       if (!resolvedApiKey) {
         return res.json(noApiKeyResponse(isPt));
@@ -78,18 +105,21 @@ export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: 
       console.log(`[AI Assistant API] System Instruction Context Length: ${operationalContext.length} chars`);
 
       const userContentParts = buildUserContentParts(message, audio);
-      if (userContentParts.length === 0) {
-        return res.status(400).json({ error: 'No input provided' });
+
+      if (audio) {
+        const result = await generateAssistantAudio(activeAi, systemInstruction, userContentParts);
+        return res.json(result);
       }
 
-      const textResponse = await generateAssistantText(activeAi, userContentParts, systemInstruction, isPt);
-      const { audio: base64Audio, mimeType: audioMimeType } = await generateAssistantAudio(activeAi, textResponse, isPt);
-
-      res.json({ text: textResponse, audio: base64Audio, mimeType: audioMimeType });
-    } catch (error: unknown) {
-      console.error('Assistant API Error:', error);
-      const message = error instanceof Error ? error.message : 'Internal server error';
-      res.status(500).json({ error: message });
+      const result = await generateAssistantText(activeAi, systemInstruction, userContentParts);
+      return res.json(result);
+    } catch (err: any) {
+      console.error('[AI Assistant API] Error processing request:', err);
+      const isPt = isPortugueseLanguage(req.body?.language, req.user?.role);
+      return res.status(500).json({
+        error: isPt ? 'Erro ao processar sua solicitação.' : 'Error al procesar su solicitud.',
+        details: err?.message || String(err),
+      });
     }
   };
 }
