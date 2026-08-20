@@ -201,7 +201,6 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
 
     setSaving(true);
     setSaveError(null);
-    setShowConfirm(false);
 
     try {
       let finalAmountCents = 0;
@@ -233,9 +232,11 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         userName: userName || '',
       });
 
+      setShowConfirm(false);
       toast.success(initialMode === 'payment' ? 'Pagamento registrado!' : 'Visita registrada!');
       onNavigate?.('sales');
     } catch (err) {
+      setShowConfirm(false);
       setSaveError(getErrorMessage(err) || 'Erro ao registrar operação');
     } finally {
       setSaving(false);
