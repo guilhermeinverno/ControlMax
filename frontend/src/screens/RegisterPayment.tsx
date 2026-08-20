@@ -706,6 +706,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         isOpen={showConfirm}
         onClose={() => setShowConfirm(false)}
         onConfirm={handleSave}
+        isSaving={saving}
         title={initialMode === 'payment' ? '¿Confirmar pago?' : '¿Confirmar visita sin pago?'}
         subtitle={
           initialMode === 'payment'

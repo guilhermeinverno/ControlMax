@@ -196,7 +196,7 @@ function PrivateLayout() {
     return unsub;
   }, []);
 
-  const { isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
+  const { role, isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
   const { navState, navigate } = useNavigation();
 
   if (authLoading || (fbUser && tenantLoading)) {
@@ -209,6 +209,44 @@ function PrivateLayout() {
 
   if (!fbUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Restrição Corporativa: Vendedores/Cobradores (role: collector) devem acessar exclusivamente pelo App Móvel/PWA
+  const isMobileAppOrPwa = typeof window !== 'undefined' && (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.matchMedia('(display-mode: minimal-ui)').matches ||
+    navigator.userAgent.includes('ControlMaxApp') ||
+    navigator.userAgent.includes('Capacitor') ||
+    navigator.userAgent.includes('Cordova') ||
+    (window as any).Capacitor !== undefined ||
+    /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
+
+  if (role === 'collector' && !isMobileAppOrPwa) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center p-6 text-center text-white select-none">
+        <div className="bg-slate-800 border border-slate-700 rounded-3xl p-8 max-w-md w-full shadow-2xl flex flex-col items-center space-y-5">
+          <div className="w-20 h-20 rounded-full bg-purple-900/50 border border-purple-500/30 flex items-center justify-center text-purple-400">
+            <svg className="w-10 h-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-black text-white tracking-wide">Acesso Restrito ao Aplicativo</h2>
+          <p className="text-slate-300 text-xs leading-relaxed font-medium">
+            Vendedores e Cobradores devem realizar o login exclusivamente através do <strong>Aplicativo Móvel ControlMax</strong> instalado no seu dispositivo Android.
+          </p>
+          <div className="bg-purple-950/60 border border-purple-800/40 rounded-xl p-3 text-purple-300 text-[11px] font-bold">
+            📱 Abra o aplicativo ControlMax no seu celular para continuar.
+          </div>
+          <button
+            onClick={() => auth.signOut()}
+            className="w-full bg-red-600/80 hover:bg-red-600 text-white font-extrabold text-xs py-3 rounded-xl shadow-md transition-colors cursor-pointer"
+          >
+            Sair da Conta
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

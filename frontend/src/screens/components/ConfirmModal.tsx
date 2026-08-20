@@ -7,6 +7,7 @@ interface ConfirmModalProps {
   subtitle?: string;
   confirmText?: string;
   cancelText?: string;
+  isSaving?: boolean;
 }
 
 export function ConfirmModal({ 
@@ -16,7 +17,8 @@ export function ConfirmModal({
   title = "¿Está seguro?",
   subtitle = "¡No podrá revertir esto!",
   confirmText = "Sí, eliminar",
-  cancelText = "Cancelar"
+  cancelText = "Cancelar",
+  isSaving = false,
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -38,16 +40,24 @@ export function ConfirmModal({
         {/* Buttons */}
         <div className="flex w-full space-x-3">
           <button 
+            type="button"
+            disabled={isSaving}
             onClick={onClose}
-            className="flex-1 bg-[#333333] text-white font-bold py-2.5 rounded text-sm shadow-sm"
+            className="flex-1 bg-[#333333] hover:bg-slate-800 disabled:opacity-50 text-white font-bold py-2.5 rounded text-sm shadow-sm cursor-pointer"
           >
             {cancelText}
           </button>
           <button 
-            onClick={onConfirm}
-            className="flex-1 bg-[#2563EB] text-white font-bold py-2.5 rounded text-sm shadow-sm"
+            type="button"
+            disabled={isSaving}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onConfirm();
+            }}
+            className="flex-1 bg-[#2563EB] hover:bg-blue-700 disabled:opacity-50 text-white font-bold py-2.5 rounded text-sm shadow-sm cursor-pointer"
           >
-            {confirmText}
+            {isSaving ? 'Aguarde...' : confirmText}
           </button>
         </div>
       </div>
