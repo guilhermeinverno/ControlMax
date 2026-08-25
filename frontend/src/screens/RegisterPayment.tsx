@@ -197,7 +197,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   };
 
   const handleSave = async () => {
-    if (!activeBox || !sale || !tenantId) return;
+    if (!sale) return;
 
     setSaving(true);
     setSaveError(null);
@@ -208,6 +208,10 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
       let methodStr = paymentMethod;
 
       if (initialMode === 'payment') {
+        if (!activeBox || !tenantId) {
+          setSaveError('Selecione uma caixa aberta para registrar o pagamento.');
+          return;
+        }
         finalAmountCents = computedAmountCents;
         finalComment = punishToggle ? '[Estudo punição ativa] ' : '';
         if (paymentType === 'parcela') {
@@ -222,15 +226,35 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         methodStr = 'efectivo';
       }
 
-      await executeRegisterPaymentTransaction({
-        tenantId,
-        activeBox,
-        sale,
-        parsedAmountCents: finalAmountCents,
-        paymentMethod: methodStr,
-        comment: finalComment,
-        userName: userName || '',
-      });
+      if (activeBox) {
+        await executeRegisterPaymentTransaction({
+          tenantId,
+          activeBox,
+          sale,
+          parsedAmountCents: finalAmountCents,
+          paymentMethod: methodStr,
+          comment: finalComment,
+          userName: userName || '',
+        });
+      } else if (initialMode === 'no-payment') {
+        // Contingência total sem caixa aberto para gravações de visitas de não pagamento
+        const { collection: col, doc: d, setDoc: sDoc, serverTimestamp: sTime } = await import('firebase/firestore');
+        const collectionRef = d(col(db, 'collections'));
+        await sDoc(collectionRef, {
+          tenantId: tenantId || sale.tenantId || '',
+          saleId: sale.id,
+          clientId: sale.clientId || '',
+          clientName: sale.clientName || '',
+          boxId: '',
+          amount: 0,
+          amountCents: 0,
+          paymentMethod: 'efectivo',
+          comment: finalComment,
+          userId: userId || '',
+          userName: userName || '',
+          createdAt: sTime(),
+        });
+      }
 
       setShowConfirm(false);
       toast.success(initialMode === 'payment' ? 'Pagamento registrado!' : 'Visita registrada!');
@@ -582,7 +606,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
                   'Cliente sem dinheiro',
                   'Loja fechada',
                   'Incapaz de cobrar',
-                  'Cliente n?o encontrado'
+                  'Cliente não encontrado'
                 ].map((reason) => {
                   const isSelected = selectedReason === reason;
                   return (
