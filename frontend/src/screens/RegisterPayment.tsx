@@ -296,7 +296,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   const unitId = sale.unitName ? sale.unitName.split('-')[0].trim() : '3';
 
   return (
-    <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] pb-10">
+    <div className="flex flex-col bg-[#F3F4F6] min-h-screen text-[#333333] pb-10 notranslate" translate="no">
       
       {/* SCREEN HEADER (Matches Images 1, 2, and 3 Purple Style) */}
       <div className="bg-[#6A008A] text-white px-4 py-3.5 flex items-center shadow-md relative">
@@ -703,6 +703,8 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         {/* BOTTOM SAVING ACTIONS TRIGGER */}
         <div className="pt-2">
           <button
+            key="register-payment-submit-btn"
+            type="button"
             onClick={() => {
               if (initialMode === 'payment' && computedAmountCents <= 0) {
                 setSaveError('Insira um valor válido de pagamento.');
@@ -714,12 +716,12 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
             className="w-full bg-[#6A008A] hover:bg-[#581c87] text-white font-extrabold py-3.5 text-xs tracking-widest uppercase rounded-xl shadow-md transition-all active:scale-[0.98] duration-150 flex justify-center items-center cursor-pointer select-none disabled:opacity-50"
           >
             {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Registrando...
-              </>
+              <span className="flex items-center justify-center">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin shrink-0" />
+                <span>Registrando...</span>
+              </span>
             ) : (
-              'Salvar'
+              <span>Salvar</span>
             )}
           </button>
         </div>
