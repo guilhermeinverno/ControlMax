@@ -4,6 +4,17 @@ import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } f
 import { FieldValue } from "firebase-admin/firestore";
 import { requirePermission } from "./roleRoutes";
 import { logAuditEvent } from "./services/auditService";
+import {
+  ACCOUNT_AJUSTE_CAIXA,
+  ACCOUNT_DIFERENCA_CAIXA,
+  accountCaixa,
+  accountCn,
+  accountDespesas,
+  accountRecebiveis,
+  accountReceitas,
+  reconcileBoxShadow,
+  setLedgerShadowInTransaction,
+} from "./services/ledgerService";
 import { validateBody } from "./middleware/validateBody";
 import {
   collectionBodySchema,
@@ -138,6 +149,20 @@ router.post("/sale", requirePermission("sales", "create"), validateBody(saleBody
         finalAmount: newFinalAmount,
       });
 
+      // ENT-02: sombra — venda reduz caixa e cria recebível
+      setLedgerShadowInTransaction(transaction, {
+        tenantId,
+        transactionId: idempotencyKey,
+        debitAccount: accountRecebiveis(saleRef.id),
+        creditAccount: accountCaixa(boxId),
+        amountCents: parsedAmount,
+        source: "sale",
+        boxId,
+        saleId: saleRef.id,
+        entityId: saleRef.id,
+        userId,
+      });
+
       const responsePayload = { success: true, saleId: saleRef.id };
 
       if (idempotencyKey) {
@@ -255,6 +280,20 @@ router.post("/collection", requirePermission("collections", "create"), validateB
         transaction.update(boxDoc.ref, {
           totalCollections: newTotalCollections,
           finalAmount: newFinalAmount,
+        });
+
+        // ENT-02: sombra — recebimento aumenta caixa e reduz recebível
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: accountCaixa(boxId),
+          creditAccount: accountRecebiveis(saleId),
+          amountCents: parsedAmount,
+          source: "collection",
+          boxId,
+          saleId,
+          entityId: collectionRef.id,
+          userId,
         });
       }
 
@@ -427,6 +466,33 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
         transaction,
       });
 
+      // ENT-02: sombra — ajuste de caixa
+      if (type === "income") {
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: accountCaixa(boxId),
+          creditAccount: ACCOUNT_AJUSTE_CAIXA,
+          amountCents: parsedAmount,
+          source: "adjustment",
+          boxId,
+          entityId: boxId,
+          userId,
+        });
+      } else {
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: ACCOUNT_AJUSTE_CAIXA,
+          creditAccount: accountCaixa(boxId),
+          amountCents: parsedAmount,
+          source: "adjustment",
+          boxId,
+          entityId: boxId,
+          userId,
+        });
+      }
+
       const responsePayload = { success: true };
 
       if (idempotencyKey) {
@@ -563,6 +629,20 @@ router.post("/reversal", validateBody(reversalBodySchema), async (req: Authentic
         },
         reason: reason.trim(),
         transaction,
+      });
+
+      // ENT-02: sombra — estorno inverte a collection
+      setLedgerShadowInTransaction(transaction, {
+        tenantId,
+        transactionId: idempotencyKey,
+        debitAccount: accountRecebiveis(saleId),
+        creditAccount: accountCaixa(boxId),
+        amountCents: amountToReverse,
+        source: "reversal",
+        boxId,
+        saleId,
+        entityId: originalTransactionId,
+        userId,
       });
 
       const responsePayload = { success: true };
@@ -720,6 +800,18 @@ router.post("/expense", async (req: AuthenticatedRequest, res: Response) => {
           transaction.update(boxRef, {
             totalExpenses: newTotalExpenses,
             finalAmount: computeBoxFinalAmount(boxData, { totalExpenses: newTotalExpenses }),
+          });
+
+          setLedgerShadowInTransaction(transaction, {
+            tenantId,
+            transactionId: idempotencyKey,
+            debitAccount: accountDespesas(expenseType),
+            creditAccount: accountCaixa(boxId),
+            amountCents: parsedAmount,
+            source: "expense",
+            boxId,
+            entityId: expenseRef.id,
+            userId,
           });
         }
 
@@ -885,6 +977,18 @@ router.post("/income", async (req: AuthenticatedRequest, res: Response) => {
         finalAmount: computeBoxFinalAmount(boxData, { totalIncomes: newTotalIncomes }),
       });
 
+      setLedgerShadowInTransaction(transaction, {
+        tenantId,
+        transactionId: idempotencyKey,
+        debitAccount: accountCaixa(boxId),
+        creditAccount: accountReceitas(incomeType),
+        amountCents: parsedAmount,
+        source: "income",
+        boxId,
+        entityId: incomeRef.id,
+        userId,
+      });
+
       const responsePayload = { success: true, incomeId: incomeRef.id, mode: "box" };
       if (idempotencyKey) {
         registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
@@ -997,6 +1101,18 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
               totalExpenses: newTotalExpenses,
               finalAmount: computeBoxFinalAmount(boxData, { totalExpenses: newTotalExpenses }),
             });
+
+            setLedgerShadowInTransaction(transaction, {
+              tenantId,
+              transactionId: idempotencyKey,
+              debitAccount: accountDespesas(String(data.expenseType || "")),
+              creditAccount: accountCaixa(String(data.boxId)),
+              amountCents: amount,
+              source: "approval",
+              boxId: String(data.boxId),
+              entityId: resourceId,
+              userId,
+            });
           }
         }
       }
@@ -1019,8 +1135,48 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
               totalTransfers: newTotalTransfers,
               finalAmount: computeBoxFinalAmount(boxData, { totalTransfers: newTotalTransfers }),
             });
+
+            setLedgerShadowInTransaction(transaction, {
+              tenantId,
+              transactionId: idempotencyKey,
+              debitAccount: accountCn(String(data.toCnId || "")),
+              creditAccount: accountCaixa(String(data.boxId)),
+              amountCents: amount,
+              source: "approval",
+              boxId: String(data.boxId),
+              entityId: resourceId,
+              userId,
+            });
           }
         }
+      }
+
+      // Aprovação de bc_expense / bc_income (efeito só no CN — sombra CN)
+      if (collectionName === "bc_expenses" && status === "approved") {
+        const amount = Math.round(Number(data.amount || 0));
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: accountDespesas(String(data.expenseType || data.category || "cn")),
+          creditAccount: accountCn(String(data.cnId || "")),
+          amountCents: amount,
+          source: "approval",
+          entityId: resourceId,
+          userId,
+        });
+      }
+      if (collectionName === "bc_incomes" && status === "approved") {
+        const amount = Math.round(Number(data.amount || 0));
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: accountCn(String(data.cnId || "")),
+          creditAccount: accountReceitas(String(data.category || "cn")),
+          amountCents: amount,
+          source: "approval",
+          entityId: resourceId,
+          userId,
+        });
       }
 
       const responsePayload = { success: true, resourceId, status: persistedStatus };
@@ -1101,6 +1257,32 @@ router.post("/bc-transfer", async (req: AuthenticatedRequest, res: Response) => 
   } catch (error: any) {
     console.error("Erro ao criar bc_transfer:", error);
     return res.status(400).json({ error: error.message || "Erro ao criar transferência." });
+  }
+});
+
+/** ENT-02 — reconcilia saldo do caixa vs ledger sombra */
+router.get("/ledger/reconcile/:boxId", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const { tenantId, role, isSuperAdmin } = req.user;
+  const roleLower = String(role || "").toLowerCase();
+  const canRead =
+    isSuperAdmin === true ||
+    ["admin", "superadmin", "gerente", "supervisor", "director", "coordinador"].includes(roleLower);
+
+  if (!canRead) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  const boxId = String(req.params.boxId || "").trim();
+  if (!boxId) return res.status(400).json({ error: "boxId inválido." });
+
+  try {
+    const result = await reconcileBoxShadow(tenantId, boxId);
+    return res.json({ success: true, reconcile: result });
+  } catch (error: any) {
+    console.error("Erro reconcile ledger:", error);
+    return res.status(400).json({ error: error.message || "Erro ao reconciliar ledger." });
   }
 });
 

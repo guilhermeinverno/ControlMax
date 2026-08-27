@@ -35,7 +35,8 @@ Para garantir a escalabilidade do ControlMax, seguimos princípios rígidos de a
 O monorepo divide as responsabilidades do sistema nas seguintes pastas principais:
 - **`backend/`**: Servidor Express que gerencia as integrações de IA e orquestra operações pesadas ou integrações de terceiros.
 - **`frontend/`**: Toda a interface visual web (React 19 + Vite 6) e regras de navegação do usuário.
-- **`documentation/`**: Todos os manuais técnicos, configurações de banco de dados, guias de qualidade e planos de homologação (ex.: [QA_DOCUMENTATION.md](file:///Users/fabio/Documents/Controlmax/QA_DOCUMENTATION.md) e [INDEXES.md](file:///Users/fabio/Documents/Controlmax/INDEXES.md)).
+- **`docs/`**: Documentação oficial — SSOT, planos, ops/QA e specs (índice em [`docs/README.md`](docs/README.md); canônico: [`docs/arquitetura/ARQUITETURA-SSOT.md`](docs/arquitetura/ARQUITETURA-SSOT.md)).
+- **`scripts/`**: Utilitários (ex.: `scripts/maintenance/` — patches históricos, fora do build).
 
 ### 2.2 Precisão Financeira Estrita (Manejo de Centavos)
 Para evitar as imprecisões de arredondamento inerentes a números de ponto flutuante em JavaScript (IEEE 754), **todos os valores monetários no ControlMax devem ser manipulados e armazenados como números inteiros (centavos)**.
@@ -84,9 +85,12 @@ O ControlMax funciona com base em empresas e filiais parceiras. Cada empresa tem
 │       ├── screens/      Telas completas do sistema (Dashboard, Login, RouteList, etc.)
 │       ├── types.ts      Tipos e interfaces globais da aplicação (Box, User, etc.)
 │       └── utils/        Funções utilitárias (formatação monetária, masks)
-└── documentation/        Manuais e guias do projeto
-    ├── QA_DOCUMENTATION.md   Manual de arquitetura técnica e planos de QA
-    └── INDEXES.md            Guia de configuração de índices do Cloud Firestore
+├── docs/                 Documentação oficial (ver docs/README.md)
+│   ├── arquitetura/      SSOT + indexes Firestore
+│   ├── planejamento/     Pendências e planos
+│   ├── ops/              Gate deploy, QA, Vercel
+│   └── controlmax/       Spec de produto / ADRs
+└── scripts/maintenance/  Patches one-shot (não CI)
 ```
 
 ---
@@ -120,7 +124,7 @@ npm run build
   - `/sales`: Registro de vendas realizadas.
   - `/collections`: Registros de recebimentos/cobranças em dinheiro das rotas.
   - `/transfers`: Movimentações de dinheiro entre caixas.
-- **Configuração de Índices**: Consultas compostas exigem índices definidos em `firestore.indexes.json` e configurados no console do Firebase (conforme detalhado no [INDEXES.md](file:///Users/fabio/Documents/Controlmax/INDEXES.md)).
+- **Configuração de Índices**: Consultas compostas exigem índices definidos em `firestore.indexes.json` e configurados no console do Firebase (conforme detalhado em [`docs/arquitetura/INDEXES.md`](docs/arquitetura/INDEXES.md)).
 
 ---
 
@@ -156,7 +160,7 @@ O ControlMax possui um recurso de assistência por voz baseado no Gemini AI que 
 ## 10. Fluxo Recomendado para uma Tarefa
 
 1. **Investigação inicial**: Localize as views, hooks ou endpoints correspondentes usando busca por grep antes de criar novos arquivos.
-2. **Separação de pastas**: Coloque o código de backend na pasta `backend/` e o de frontend em `frontend/`. Qualquer mudança de regras ou documentação geral deve ir para `documentation/`.
+2. **Separação de pastas**: Coloque o código de backend na pasta `backend/` e o de frontend em `frontend/`. Qualquer mudança de regras ou documentação geral deve ir para `docs/` (arquitetura / planejamento / ops conforme o tipo).
 3. **Manejo monetário**: Certifique-se de que os valores tratados estão em centavos antes de persistir no Firestore.
 4. **Verificação de tipos**: Execute `npm run lint` na pasta apropriada para validar a ausência de erros em tempo de compilação.
 5. **Teste local**: Valide a mudança nos modos claro/escuro e certifique-se de que ela não afeta a segurança multi-tenant.

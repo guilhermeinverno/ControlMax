@@ -285,6 +285,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ENT-02: ledger append-only (sombra) — só Admin SDK / BFF
+    match /ledger_shadow/{entryId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
     match /report_jobs/{jobId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       allow create, update, delete: if false;

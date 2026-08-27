@@ -1,6 +1,6 @@
 # 14. Roadmap de Execução
 
-> Status em 27/08/2026 — ver também `documentation/PLANO-DESENVOLVIMENTO.md`.
+> Status em 27/08/2026 — ver também [`PLANO-DESENVOLVIMENTO.md`](../planejamento/PLANO-DESENVOLVIMENTO.md).
 
 ## P0: OBRIGATÓRIO (Bloqueadores para Piloto)
 O sistema deve iniciar a operação mínima garantindo segurança e fluxo de capital da rua para o cofre.
@@ -11,7 +11,7 @@ O sistema deve iniciar a operação mínima garantindo segurança e fluxo de cap
 5. ✅ **Vendas e Cobranças** em centavos via BFF + Sync (FIN-02…04).
 6. ✅ **Auditoria** `security_logs`/`audit_logs` + UI `AuditLogs` (AUD-01).
 
-**Ainda abertos para Gate Piloto:** deploy rules/indexes ([`DEPLOY-FIRESTORE-GATE.md`](../../documentation/DEPLOY-FIRESTORE-GATE.md)); QA ([`GATE-PILOTO-QA.md`](../../documentation/GATE-PILOTO-QA.md) + [`SYNC-01`](../../documentation/SYNC-01-CHECKLIST-QA.md)).
+**Ainda abertos para Gate Piloto:** deploy rules/indexes ([`DEPLOY-FIRESTORE-GATE.md`](../ops/DEPLOY-FIRESTORE-GATE.md)); QA ([`GATE-PILOTO-QA.md`](../ops/GATE-PILOTO-QA.md) + [`SYNC-01`](../ops/SYNC-01-CHECKLIST-QA.md)).
 
 ## P1: IMPORTANTE (Piloto ou Produção Inicial)
 Necessário para a expansão operacional sustentável.

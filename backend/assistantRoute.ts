@@ -7,7 +7,7 @@ import {
   isPortugueseLanguage,
 } from './assistantPrompts';
 import { generateAssistantAudio, generateAssistantText, noApiKeyResponse } from './geminiAssistant';
-import { adminDb, AuthenticatedRequest, checkRateLimit } from './authMiddleware';
+import { adminDb, AuthenticatedRequest } from './authMiddleware';
 
 interface AssistantRequestBody {
   message?: string;
@@ -69,11 +69,6 @@ export function createAssistantHandler(initialAi?: GoogleGenAI, initialApiKey?: 
       const tenantId = req.user.tenantId;
       const role = req.user.role;
       const userName = req.user.name;
-
-      // Rate limit check: 10 requests per minute
-      if (!checkRateLimit(uid, 10, 60000)) {
-        return res.status(429).json({ error: 'Muitas solicitações. Por favor, tente novamente em um minuto.' });
-      }
 
       const body = req.body as AssistantRequestBody;
       const { message, audio, language, clientOperationalContext } = body;

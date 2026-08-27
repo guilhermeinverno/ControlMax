@@ -5,6 +5,7 @@ import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 
 import type { AuthError } from 'firebase/auth';
 import { Sparkles, LogIn, Eye, EyeOff, Download } from 'lucide-react';
 import { useLayoutUi } from '../hooks/useLayoutUi';
+import { forceRefreshIdToken } from '../utils/authToken';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -29,6 +30,8 @@ export function Login({ onSuccess }: LoginProps) {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+      // ENT-04: garante claims frescas no ID token após login
+      await forceRefreshIdToken().catch(() => undefined);
       onSuccess();
     } catch (err: unknown) {
       const authError = err as AuthError;
@@ -62,6 +65,7 @@ export function Login({ onSuccess }: LoginProps) {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      await forceRefreshIdToken().catch(() => undefined);
       onSuccess();
     } catch (err: unknown) {
       const authError = err as AuthError;

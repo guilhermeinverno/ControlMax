@@ -2,7 +2,7 @@
 
 Baseado na classificação de prioridades (P0), este é o backlog técnico e funcional que o novo ControlMax deve obrigatoriamente possuir para permitir a operação em produção da primeira filial piloto.
 
-> Atualizado em 27/08/2026 — status alinhado a `documentation/PLANO-DESENVOLVIMENTO.md`.
+> Atualizado em 27/08/2026 — status alinhado a [`PLANO-DESENVOLVIMENTO.md`](../planejamento/PLANO-DESENVOLVIMENTO.md).
 
 ## Módulo de Identidade e Acesso
 - [x] Implementar hierarquia organizacional estrita (`Sociedade → CN → Unidade`) — piloto: Sociedade ≡ `tenantId` (CTX-03); CN/Unidade OK.

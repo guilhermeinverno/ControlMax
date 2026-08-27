@@ -12,6 +12,7 @@ import {
   mergePermissionMatrix,
   PermissionMatrix,
 } from './permissionMatrix';
+import { consumeRateLimit } from './middleware/rateLimit';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -110,22 +111,10 @@ export const adminDb = config.firestoreDatabaseId
 export const adminAuth = getAuth(appInstance);
 
 // Rate limiting in-memory map
-const rateLimitMap = new Map<string, number[]>();
-
+/** @deprecated Prefer `createRateLimiter` / `consumeRateLimit` em `middleware/rateLimit.ts` (ENT-03). */
 export function checkRateLimit(uid: string, limit = 10, windowMs = 60000): boolean {
-  const now = Date.now();
-  const timestamps = rateLimitMap.get(uid) || [];
-  
-  // Filter out expired timestamps
-  const activeTimestamps = timestamps.filter(ts => now - ts < windowMs);
-  
-  if (activeTimestamps.length >= limit) {
-    return false;
-  }
-  
-  activeTimestamps.push(now);
-  rateLimitMap.set(uid, activeTimestamps);
-  return true;
+  const result = consumeRateLimit(`legacy:${uid}`, limit, windowMs);
+  return result.allowed;
 }
 
 export interface AuthenticatedRequest extends Request {
@@ -205,7 +194,8 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
   const token = authHeader.substring(7);
 
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
+    // ENT-04: checkRevoked=true respeita revokeRefreshTokens após mudança de role
+    const decodedToken = await adminAuth.verifyIdToken(token, true);
     const uid = decodedToken.uid;
     const email = decodedToken.email || '';
 
@@ -217,6 +207,14 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     }
 
     const userData = userDoc.data() || {};
+
+    if (userData.active === false) {
+      return res.status(401).json({
+        error: 'Usuário desativado. Contate o administrador.',
+        code: 'USER_DISABLED',
+      });
+    }
+
     const profile = resolveAuthProfile(decodedToken as Record<string, unknown>, userData);
     const name =
       userData.name || userData.userName || userData.displayName || email;
@@ -243,6 +241,13 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     next();
   } catch (err: any) {
     console.error('Erro na autenticação do token:', err);
+    const code = String(err?.code || '');
+    if (code === 'auth/id-token-revoked' || code === 'auth/user-disabled') {
+      return res.status(401).json({
+        error: 'Sessão invalidada. Faça login novamente ou atualize o token.',
+        code: 'CLAIMS_STALE',
+      });
+    }
     return res.status(401).json({ error: 'Token de autenticação inválido ou expirado.' });
   }
 }

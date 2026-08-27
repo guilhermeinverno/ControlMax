@@ -5,6 +5,13 @@ import { FieldValue } from "firebase-admin/firestore";
 import { assertUnitAssignedToUser, getUserAssignedUnits, isPrivilegedUnitRole } from "./userUnitAccess";
 import { validateBody } from "./middleware/validateBody";
 import { closeBoxBodySchema, openBoxBodySchema } from "./schemas/boxes";
+import {
+  ACCOUNT_DIFERENCA_CAIXA,
+  accountCaixa,
+  accountCn,
+  setLedgerShadowInTransaction,
+  writeLedgerShadow,
+} from "./services/ledgerService";
 
 const router = Router();
 
@@ -104,6 +111,19 @@ router.post("/open", validateBody(openBoxBodySchema), async (req: AuthenticatedR
 
       transaction.set(boxRef, boxPayload);
 
+      // ENT-02: sombra — fundo inicial CN → caixa
+      setLedgerShadowInTransaction(transaction, {
+        tenantId,
+        transactionId: idempotencyKey,
+        debitAccount: accountCaixa(boxRef.id),
+        creditAccount: accountCn(String(cnId)),
+        amountCents: amountInCents,
+        source: "box_open",
+        boxId: boxRef.id,
+        entityId: boxRef.id,
+        userId,
+      });
+
       const responsePayload = { success: true, boxId: boxRef.id };
 
       if (idempotencyKey) {
@@ -201,6 +221,34 @@ router.post("/close", validateBody(closeBoxBodySchema), async (req: Authenticate
         expectedFinalAmount,
         difference,
       });
+
+      // ENT-02: sombra — diferença de fechamento (real vs esperado)
+      const diffCents = Math.round(Number(difference) || 0);
+      if (diffCents > 0) {
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: accountCaixa(boxId),
+          creditAccount: ACCOUNT_DIFERENCA_CAIXA,
+          amountCents: diffCents,
+          source: "box_close",
+          boxId,
+          entityId: boxId,
+          userId,
+        });
+      } else if (diffCents < 0) {
+        setLedgerShadowInTransaction(transaction, {
+          tenantId,
+          transactionId: idempotencyKey,
+          debitAccount: ACCOUNT_DIFERENCA_CAIXA,
+          creditAccount: accountCaixa(boxId),
+          amountCents: Math.abs(diffCents),
+          source: "box_close",
+          boxId,
+          entityId: boxId,
+          userId,
+        });
+      }
 
       const responsePayload = { success: true };
 
@@ -415,6 +463,7 @@ router.post("/open-batch", async (req: AuthenticatedRequest, res: Response) => {
 
     const createdIds: string[] = [];
     const skipped: Array<{ userId: string; reason: string }> = [];
+    const pendingLedger: Array<{ boxId: string; cnId: string; amountCents: number }> = [];
     const batch = adminDb.batch();
     let ops = 0;
 
@@ -468,11 +517,29 @@ router.post("/open-batch", async (req: AuthenticatedRequest, res: Response) => {
         openedByManagerId: userId,
       });
       createdIds.push(boxRef.id);
+      pendingLedger.push({
+        boxId: boxRef.id,
+        cnId: String(item.cnId),
+        amountCents: amountInCents,
+      });
       ops += 1;
     }
 
     if (ops > 0) {
       await batch.commit();
+      for (const entry of pendingLedger) {
+        await writeLedgerShadow({
+          tenantId,
+          transactionId: `${idempotencyKey}:${entry.boxId}`,
+          debitAccount: accountCaixa(entry.boxId),
+          creditAccount: accountCn(entry.cnId),
+          amountCents: entry.amountCents,
+          source: "box_open_batch",
+          boxId: entry.boxId,
+          entityId: entry.boxId,
+          userId,
+        });
+      }
     }
 
     const responsePayload = {
@@ -600,6 +667,33 @@ router.post("/close-batch", async (req: AuthenticatedRequest, res: Response) => 
             expectedFinalAmount,
             difference: realFinal - expectedFinalAmount,
           });
+
+          const diffCents = Math.round(realFinal - expectedFinalAmount);
+          if (diffCents > 0) {
+            setLedgerShadowInTransaction(transaction, {
+              tenantId,
+              transactionId: `${idempotencyKey}:${boxId}`,
+              debitAccount: accountCaixa(boxId),
+              creditAccount: ACCOUNT_DIFERENCA_CAIXA,
+              amountCents: diffCents,
+              source: "box_close_batch",
+              boxId,
+              entityId: boxId,
+              userId,
+            });
+          } else if (diffCents < 0) {
+            setLedgerShadowInTransaction(transaction, {
+              tenantId,
+              transactionId: `${idempotencyKey}:${boxId}`,
+              debitAccount: ACCOUNT_DIFERENCA_CAIXA,
+              creditAccount: accountCaixa(boxId),
+              amountCents: Math.abs(diffCents),
+              source: "box_close_batch",
+              boxId,
+              entityId: boxId,
+              userId,
+            });
+          }
         });
         closed.push(boxId);
       } catch (err: any) {

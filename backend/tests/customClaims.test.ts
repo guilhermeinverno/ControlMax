@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { resolveAuthProfile } from "../customClaims";
+import { resolveAuthProfile, shouldRevokeSessionsOnUserPatch } from "../customClaims";
 
 describe("AUTH-01 resolveAuthProfile", () => {
   test("prioriza Custom Claims sobre Firestore (bloqueia escalate de role)", () => {
@@ -34,5 +34,30 @@ describe("AUTH-01 resolveAuthProfile", () => {
     );
     expect(profile.isSuperAdmin).toBe(true);
     expect(profile.role).toBe("superadmin");
+  });
+});
+
+describe("ENT-04 shouldRevokeSessionsOnUserPatch", () => {
+  test("revoga quando role muda", () => {
+    expect(shouldRevokeSessionsOnUserPatch({ role: "collector" }, { role: "admin" })).toBe(true);
+  });
+
+  test("revoga quando active vira false", () => {
+    expect(shouldRevokeSessionsOnUserPatch({ active: true }, { active: false })).toBe(true);
+  });
+
+  test("não revoga em update só de usuario_unidades", () => {
+    expect(
+      shouldRevokeSessionsOnUserPatch(
+        { role: "collector", usuario_unidades: ["u1"] },
+        { usuario_unidades: ["u1", "u2"] }
+      )
+    ).toBe(false);
+  });
+
+  test("não revoga quando role permanece igual", () => {
+    expect(
+      shouldRevokeSessionsOnUserPatch({ role: "collector" }, { role: "collector", name: "Ana" })
+    ).toBe(false);
   });
 });

@@ -16,9 +16,10 @@ O middleware BFF lia `role` e `tenantId` apenas do documento Firestore `users/{u
 
 ## Consequências
 
-- Após provisionar/atualizar usuário, o client deve forçar refresh do ID token (`getIdToken(true)`) no próximo login ou após admin salvar o usuário.
+- Após provisionar/atualizar usuário com mudança de role/tenant/active, o BFF chama `revokeRefreshTokens` (ENT-04) e o middleware valida com `verifyIdToken(token, checkRevoked=true)`.
+- Client: `getIdToken(true)` no login, no foco da aba (throttle) e retry automático em `401 CLAIMS_STALE` (`SyncHttpClient` / `authFetch`).
 - Usuários criados só pelo fallback client (já bloqueado por rules `users` create:false) não recebem claims — o caminho suportado é a API admin.
-- Teste unitário `customClaims.test.ts` cobre “Firestore diz admin, claims dizem collector → collector”.
+- Teste unitário `customClaims.test.ts` cobre “Firestore diz admin, claims dizem collector → collector” e `shouldRevokeSessionsOnUserPatch`.
 
 ## Alternativa rejeitada (Opção B)
 

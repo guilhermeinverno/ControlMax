@@ -44,10 +44,11 @@ import customerRoutes from "./customerRoutes";
 import platformRoutes from "./platformRoutes";
 import reportRoutes from "./reportRoutes";
 import saasBillingRoutes from "./saasBillingRoutes";
+import { assistantRateLimit, financialRateLimit } from "./middleware/rateLimit";
 
-app.post("/api/gemini/assistant", authMiddleware, createAssistantHandler(ai, apiKey));
-app.use("/api/boxes", authMiddleware, boxRoutes);
-app.use("/api/transactions", authMiddleware, transactionRoutes);
+app.post("/api/gemini/assistant", authMiddleware, assistantRateLimit, createAssistantHandler(ai, apiKey));
+app.use("/api/boxes", authMiddleware, financialRateLimit, boxRoutes);
+app.use("/api/transactions", authMiddleware, financialRateLimit, transactionRoutes);
 app.use("/api/customers", authMiddleware, customerRoutes);
 app.use("/api/platform", authMiddleware, platformRoutes);
 app.use("/api/reports", authMiddleware, reportRoutes);

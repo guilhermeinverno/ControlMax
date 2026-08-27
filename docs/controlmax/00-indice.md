@@ -16,7 +16,7 @@
 - [07. Matriz de Usuários e Permissões (RBAC)](07-usuarios-e-permissoes.md)
 - [08. Modelo de Dados Base (Firestore)](08-modelo-de-dados.md)
 - [09. Arquitetura Proposta](09-arquitetura.md)
-- **[ARQUITETURA-SSOT — fonte canônica pós-piloto](../../documentation/ARQUITETURA-SSOT.md)**
+- **[ARQUITETURA-SSOT — fonte canônica pós-piloto](../arquitetura/ARQUITETURA-SSOT.md)**
 - [10. APIs e Serviços Backend](10-api.md)
 - [11. Segurança e Prevenção de Riscos](11-seguranca.md)
 - [ADR-001. Custom Claims (AUTH-01)](ADR-001-custom-claims.md)

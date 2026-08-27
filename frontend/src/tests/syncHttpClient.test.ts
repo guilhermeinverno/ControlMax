@@ -57,7 +57,7 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
 
     await expect(
       httpClient.request(HttpMethod.POST, '/api/boxes/open', { boxId: 'box-1' })
-    ).rejects.toThrow('Usuário não autenticado no Firebase Auth para envio da requisição (auth.currentUser é null).');
+    ).rejects.toThrow('Usuário não autenticado no Firebase Auth (auth.currentUser é null).');
 
     // Garante que o fetch NÃO foi chamado sem o token
     expect(globalFetchMock).not.toHaveBeenCalled();

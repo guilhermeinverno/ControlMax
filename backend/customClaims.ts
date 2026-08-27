@@ -2,6 +2,8 @@ export interface ControlMaxClaims {
   role: string;
   tenantId: string;
   isSuperAdmin: boolean;
+  /** Epoch ms — muda a cada sync de claims (ENT-04). */
+  claimsVersion?: number;
 }
 
 export interface ResolvedAuthProfile {
@@ -11,30 +13,76 @@ export interface ResolvedAuthProfile {
   source: "claims" | "firestore";
 }
 
+export interface SyncClaimsOptions {
+  /**
+   * Invalida refresh tokens do usuário (força re-login / getIdToken(true)).
+   * Default: true. Use false em updates que não alteram role/tenant/active.
+   */
+  revokeSessions?: boolean;
+}
+
 type TokenLike = {
   role?: unknown;
   tenantId?: unknown;
   isSuperAdmin?: unknown;
+  claimsVersion?: unknown;
 };
 
 /**
- * Sincroniza Custom Claims Firebase Auth (AUTH-01 Opção A).
- * O client precisa renovar o ID token após a atualização para refletir as claims.
+ * Sincroniza Custom Claims Firebase Auth (AUTH-01 Opção A + ENT-04).
+ * Após sync com revokeSessions, o client precisa `getIdToken(true)`.
  */
 export async function syncUserCustomClaims(
   uid: string,
-  input: { role: string; tenantId: string; isSuperAdmin?: boolean }
-): Promise<void> {
+  input: { role: string; tenantId: string; isSuperAdmin?: boolean },
+  options: SyncClaimsOptions = {}
+): Promise<{ claimsVersion: number; sessionsRevoked: boolean }> {
   const { adminAuth } = await import("./authMiddleware");
   const role = String(input.role || "collector");
   const tenantId = String(input.tenantId || "");
   const isSuperAdmin = input.isSuperAdmin === true || role.toLowerCase() === "superadmin";
+  const claimsVersion = Date.now();
+  const revokeSessions = options.revokeSessions !== false;
 
   await adminAuth.setCustomUserClaims(uid, {
     role,
     tenantId,
     isSuperAdmin,
+    claimsVersion,
   });
+
+  if (revokeSessions) {
+    await adminAuth.revokeRefreshTokens(uid);
+  }
+
+  return { claimsVersion, sessionsRevoked: revokeSessions };
+}
+
+/**
+ * Detecta se o patch administrativo exige invalidar sessões (role/tenant/active).
+ */
+export function shouldRevokeSessionsOnUserPatch(
+  oldData: Record<string, unknown>,
+  patch: Record<string, unknown>
+): boolean {
+  const securityFields = ["role", "roleId", "active", "isSuperAdmin", "permissions", "tenantId"] as const;
+  for (const field of securityFields) {
+    if (!Object.prototype.hasOwnProperty.call(patch, field)) continue;
+    if (field === "permissions") {
+      try {
+        if (JSON.stringify(oldData.permissions ?? null) !== JSON.stringify(patch.permissions ?? null)) {
+          return true;
+        }
+      } catch {
+        return true;
+      }
+      continue;
+    }
+    if (String(oldData[field] ?? "") !== String(patch[field] ?? "")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**

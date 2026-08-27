@@ -1,7 +1,7 @@
 import { Router, Response } from "express";
 import { adminDb, adminAuth, AuthenticatedRequest } from "./authMiddleware";
 import { FieldValue } from "firebase-admin/firestore";
-import { syncUserCustomClaims } from "./customClaims";
+import { syncUserCustomClaims, shouldRevokeSessionsOnUserPatch } from "./customClaims";
 import { logAuditEvent } from "./services/auditService";
 import { assertPermission } from "./roleRoutes";
 import { parseMonthlyPriceCents } from "./saasBillingRoutes";
@@ -118,13 +118,17 @@ router.post("/users", validateBody(createUserBodySchema), async (req: Authentica
 
     await userDocRef.set(userPayload, { merge: true });
 
-    // AUTH-01: sincroniza Custom Claims (role/tenantId) — fonte de verdade do BFF
+    // AUTH-01 + ENT-04: claims + revoga sessões ao provisionar (sem sessão prévia = no-op útil)
     try {
-      await syncUserCustomClaims(uid, {
-        role: targetRole,
-        tenantId: targetTenantId,
-        isSuperAdmin: targetIsSuper,
-      });
+      await syncUserCustomClaims(
+        uid,
+        {
+          role: targetRole,
+          tenantId: targetTenantId,
+          isSuperAdmin: targetIsSuper,
+        },
+        { revokeSessions: true }
+      );
     } catch (claimsErr) {
       console.error("Falha ao sincronizar Custom Claims (usuário salvo no Firestore):", claimsErr);
     }
@@ -134,6 +138,7 @@ router.post("/users", validateBody(createUserBodySchema), async (req: Authentica
       uid,
       user: { ...userPayload, id: uid },
       claimsSynced: true,
+      sessionsRevoked: true,
     });
   } catch (error: any) {
     console.error("Erro na criação administrativa de usuário:", error);
@@ -218,12 +223,23 @@ router.put("/users/:id", validateBody(updateUserBodySchema), async (req: Authent
     const newSnap = await userDocRef.get();
     const newData = newSnap.data() || {};
 
+    const revokeSessions = shouldRevokeSessionsOnUserPatch(
+      oldData as Record<string, unknown>,
+      patch
+    );
+
+    let sessionsRevoked = false;
     try {
-      await syncUserCustomClaims(targetUid, {
-        role: String(newData.role || "collector"),
-        tenantId: String(newData.tenantId || operator.tenantId),
-        isSuperAdmin: newData.isSuperAdmin === true,
-      });
+      const syncResult = await syncUserCustomClaims(
+        targetUid,
+        {
+          role: String(newData.role || "collector"),
+          tenantId: String(newData.tenantId || operator.tenantId),
+          isSuperAdmin: newData.isSuperAdmin === true,
+        },
+        { revokeSessions }
+      );
+      sessionsRevoked = syncResult.sessionsRevoked;
     } catch (claimsErr) {
       console.error("Falha claims no PUT users:", claimsErr);
     }
@@ -240,7 +256,12 @@ router.put("/users/:id", validateBody(updateUserBodySchema), async (req: Authent
       reason: req.body?.reason ? String(req.body.reason) : "Atualização administrativa de usuário",
     });
 
-    return res.json({ success: true, uid: targetUid, user: { id: targetUid, ...newData } });
+    return res.json({
+      success: true,
+      uid: targetUid,
+      user: { id: targetUid, ...newData },
+      sessionsRevoked,
+    });
   } catch (error: any) {
     console.error("Erro PUT /admin/users:", error);
     return res.status(500).json({ error: error.message || "Erro ao atualizar usuário." });
