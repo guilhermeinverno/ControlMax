@@ -3,6 +3,8 @@ import { adminDb, AuthenticatedRequest } from "./authMiddleware";
 import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
 import { assertUnitAssignedToUser, getUserAssignedUnits, isPrivilegedUnitRole } from "./userUnitAccess";
+import { validateBody } from "./middleware/validateBody";
+import { closeBoxBodySchema, openBoxBodySchema } from "./schemas/boxes";
 
 const router = Router();
 
@@ -30,7 +32,7 @@ function statusFromErrorMessage(message: string): number {
 }
 
 // 1. Abertura de Caixa
-router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/open", validateBody(openBoxBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -38,14 +40,6 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
 
   const { unitId, unitName, cnId, cnName, initialAmount, observation, date } = req.body;
   const { tenantId, uid: userId, name: userName, role } = req.user;
-
-  if (!unitId || !cnId || !date || initialAmount === undefined) {
-    return res.status(400).json({ error: "Campos obrigatórios ausentes." });
-  }
-
-  if (!isValidBoxAmount(initialAmount)) {
-    return res.status(400).json({ error: "Valor inicial inválido (deve ser um número maior ou igual a zero)." });
-  }
 
   try {
     const result = await adminDb.runTransaction(async (transaction) => {
@@ -83,7 +77,7 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
       }
 
       const boxRef = boxesRef.doc();
-      const amountInCents = Math.round(Number(initialAmount));
+      const amountInCents = initialAmount;
 
       const boxPayload = {
         tenantId,
@@ -128,7 +122,7 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 2. Fechamento de Caixa
-router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/close", validateBody(closeBoxBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -136,14 +130,6 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
 
   const { boxId, realFinalAmount } = req.body;
   const { tenantId, uid: userId } = req.user;
-
-  if (!boxId || realFinalAmount === undefined) {
-    return res.status(400).json({ error: "Campos obrigatórios ausentes." });
-  }
-
-  if (!isValidBoxAmount(realFinalAmount)) {
-    return res.status(400).json({ error: "Valor final real inválido (deve ser um número maior ou igual a zero)." });
-  }
 
   try {
     const result = await adminDb.runTransaction(async (transaction) => {

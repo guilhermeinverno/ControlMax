@@ -7,26 +7,34 @@ export class OpenBoxExecutor implements OperationHandler<OpenBoxPayload, OpenBox
   constructor(private readonly httpClient: SyncHttpClient) {}
 
   async execute(payload: OpenBoxPayload): Promise<OpenBoxResponse> {
-    // Validações defensivas
     if (!payload.tenantId) {
       throw new Error("Validation Error: tenantId is required");
     }
-    if (!payload.boxId) {
-      throw new Error("Validation Error: boxId is required");
+    if (!payload.unitId) {
+      throw new Error("Validation Error: unitId is required");
     }
-    if (!payload.collectorId) {
-      throw new Error("Validation Error: collectorId is required");
+    if (!payload.cnId) {
+      throw new Error("Validation Error: cnId is required");
     }
-    if (payload.initialBalanceCents < 0) {
-      throw new Error("Validation Error: initialBalanceCents must be greater than or equal to 0");
+    if (!payload.date) {
+      throw new Error("Validation Error: date is required");
+    }
+    const initialAmount = payload.initialAmount ?? payload.initialBalanceCents;
+    if (initialAmount === undefined || initialAmount < 0) {
+      throw new Error("Validation Error: initialAmount must be greater than or equal to 0");
     }
 
-    // Chamada BFF
-    return await this.httpClient.request<OpenBoxResponse, any>(
+    return await this.httpClient.request<OpenBoxResponse, Record<string, unknown>>(
       HttpMethod.POST,
       "/api/boxes/open",
       {
-        ...payload,
+        unitId: payload.unitId,
+        unitName: payload.unitName || "",
+        cnId: payload.cnId,
+        cnName: payload.cnName || "",
+        initialAmount,
+        observation: payload.observation || "",
+        date: payload.date,
         idempotencyKey: payload.id,
       },
       {

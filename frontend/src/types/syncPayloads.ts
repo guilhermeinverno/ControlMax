@@ -54,27 +54,38 @@ export interface PaymentResponse {
 export interface OpenBoxPayload {
   id: string;
   tenantId: string;
-  boxId: string;
-  collectorId: string;
-  initialBalanceCents: number;
-  openedAt: string;
+  /** Unidade operacional (contrato BFF `/api/boxes/open`). */
+  unitId: string;
+  unitName?: string;
+  cnId: string;
+  cnName?: string;
+  initialAmount: number;
+  observation?: string;
+  date: string;
+  openedAt?: string;
+  /** @deprecated legado Sync; preferir unitId/cnId/date/initialAmount */
+  boxId?: string;
+  collectorId?: string;
+  initialBalanceCents?: number;
 }
 
 export interface OpenBoxResponse {
   success: boolean;
   boxId: string;
-  openedAt: string;
-  status: string;
+  openedAt?: string;
+  status?: string;
 }
 
 export interface CloseBoxPayload {
   id: string;
   tenantId: string;
   boxId: string;
-  collectorId: string;
-  finalBalanceCents: number;
+  realFinalAmount: number;
   notes?: string;
-  closedAt: string;
+  closedAt?: string;
+  /** @deprecated legado Sync */
+  collectorId?: string;
+  finalBalanceCents?: number;
 }
 
 export interface CloseBoxResponse {

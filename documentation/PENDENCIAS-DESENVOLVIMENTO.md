@@ -3,131 +3,125 @@
 **Data da análise:** 27/08/2026  
 **Branch ativa:** `merged-dev-fabio`  
 **Fontes cruzadas:**
+- [`guia-controlmax.md`](./guia-controlmax.md) — evolução enterprise
+- [`ARQUITETURA-SSOT.md`](./ARQUITETURA-SSOT.md) — SSOT arquitetural
 - [`docs/comparativo/backlog-piloto.md`](../docs/comparativo/backlog-piloto.md)
 - [`docs/controlmax/14-roadmap.md`](../docs/controlmax/14-roadmap.md)
 - [`PLANO-DESENVOLVIMENTO.md`](./PLANO-DESENVOLVIMENTO.md)
 
-> Código do piloto (Fases 0–5 + residual UI/CTX) na branch.  
-> **Deploy rules/indexes e QA de campo** ficam com outro desenvolvedor / ops.
+> **Piloto (código):** Fases 0–5 + P1/P2 entregues.  
+> **Gate GO:** ainda depende de ops/QA.  
+> **Próximo ciclo de código:** evolução enterprise do guia (§6).
 
 ---
 
 ## 1. Resumo executivo
 
-| Prioridade | Implementado (código) | Parcial / ops (outro time) | Ausente código |
-|------------|----------------------:|---------------------------:|---------------:|
-| **P0** (piloto) | 10 | 2 (deploy + SYNC/QA) | 0 |
-| **P1** | 5 | 0 | 0 |
-| **P2** | 5 | 0 | 0 |
-| **CLEAN** | 3 | 0 | 0 |
-
-**Veredito código:** pronto para Gate. **Go/No-go** depende de deploy + assinaturas QA (fora desta lane).
+| Faixa | Implementado (código) | Aberto |
+|-------|----------------------:|--------|
+| **Piloto P0–P2 + CLEAN** | Tudo | 0 feature |
+| **Gate (ops/QA)** | Checklists prontos | Deploy + SYNC-01 + QA regressivo |
+| **Enterprise (guia)** | Zod (ENT-01) | Ledger sombra → rate limit → … |
 
 ---
 
-## 2. Matriz P0 — obrigatório para piloto
+## 2. Gate Piloto — ainda aberto (outro desenvolvedor)
 
-| # | Item | Status | Pendência restante |
-|---|------|--------|--------------------|
-| 1 | Remover bypasses auth | ✅ | — |
-| 2 | Auth + RBAC BFF + Claims | ✅ | Script backfill: `backend/scripts/backfillCustomClaims.ts` |
-| 3 | Hierarquia Sociedade→CN→Unidade | ✅ piloto | CRUD multi-sociedade adiado |
-| 4 | Seletor global header | ✅ | Mais telas ligadas ao GlobalContext |
-| 5 | API caixa open/close/confirm | ✅ | — |
-| 6 | Vendas/cobranças BFF + centavos | ✅ | Deploy rules (ops) |
-| 7 | Idempotência | ✅ | — |
-| 8 | Sync Manager | ✅ | Homologação campo (QA) |
-| 9 | Auditoria UI | ✅ | Deploy índices (ops) |
-| 10 | Cadastro + lista negra + unidades | ✅ | — |
+| # | Item | Doc |
+|---|------|-----|
+| 1 | Deploy `firestore.rules` + `firestore.indexes.json` | [`DEPLOY-FIRESTORE-GATE.md`](./DEPLOY-FIRESTORE-GATE.md) |
+| 2 | Homologação SyncManager em dispositivo | [`SYNC-01-CHECKLIST-QA.md`](./SYNC-01-CHECKLIST-QA.md) |
+| 3 | QA regressivo (caixa, sale, collection, multi-tenant) | [`GATE-PILOTO-QA.md`](./GATE-PILOTO-QA.md) |
 
-### Critérios Gate (ops / QA — outro desenvolvedor)
-
-- [ ] Deploy `firestore.rules` + indexes — [`DEPLOY-FIRESTORE-GATE.md`](./DEPLOY-FIRESTORE-GATE.md)
-- [ ] SYNC-01 — [`SYNC-01-CHECKLIST-QA.md`](./SYNC-01-CHECKLIST-QA.md)
-- [ ] QA regressivo — [`GATE-PILOTO-QA.md`](./GATE-PILOTO-QA.md)
+**Ops residual (opcional pós-deploy):** executar `npm run backfill:claims` nos usuários legados.
 
 ---
 
-## 3. Matriz P1 — importante
+## 3. Piloto — matriz (código ✅)
 
-| # | Item | Status |
-|---|------|--------|
-| 1 | Lista negra | ✅ |
-| 2 | Transfers BFF | ✅ |
-| 3 | Hub relatórios | ✅ (async → P2) |
-| 4 | Devices sync/log | ✅ |
+| Prioridade | Itens | Status |
+|------------|-------|--------|
+| **P0** | SEC, FIN, CTX, AUTH, AUD, Sync (código), caixas, centavos, idempotência | ✅ |
+| **P1** | Lista negra, transfers BFF, hub reports, devices | ✅ |
+| **P2** | Aprovações, mass open/close, forms/feriados, reports async, SaaS billing | ✅ |
+| **CLEAN** | fmtCents, resolvePendingCents, docs | ✅ |
 
----
-
-## 4. Matriz P2 — desejável (próximo código)
-
-| # | Item | Status |
-|---|------|--------|
-| 1 | Aprovações transfers | ✅ |
-| 2 | SaaS billing / seguros | ✅ cobrança direta + faturas `saas_invoices`; seguros OK |
-| 3 | Mass open/close | ✅ |
-| 4 | Forms / feriados | ✅ |
-| 5 | Fila assíncrona de relatórios | ✅ BFF `/api/reports/jobs` + UI no `ReportsHub` |
+Adiados de propósito: CRUD multi-sociedade; locales pontuais; `formatToBRL` (unidade major).
 
 ---
 
-## 5. Fase 5 — limpeza
+## 4. Evolução Enterprise — pendências de código (guia §5–§6)
 
-| ID | Status | Notas |
-|----|--------|-------|
-| CLEAN-01 | ✅ | `fmtCents` em `currency.ts` |
-| CLEAN-02 | ✅ | `resolvePendingCents` |
-| CLEAN-03 | ✅ | docs oficiais |
+Ordenadas por risco / sequenciamento do guia:
+
+| ID | Item | Prioridade | Origem guia | Status |
+|----|------|------------|-------------|--------|
+| `ENT-01` | Validação **Zod** nos DTOs do BFF (transactions, boxes, admin) | P0 pós-gate | §5.2 / §6.1 | ✅ |
+| `ENT-02` | **Ledger** append-only em **modo sombra** (paralelo ao estado por documento) | P0 financeiro | §5.1 / §3.3 / §6.2 | ⬜ |
+| `ENT-03` | **Rate limiting** em `/api/transactions/*`, `/api/boxes/*`, `/api/gemini/assistant` | P0 segurança | §5.3 / §6.3 | ⬜ |
+| `ENT-04` | Claims: **force refresh / revogação** de sessão após mudança de role | P1 | §5.4 | ⬜ |
+| `ENT-05` | Testes automatizados de **conflito SyncManager** (duplo enqueue, edição concorrente) | P1 | §5.5 | ⬜ |
+| `ENT-06` | Infra como Código (**Terraform**) | P2 ops | §6.5 | ⬜ |
+| `ENT-07` | **RAG** no assistente (após medir custo/latência do contexto bruto) | P2 IA | §5.6 / §6.6 | ⬜ |
+| `ENT-08` | Dashboards analíticos sobre `audit_logs` | P2 | §2 Auditoria | ⬜ |
+| `ENT-09` | Double-entry **cutover** (só após sombra estável) | P2 | §3.3 | ⬜ |
+
+### UX residual (guia §4)
+
+| Item | Status |
+|------|--------|
+| Erro BFF sem fechar modal (amostras críticas) | ✅ parcial (RegisterPayment, clientes, platform) |
+| ErrorBoundary local por módulo crítico | ⬜ mapear e completar |
+| Empty states + retry em todas as listagens | ⬜ gradual |
 
 ---
 
-## 6. Dívidas técnicas
+## 5. Dívidas técnicas remanescentes
 
 | Tema | Status |
 |------|--------|
-| Locales especiais (`es-CO` / `en-US` pontuais) | Mantidos de propósito |
-| `formatToBRL` (unidade major) | Fora do `fmtCents` |
-| Hardcoded stats Layout collector | ✅ removidos (zeros reais) |
-| Demo stub `getDemoUser()` | Retorna `null` (modo demo off) |
-| Seletor global em telas órfãs | ✅ BoxSummary, Summary, CloseBox, DeviceList, RouteList, EditDevice |
-| Fila assíncrona de relatórios | P2 — próximo |
+| Locales `es-CO` / `en-US` pontuais | Mantidos de propósito |
+| `formatToBRL` (não cents) | Fora do `fmtCents` |
+| `getDemoUser()` → null | OK (demo off) |
+| GlobalContext em 100% das telas | Gradual (já: BoxSummary, Summary, CloseBox, devices, routes, OpenBox, Dashboard) |
+| Docs satélite vs SSOT | SSOT canônico; `ARQUITETURA.md` = ponte |
 
 ---
 
-## 7. Ordem recomendada
+## 6. Ordem recomendada
 
-**Esta lane (código):**
-1. ~~P2-05 fila reports~~ ✅ · ~~P2-02 SaaS billing direto~~ ✅
-2. Commit/PR no fim da sessão quando solicitado.
-
-**Outro desenvolvedor:**
-1. Deploy Firestore ([`DEPLOY-FIRESTORE-GATE.md`](./DEPLOY-FIRESTORE-GATE.md)).
-2. QA Gate + SYNC-01.
+1. **Ops/QA:** deploy rules/indexes → Gate QA → SYNC-01.  
+2. **Código:** `ENT-02` ledger sombra → `ENT-03` rate limit (pode ir em paralelo).  
+3. Depois: `ENT-04` revogação claims → `ENT-05` testes Sync → `ENT-08` analytics audit → `ENT-06` Terraform → `ENT-07` RAG se métricas pedirem → `ENT-09` cutover ledger.
 
 ---
 
-## 8. Notas de execução
+## 7. Notas de execução
 
 | Data | Nota |
 |------|------|
-| 27/08/2026 | Fases 0–5 + RBAC + audit parity + `usuario_unidades` UI. |
-| 27/08/2026 | Pacote Gate docs (deploy/QA) — execução ops em outra lane. |
-| 27/08/2026 | Dívidas: Layout stats + CTX gradual + script `backfillCustomClaims`. |
-| 27/08/2026 | P2 fila reports: `reportRoutes` + `ReportsHub` async + rules/index `report_jobs`. |
-| 27/08/2026 | P2 SaaS billing: `saas_invoices` + BFF mark-paid + MRR contratado no SuperAdmin. |
+| 27/08/2026 | Piloto código fechado (Fases 0–5, P1/P2, RBAC, audit, SaaS, reports async). |
+| 27/08/2026 | SSOT `ARQUITETURA-SSOT.md`. |
+| 27/08/2026 | `guia-controlmax.md` alinhado: RBAC/Audit = feitos; roadmap ENT-01…09 + Gate ops. |
+| 27/08/2026 | **ENT-01** Zod nos DTOs P0 (`sale`/`collection`/`reversal`/`open`/`close`/`users`) + Sync open/close alinhado ao BFF. |
 
 ---
 
-## 9. Checklist rápido
+## 8. Checklist rápido
 
 ```
-[x] SEC / FIN / CTX / AUTH / AUD / P1 (código)
-[x] CLEAN-01/02/03
-[x] UserList: usuario_unidades
-[x] Layout stats sem fallbacks mágicos
-[x] GlobalContext em telas-chave (BoxSummary, Summary, CloseBox, devices, routes)
-[x] Script backfill claims
-[x] P2 fila assíncrona de relatórios
-[x] P2 SaaS billing (faturas manuais + MRR)
-[ ] Deploy / SYNC-01 / QA Gate → outro desenvolvedor
+[x] Piloto P0–P2 + CLEAN (código)
+[x] SSOT arquitetura
+[ ] Gate: deploy rules/indexes
+[ ] Gate: SYNC-01 assinado
+[ ] Gate: QA regressivo
+[x] ENT-01 Zod DTOs BFF
+[ ] ENT-02 Ledger sombra
+[ ] ENT-03 Rate limiting
+[ ] ENT-04 Revogação claims / force refresh
+[ ] ENT-05 Testes conflito Sync
+[ ] ENT-06 Terraform
+[ ] ENT-07 RAG (condicional)
+[ ] ENT-08 Audit analytics
+[ ] ENT-09 Ledger cutover
 ```

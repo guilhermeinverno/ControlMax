@@ -4,6 +4,12 @@ import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } f
 import { FieldValue } from "firebase-admin/firestore";
 import { requirePermission } from "./roleRoutes";
 import { logAuditEvent } from "./services/auditService";
+import { validateBody } from "./middleware/validateBody";
+import {
+  collectionBodySchema,
+  reversalBodySchema,
+  saleBodySchema,
+} from "./schemas/transactions";
 
 const router = Router();
 
@@ -13,14 +19,14 @@ function isManager(role: string): boolean {
   return ['gerente', 'supervisor', 'admin', 'superadmin', 'director', 'coordinador'].includes(roleLower);
 }
 
-// Helper para validar valor monetário em centavos
+// Helper para validar valor monetário em centavos (rotas ainda sem schema Zod)
 function isValidAmount(val: any): boolean {
   const n = Number(val);
   return Number.isFinite(n) && n > 0;
 }
 
 // 1. Registro de Venda (Sale)
-router.post("/sale", requirePermission("sales", "create"), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/sale", requirePermission("sales", "create"), validateBody(saleBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -39,19 +45,7 @@ router.post("/sale", requirePermission("sales", "create"), async (req: Authentic
     frequency
   } = req.body;
   const { tenantId, uid: userId, name: userName } = req.user;
-
-  if (!clientId || !clientName || amountCents === undefined || installmentAmountCents === undefined || !totalInstallments || !date) {
-    return res.status(400).json({ error: "Campos obrigatórios ausentes." });
-  }
-
-  if (!isValidAmount(amountCents) || !isValidAmount(installmentAmountCents)) {
-    return res.status(400).json({ error: "Valores monetários inválidos. Devem ser números finitos maiores que zero." });
-  }
-
-  const parsedTotalInstallments = Number(totalInstallments);
-  if (!Number.isInteger(parsedTotalInstallments) || parsedTotalInstallments <= 0) {
-    return res.status(400).json({ error: "Quantidade de parcelas inválida." });
-  }
+  const parsedTotalInstallments = totalInstallments;
 
   // P1-01: bloqueio por lista negra
   try {
@@ -99,8 +93,8 @@ router.post("/sale", requirePermission("sales", "create"), async (req: Authentic
       const boxId = boxDoc.id;
 
       const saleRef = adminDb.collection("sales").doc();
-      const parsedAmount = Math.round(Number(amountCents));
-      const parsedInstallmentAmount = Math.round(Number(installmentAmountCents));
+      const parsedAmount = amountCents;
+      const parsedInstallmentAmount = installmentAmountCents;
 
       const salePayload = {
         tenantId,
@@ -161,7 +155,7 @@ router.post("/sale", requirePermission("sales", "create"), async (req: Authentic
 });
 
 // 2. Registro de Recebimento (Collection)
-router.post("/collection", requirePermission("collections", "create"), async (req: AuthenticatedRequest, res: Response) => {
+router.post("/collection", requirePermission("collections", "create"), validateBody(collectionBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -169,16 +163,7 @@ router.post("/collection", requirePermission("collections", "create"), async (re
 
   const { saleId, amountCents, paymentMethod, comment } = req.body;
   const { tenantId, uid: userId, name: userName } = req.user;
-
-  if (!saleId || amountCents === undefined || !paymentMethod) {
-    return res.status(400).json({ error: "Campos obrigatórios ausentes para recebimento." });
-  }
-
-  const parsedAmount = Math.round(Number(amountCents));
-  // Permite 0 para visita sem pagamento (no-payment); rejeita apenas valores inválidos/negativos.
-  if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
-    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior ou igual a zero." });
-  }
+  const parsedAmount = amountCents;
 
   try {
     const result = await adminDb.runTransaction(async (transaction) => {
@@ -459,7 +444,7 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 4. Estorno (Reversal)
-router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/reversal", validateBody(reversalBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -467,10 +452,6 @@ router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
 
   const { originalTransactionId, reason } = req.body;
   const { tenantId, uid: userId, email: userEmail, role } = req.user;
-
-  if (!originalTransactionId || !reason) {
-    return res.status(400).json({ error: "Campos obrigatórios ausentes (originalTransactionId, reason)." });
-  }
 
   if (!isManager(role)) {
     return res.status(403).json({ error: "Acesso negado: Apenas supervisores ou administradores podem estornar transações." });

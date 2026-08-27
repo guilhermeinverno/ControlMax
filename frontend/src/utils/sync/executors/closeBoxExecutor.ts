@@ -7,26 +7,23 @@ export class CloseBoxExecutor implements OperationHandler<CloseBoxPayload, Close
   constructor(private readonly httpClient: SyncHttpClient) {}
 
   async execute(payload: CloseBoxPayload): Promise<CloseBoxResponse> {
-    // Validações defensivas
     if (!payload.tenantId) {
       throw new Error("Validation Error: tenantId is required");
     }
     if (!payload.boxId) {
       throw new Error("Validation Error: boxId is required");
     }
-    if (!payload.collectorId) {
-      throw new Error("Validation Error: collectorId is required");
-    }
-    if (payload.finalBalanceCents < 0) {
-      throw new Error("Validation Error: finalBalanceCents must be greater than or equal to 0");
+    const realFinalAmount = payload.realFinalAmount ?? payload.finalBalanceCents;
+    if (realFinalAmount === undefined || realFinalAmount < 0) {
+      throw new Error("Validation Error: realFinalAmount must be greater than or equal to 0");
     }
 
-    // Chamada BFF
-    return await this.httpClient.request<CloseBoxResponse, any>(
+    return await this.httpClient.request<CloseBoxResponse, Record<string, unknown>>(
       HttpMethod.POST,
       "/api/boxes/close",
       {
-        ...payload,
+        boxId: payload.boxId,
+        realFinalAmount,
         idempotencyKey: payload.id,
       },
       {

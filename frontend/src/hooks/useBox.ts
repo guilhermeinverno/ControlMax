@@ -31,13 +31,15 @@ export function useBox() {
     subscription.setError(null);
 
     try {
-      const boxId = crypto.randomUUID();
       await offlineOpenBox({
         tenantId,
-        boxId,
-        collectorId: userId,
-        initialBalanceCents: params.initialAmount,
-        openedAt: new Date().toISOString(),
+        unitId: params.unitId,
+        unitName: params.unitName,
+        cnId: params.cnId,
+        cnName: params.cnName,
+        initialAmount: params.initialAmount,
+        observation: params.observation,
+        date: params.date,
       });
       subscription.setLoading(false);
     } catch (err) {
@@ -55,14 +57,11 @@ export function useBox() {
     subscription.setError(null);
 
     try {
-      const userId = auth?.currentUser?.uid || subscription.activeBox.userId;
       await offlineCloseBox({
         tenantId,
         boxId: subscription.activeBox.id,
-        collectorId: userId,
-        finalBalanceCents: realFinalAmount,
+        realFinalAmount,
         notes: '',
-        closedAt: new Date().toISOString(),
       });
       subscription.setLoading(false);
     } catch (err) {

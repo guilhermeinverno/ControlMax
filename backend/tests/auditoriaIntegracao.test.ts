@@ -254,7 +254,7 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       const res = await fetch(`${baseUrl}/api/boxes/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ idempotencyKey: "test-confirm-missing-boxid" }),
       });
       expect(res.status).toBe(400);
       const data = await res.json();
@@ -287,7 +287,8 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       });
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe("Valor inicial inválido (deve ser um número maior ou igual a zero).");
+      expect(data.code).toBe("VALIDATION_ERROR");
+      expect(data.error).toMatch(/inválido|maior ou igual/i);
     });
 
     test("4.2. POST /api/boxes/open rejeita initialAmount negativo (-100) (400)", async () => {
@@ -301,7 +302,8 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       });
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe("Valor inicial inválido (deve ser um número maior ou igual a zero).");
+      expect(data.code).toBe("VALIDATION_ERROR");
+      expect(data.error).toMatch(/inválido|maior ou igual/i);
     });
 
     test("4.3. POST /api/boxes/close rejeita realFinalAmount = 'abc' ou negativo (-50) (400)", async () => {
@@ -313,7 +315,8 @@ describe("Suíte Completa de Testes de Integração — Concorrência, Idempotê
       });
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe("Valor final real inválido (deve ser um número maior ou igual a zero).");
+      expect(data.code).toBe("VALIDATION_ERROR");
+      expect(data.error).toMatch(/inválido|maior ou igual/i);
     });
 
     test("4.4. POST /api/boxes/open aceita initialAmount = 0 normalmente", async () => {

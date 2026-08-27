@@ -5,11 +5,13 @@ import { syncUserCustomClaims } from "./customClaims";
 import { logAuditEvent } from "./services/auditService";
 import { assertPermission } from "./roleRoutes";
 import { parseMonthlyPriceCents } from "./saasBillingRoutes";
+import { validateBody } from "./middleware/validateBody";
+import { createUserBodySchema, updateUserBodySchema } from "./schemas/users";
 
 const router = Router();
 
 // POST /api/admin/users - Criação/Atualização administrativa de usuários via Admin SDK
-router.post("/users", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/users", validateBody(createUserBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const operator = req.user;
@@ -34,11 +36,7 @@ router.post("/users", async (req: AuthenticatedRequest, res: Response) => {
     document,
   } = req.body;
 
-  if (!email) {
-    return res.status(400).json({ error: "O e-mail é obrigatório." });
-  }
-
-  const emailLower = String(email).trim().toLowerCase();
+  const emailLower = email;
   const targetTenantId = isSuper ? (reqTenantId || operator.tenantId) : operator.tenantId;
 
   if (!targetTenantId) {
@@ -144,7 +142,7 @@ router.post("/users", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 /** PUT /api/admin/users/:id — atualização administrativa com auditoria */
-router.put("/users/:id", async (req: AuthenticatedRequest, res: Response) => {
+router.put("/users/:id", validateBody(updateUserBodySchema), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const operator = req.user;
@@ -188,7 +186,7 @@ router.put("/users/:id", async (req: AuthenticatedRequest, res: Response) => {
 
     const patch: Record<string, unknown> = { updatedAt: FieldValue.serverTimestamp() };
     for (const field of allowed) {
-      if (Object.prototype.hasOwnProperty.call(req.body || {}, field)) {
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, field) && req.body[field] !== undefined) {
         if (field === "usuario_unidades") {
           patch.usuario_unidades = Array.isArray(req.body.usuario_unidades)
             ? req.body.usuario_unidades.map((id: unknown) => String(id)).filter(Boolean)

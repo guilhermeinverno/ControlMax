@@ -366,7 +366,8 @@ describe("Suíte Completa de Testes da Fase 2 — BFF, Idempotência, Transaçõ
       });
       expect(res.status).toBe(400);
       const data = await res.json();
-      expect(data.error).toBe("Campos obrigatórios ausentes (originalTransactionId, reason).");
+      expect(data.code).toBe("VALIDATION_ERROR");
+      expect(data.details?.some((d: { path: string }) => d.path.includes("originalTransactionId"))).toBe(true);
     });
   });
 

@@ -1,162 +1,106 @@
-```markdown
 # Guia de Funcionalidades e Evolução Arquitetural — ControlMax
 
 Documento consolidado com o ecossistema de funcionalidades já entregues no ControlMax e o plano de evolução para maturidade SaaS Enterprise.
+
+**Fontes cruzadas:** [`ARQUITETURA-SSOT.md`](./ARQUITETURA-SSOT.md) · [`PENDENCIAS-DESENVOLVIMENTO.md`](./PENDENCIAS-DESENVOLVIMENTO.md) · [`PLANO-DESENVOLVIMENTO.md`](./PLANO-DESENVOLVIMENTO.md)
 
 ---
 
 ## 1. Mapeamento de Funcionalidades Existentes
 
 ### 1.1 Núcleo Operacional e Financeiro
-* **Gestão de Caixas (BFF + Sync):** Abertura, fechamento, confirmação e resumos operacionais. Fluxo controlado pelo servidor com suporte a transações e regras estritas de conciliação.
-* **Motor de Vendas e Cobranças:** Registro de vendas, pagamentos de parcelas, visitas sem pagamento (*no-payment*) e estornos. Operações tratadas via endpoints dedicados do BFF.
-* **Garantia de Centavos:** Armazenamento rigoroso de valores monetários como números inteiros em centavos em todo o pipeline e banco de dados, convertendo para moeda legível apenas no front-end.
-* **Mecanismo de Idempotência:** Prevenção contra cobranças e registros duplicados utilizando chaves de idempotência (`x-idempotency-key`) no cabeçalho e corpo das requisições financeiras.
+* **Gestão de Caixas (BFF + Sync):** Abertura, fechamento, confirmação e resumos. Fluxo controlado pelo servidor (`/api/boxes/*`) com SyncManager offline.
+* **Motor de Vendas e Cobranças:** Vendas, pagamentos, visitas *no-payment* e estornos via `/api/transactions/*`.
+* **Garantia de Centavos:** Inteiros em todo o pipeline; exibição via `fmtCents` / `currency.ts`.
+* **Idempotência:** `X-Idempotency-Key` + body em mutações financeiras.
 
 ### 1.2 Resiliência e Operação Offline
-* **Sync Manager (IndexedDB):** Executores locais que capturam transações quando o dispositivo perde conectividade, mantendo uma fila resiliável que sincroniza com o BFF assim que a rede é restabelecida.
-* **Indicadores Visuais de Conectividade:** Status de fila de sincronização com badges na interface em tempo real.
+* **Sync Manager (IndexedDB):** Fila `openBox` / `closeBox` / `sale` / `payment` / … → executors → BFF.
+* **Indicadores:** `SyncStatusBadge` na UI.
 
-### 1.3 Entidades do Sistema e Administração
-* **Gestão Multi-tenant:** Isolamento lógico de dados com a obrigatoriedade da propriedade `tenantId` em todas as consultas e escritas, reforçado por `firestore.rules`.
-* **Hierarquia Organizacional:** Estruturação de centros de negócio (*Business Centers*) e vínculo de usuários por unidades operacionais (`usuario_unidades`).
-* **Clientes e Formulários Dinâmicos:** Cadastro completo com anexos/referências, formulários configuráveis via builder e modal de preenchimento dinâmico.
-* **Calendário Operacional:** Módulo de feriados para bloqueio e ajuste de vencimentos operacionais.
+### 1.3 Entidades e Administração
+* **Multi-tenant:** `tenantId` + `firestore.rules`.
+* **Hierarquia:** CN / unidades; `usuario_unidades` (UI no UserList).
+* **Clientes, formulários, feriados:** cadastro, builder, calendário operacional.
+* **RBAC dinâmico:** `tenant_roles` + PermissionMatrix + `RoleManagement`.
+* **Auditoria:** `audit_logs` + `logAuditEvent` + tela `AuditLogs`.
+* **Lista negra, transfers BFF, mass open/close, hub reports + jobs async, SaaS billing** (`saas_invoices`).
 
-### 1.4 Assistente IA (Gemini Integration)
-* **Assistente de Voz e Texto:** Rota `/api/gemini/assistant` no Express com envio de contexto operacional do tenant e processamento de linguagem natural.
+### 1.4 Assistente IA
+* **Voz/texto:** `POST /api/gemini/assistant` com contexto operacional do tenant.
 
 ---
 
-## 2. Matriz do Ecossistema Atual vs. Sugestões de Evolução
+## 2. Matriz do Ecossistema Atual vs. Evolução Enterprise
 
-| Módulo | Estado Atual (Implementado) | Sugestão de Evolução (Enterprise) |
+| Módulo | Estado Atual | Evolução Enterprise |
 | :--- | :--- | :--- |
-| **Segurança & RBAC** | Controle de acesso por roles estáticas e validação no Firestore | Matriz Dinâmica de Permissões (`tenant_roles`) + Custom User Claims nativas |
-| **Auditoria** | Registros de logs pontuais no backend (`security_logs`) | Audit Log Unificado e Imutável (`audit_logs`) com diff automático de edições |
-| **Arquitetura Financeira** | Estado atualizado em tempo real por documento | Double-Entry Ledger (Escrituração por Partida Dobrada) e imutabilidade |
-| **Validação de Dados** | Mappers locais e regras de frontend | Validação estrita de esquemas no servidor via Zod nos DTOs do BFF |
-| **Infraestrutura** | Deploy Vercel (Front) e Hosting Node (Back) | Infraestrutura como Código (Terraform) + Rate Limiting via Redis |
-| **Inteligência (IA)** | Envio de contexto bruto para o Gemini API | Arquitetura RAG (Retrieval-Augmented Generation) com busca semântica |
+| **Segurança & RBAC** | ✅ Matriz dinâmica + claims (ADR-001) | Mecanismo de **revogação imediata** / force refresh de token (gap 5.4) |
+| **Auditoria** | ✅ `audit_logs` + diff + UI | Dashboards analíticos / detecção de anomalias |
+| **Arquitetura financeira** | Estado por documento (caixa/venda) | Ledger append-only → double-entry (rollout sombra §5.1) |
+| **Validação** | ✅ **Zod** nos DTOs P0 do BFF (`ENT-01`) | Expandir schemas às demais rotas |
+| **Infra** | Vercel front + Node/Functions back | Terraform + **rate limiting** (exposição atual §5.3) |
+| **IA** | Contexto bruto → Gemini | Medir custo/latência → RAG só se necessário (§5.6) |
+| **Sync offline** | Fila + idempotência | Testes automatizados de **conflito** (§5.5) |
 
 ---
 
-## 3. Guia de Funcionalidades Recomendadas para Implementação
+## 3. Referência de estruturas já em produção
 
-### 3.1 Controle de Acesso Dinâmico (RBAC por Matriz)
+### 3.1 RBAC (`tenant_roles`) — implementado
+Ver `frontend/src/types/rbac.ts` / `backend/permissionMatrix.ts` e SSOT §3.1.  
+Hooks: `useHasPermission`, `useTenantRoles`. BFF: `/api/admin/roles`.
 
-**Objetivo:** Permitir que o administrador crie e customize perfis de acesso (ex: Vendedor, Cobrador, Secretária) atrelando permissões granulares por módulo.
+### 3.2 Auditoria (`audit_logs`) — implementado
+Ver `frontend/src/types/audit.ts` / `backend/auditLog.ts` / `services/auditService.ts`.  
+`reason` obrigatório em estorno/override.
 
-* **Estrutura de Dados (`tenant_roles`):**
-  ```typescript
-  export interface TenantRole {
-    id: string;
-    tenantId: string;
-    name: string;
-    permissions: {
-      sales: { read: boolean; create: boolean; cancel: boolean };
-      collections: { read: boolean; create: boolean; confirm: boolean };
-      boxes: { open: boolean; close: boolean; viewSummary: boolean };
-      customers: { read: boolean; create: boolean; edit: boolean; delete: boolean };
-      platform: { manageSettings: boolean; manageUsers: boolean; manageRoles: boolean };
-    };
-  }
+### 3.3 Ledger (proposta — não implementado)
+Objetivo: imutabilidade e redução de race conditions em caixas concorrentes.
 
 ```
-
-* **Hook Frontend (`useHasPermission`):**
-```typescript
-export function useHasPermission() {
-  const { userPermissions } = useAuth();
-  return {
-    can: (module: string, action: string) => !!userPermissions?.[module]?.[action]
-  };
-}
-
+Movimentação → Débito (ex.: caixa) + Crédito (ex.: recebíveis)
+LedgerEntry { tenantId, transactionId, debitAccount, creditAccount, amountCents, timestamp }
 ```
 
-
-
-### 3.2 Motor de Auditoria Unificado (`audit_logs`)
-
-**Objetivo:** Rastrear todas as alterações executadas em registros do sistema, garantindo que não existam edições invisíveis ou edições sem autoria.
-
-* **Payload do Log de Auditoria:**
-```typescript
-export interface AuditLogEntry {
-  id: string;
-  tenantId: string;
-  userId: string;
-  userEmail: string;
-  action: 'UPDATE' | 'DELETE' | 'REVERSAL';
-  entity: 'sales' | 'customers' | 'boxes' | 'platform_settings';
-  entityId: string;
-  changes: Array<{
-    field: string;
-    oldValue: unknown;
-    newValue: unknown;
-  }>;
-  reason?: string;
-  timestamp: string;
-}
-
-```
-
-
-
-### 3.3 Motor de Escrituração Financeira (Double-Entry Ledger)
-
-**Objetivo:** Garantir a imutabilidade do saldo financeiro e eliminar concorrência de escritas (*race conditions*) em caixas simultâneos.
-
-```
-┌─────────────────────────┐
-│ Movimentação Financeira │
-└────────────┬────────────┘
-             │
-             ▼
-┌─────────────────────────┐     ┌─────────────────────────┐
-│  Entrada de Débito (+)  │ ──► │  Entrada de Crédito (-) │
-│  Ex: Caixa Unidade 01   │     │  Ex: Conta Recebíveis   │
-└─────────────────────────┘     └─────────────────────────┘
-
-```
-
-* **Estrutura do Registro do Ledger:**
-```typescript
-export interface LedgerEntry {
-  id: string;
-  tenantId: string;
-  transactionId: string;
-  debitAccount: string;  // Conta que recebe o valor
-  creditAccount: string; // Conta de onde sai o valor
-  amountCents: number;   // Valor em centavos
-  timestamp: string;
-}
-
-```
-
-
+Rollout: **modo sombra** paralelo ao estado atual antes de cutover (§5.1).
 
 ---
 
-## 4. Diretrizes para Eliminação de Becos Sem Saída (UX & Resilience)
+## 4. Diretrizes UX & Resilience (becos sem saída)
 
-Para manter a aplicação sem telas estáticas ou com comportamentos bloqueantes durante exceções:
+1. Erros BFF **não** fecham modais; preservar estado digitado.
+2. Listagens vazias/erro com ação clara (“Tentar novamente”, “Criar”, “Limpar filtros”).
+3. `ErrorBoundary` local em rotas críticas.
+4. Mutações destrutivas / estorno com `reason` → auditoria.
 
-1. **Garantia de Fallback de Interface:**
-* Qualquer erro `4xx` ou `5xx` no BFF não deve fechar modais de formulário ativamente; o erro deve ser sinalizado visualmente preservando o estado digitado pelo usuário.
-* Telas de listagem vazias devem exibir estados com ilustrações informativas e ações claras (ex: *"Criar Novo Registro"* ou *"Limpar Filtros"*).
+*(Parcialmente aplicado em RegisterPayment, CompanyList, PlatformManagement, etc.)*
 
+---
 
-2. **Proteção Contra Erros Globais:**
-* Envolver rotas críticas em componentes de `ErrorBoundary` locais, permitindo recarregar o módulo isoladamente sem derrubar toda a Single Page Application (SPA).
+## 5. Riscos priorizados (produção)
 
+| ID | Risco | Prioridade |
+|----|--------|------------|
+| 5.1 | Sem ledger; race em caixas concorrentes | Alta (mitigar com log sombra) |
+| 5.2 | DTOs sem Zod | ✅ mitigado nos P0 (`ENT-01`); expandir demais rotas |
+| 5.3 | Sem rate limit em `/api/gemini/*` e finanças | Alta (exposição atual) |
+| 5.4 | Claims em cache no token até refresh | Média (revogação explícita) |
+| 5.5 | Poucos testes de conflito SyncManager | Média-Alta |
+| 5.6 | Contexto Gemini bruto pode escalar custo | Média (medir antes de RAG) |
 
-3. **Mutações Sempre Reversíveis com Justificativa:**
-* Ações destrutivas ou de estorno exigem um campo obrigatório de motivo (*reason*), alimentando o módulo de auditoria automaticamente.
+---
 
+## 6. Roadmap de evolução (pós Gate Piloto)
 
+Ordem sugerida (alinhada a `PLANO-DESENVOLVIMENTO.md` Fase 6+):
 
-```
+1. ~~**ENT-01** Validação Zod nos DTOs do BFF~~ ✅  
+2. **ENT-02** Ledger append-only em modo sombra  
+3. **ENT-03** Rate limiting (financeiro + assistente)  
+4. **ENT-04** Claims: force refresh / revogação de sessão  
+5. **ENT-05** Testes de conflito SyncManager  
+6. **ENT-06** Terraform / IaC (ops)  
+7. **ENT-07** RAG no assistente (só se métricas de 5.6 exigirem)
 
-```
+**Pré-requisito externo:** deploy rules/indexes + SYNC-01 + QA Gate (outro time).

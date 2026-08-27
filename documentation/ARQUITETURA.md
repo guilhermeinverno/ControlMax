@@ -1,8 +1,9 @@
-# ARQUITETURA.md — ControlMax
+# ARQUITETURA.md — ControlMax (ponte / legado)
 
-Documento de referência para desenvolvedores e agentes de IA. Descreve fluxos de dados, componentes críticos, deploy na Vercel e diretrizes para refatorações seguras (incluindo SonarQube).
+> **SSOT canônico:** [`ARQUITETURA-SSOT.md`](./ARQUITETURA-SSOT.md) — visão pós-refatoração (BFF, SyncManager, centavos, RBAC, auditoria, deploys).  
+> Use o SSOT para decisões de arquitetura. Este arquivo permanece como ponte histórica e detalhamento complementar (SonarQube, exemplos de telas de cadastro, diagrama do assistente).
 
-> **Relacionado:** [QA_DOCUMENTATION.md](./QA_DOCUMENTATION.md) · [Divergências.md](./Divergências.md) · [INDEXES.md](./INDEXES.md) · [AGENTS.md](../AGENTS.md)
+**Relacionado:** [ARQUITETURA-SSOT.md](./ARQUITETURA-SSOT.md) · [PENDENCIAS-DESENVOLVIMENTO.md](./PENDENCIAS-DESENVOLVIMENTO.md) · [PLANO-DESENVOLVIMENTO.md](./PLANO-DESENVOLVIMENTO.md) · [QA_DOCUMENTATION.md](./QA_DOCUMENTATION.md) · [INDEXES.md](./INDEXES.md) · [AGENTS.md](../AGENTS.md)
 
 ---
 

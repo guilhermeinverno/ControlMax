@@ -71,9 +71,12 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
     const payload: OpenBoxPayload = {
       id: 'idemp-open-101',
       tenantId: 'tenant-1',
-      boxId: 'box-101',
-      collectorId: 'collector-1',
-      initialBalanceCents: 5000,
+      unitId: 'unit-1',
+      unitName: 'Rota 1',
+      cnId: 'cn-1',
+      cnName: 'CN 1',
+      initialAmount: 5000,
+      date: '2026-08-15',
       openedAt: '2026-08-15T12:00:00Z',
     };
 
@@ -83,7 +86,13 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/boxes/open',
       {
-        ...payload,
+        unitId: 'unit-1',
+        unitName: 'Rota 1',
+        cnId: 'cn-1',
+        cnName: 'CN 1',
+        initialAmount: 5000,
+        observation: '',
+        date: '2026-08-15',
         idempotencyKey: 'idemp-open-101',
       },
       {
@@ -102,8 +111,7 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       id: 'idemp-close-202',
       tenantId: 'tenant-1',
       boxId: 'box-202',
-      collectorId: 'collector-1',
-      finalBalanceCents: 15000,
+      realFinalAmount: 15000,
       closedAt: '2026-08-15T18:00:00Z',
     };
 
@@ -113,7 +121,8 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/boxes/close',
       {
-        ...payload,
+        boxId: 'box-202',
+        realFinalAmount: 15000,
         idempotencyKey: 'idemp-close-202',
       },
       {
