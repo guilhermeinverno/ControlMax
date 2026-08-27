@@ -11,6 +11,7 @@ import { SuperAdmin } from '../screens/SuperAdmin';
 import { Dashboard } from '../screens/Dashboard';
 import { hasPermission } from '../utils/rbac';
 import { toast } from 'react-hot-toast';
+import { RouteErrorBoundary } from '../components/RouteErrorBoundary';
 
 // Helper to retry loading dynamic imports on deployment or chunk load failures
 function lazyRetry<T extends ComponentType<any>>(
@@ -91,7 +92,12 @@ const Finance = lazyRetry(() => import('../screens/Finance').then(m => ({ defaul
  */
 function ScreenWrapper({ Component }: { Component: ComponentType<Record<string, unknown>> }) {
   const { navigate, navState } = useNavigation();
-  return <Component onNavigate={navigate} params={navState.params} />;
+  const location = useLocation();
+  return (
+    <RouteErrorBoundary label={location.pathname} resetKey={location.pathname}>
+      <Component onNavigate={navigate} params={navState.params} />
+    </RouteErrorBoundary>
+  );
 }
 
 function AppLoadingSpinner({ label }: { label: string }) {

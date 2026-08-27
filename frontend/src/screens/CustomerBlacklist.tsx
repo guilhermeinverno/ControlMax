@@ -12,6 +12,7 @@ import { auth, db } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
 import { Screen } from '../types';
 import { parseUnknownTimestamp } from '../utils/timestampParsing';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 
 interface CustomerBlacklistProps {
   onNavigate?: (screen: Screen) => void;
@@ -40,6 +41,7 @@ export function CustomerBlacklist({ onNavigate }: CustomerBlacklistProps) {
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [clientId, setClientId] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -86,7 +88,7 @@ export function CustomerBlacklist({ onNavigate }: CustomerBlacklistProps) {
       }
     );
     return () => unsub();
-  }, [tenantId, canManage]);
+  }, [tenantId, canManage, reloadToken]);
 
   useEffect(() => {
     if (!tenantId || !canManage) return;
@@ -208,10 +210,11 @@ export function CustomerBlacklist({ onNavigate }: CustomerBlacklistProps) {
       </header>
 
       {error && (
-        <div className="flex gap-2 items-start bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-          <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <ListErrorBanner
+          message={error}
+          onRetry={() => setReloadToken((n) => n + 1)}
+          retryLabel="Reintentar"
+        />
       )}
 
       <section className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
@@ -262,7 +265,12 @@ export function CustomerBlacklist({ onNavigate }: CustomerBlacklistProps) {
             <Loader2 className="w-7 h-7 animate-spin text-gray-400" />
           </div>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-gray-500 text-center py-10">Lista vacía.</p>
+          <div className="p-4">
+            <ListEmptyState
+              title="Lista vacía"
+              description="No hay clientes bloqueados en este momento."
+            />
+          </div>
         ) : (
           <ul className="divide-y divide-gray-50">
             {rows.map((row) => (

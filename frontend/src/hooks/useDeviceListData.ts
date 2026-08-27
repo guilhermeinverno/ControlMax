@@ -24,6 +24,7 @@ export function useDeviceListData(tenantId?: string, isAdmin = false) {
   const [collectors, setCollectors] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [isBindModalOpen, setIsBindModalOpen] = useState(false);
   const [deviceName, setDeviceName] = useState('');
@@ -34,6 +35,10 @@ export function useDeviceListData(tenantId?: string, isAdmin = false) {
   const [deviceToToggleBlock, setDeviceToToggleBlock] = useState<Device | null>(null);
 
   const unsubRef = useRef<(() => void) | null>(null);
+
+  const retryLoad = () => {
+    setReloadToken((n) => n + 1);
+  };
 
   useEffect(() => {
     if (!tenantId) return;
@@ -75,13 +80,14 @@ export function useDeviceListData(tenantId?: string, isAdmin = false) {
       );
     } catch (e) {
       console.error('Immediate error setting up devices snapshot:', e);
+      setError('Erro ao carregar dispositivos.');
       setLoading(false);
     }
 
     return () => {
       if (unsubRef.current) unsubRef.current();
     };
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -165,6 +171,7 @@ export function useDeviceListData(tenantId?: string, isAdmin = false) {
     collectors,
     loading,
     error,
+    retryLoad,
     isBindModalOpen,
     setIsBindModalOpen,
     deviceName,

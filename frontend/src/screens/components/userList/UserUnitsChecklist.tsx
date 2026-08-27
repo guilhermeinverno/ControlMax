@@ -1,4 +1,4 @@
-import type { TenantUnitOption } from '../../hooks/useTenantUnits';
+import type { TenantUnitOption } from '../../../hooks/useTenantUnits';
 
 interface UserUnitsChecklistProps {
   units: TenantUnitOption[];

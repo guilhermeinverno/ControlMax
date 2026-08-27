@@ -10,12 +10,15 @@ export function useCollectionCleaningData(tenantId?: string, userName?: string) 
   const [collections, setCollections] = useState<CleaningCollection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [collectionToCancel, setCollectionToCancel] = useState<CleaningCollection | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
   const [infoMessage, setInfoMessage] = useState<string | null>(null);
+
+  const retryLoad = () => setReloadToken((n) => n + 1);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -28,7 +31,7 @@ export function useCollectionCleaningData(tenantId?: string, userName?: string) 
       setLoading,
       (message) => setError(message)
     );
-  }, [tenantId, selectedDate]);
+  }, [tenantId, selectedDate, reloadToken]);
 
   const openCancelModal = (col: CleaningCollection) => {
     setCollectionToCancel(col);
@@ -65,6 +68,7 @@ export function useCollectionCleaningData(tenantId?: string, userName?: string) 
     collections,
     loading,
     error,
+    retryLoad,
     modalOpen,
     setModalOpen,
     collectionToCancel,

@@ -15,7 +15,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
-const PORT = 3000; // Porta local de desenvolvimento — não expõe stack em produção sem proxy reverso
+/** Cloud Run injeta PORT; local/dev usa 3000. */
+const PORT = Number(process.env.PORT || 3000);
 
 // Configuração estrita de CORS baseada na variável FRONTEND_ORIGIN
 const allowedOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
@@ -56,9 +57,14 @@ app.use("/api/admin", authMiddleware, saasBillingRoutes);
 app.use("/api/admin/roles", authMiddleware, roleRoutes);
 app.use("/api/admin", authMiddleware, adminRoutes);
 
-if (process.env.LOCAL_DEV === 'true') {
+const shouldListenHttp =
+  process.env.LOCAL_DEV === "true" ||
+  Boolean(process.env.K_SERVICE) ||
+  process.env.CLOUD_RUN === "true";
+
+if (shouldListenHttp) {
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server local rodando na porta ${PORT}`);
+    console.log(`Server HTTP na porta ${PORT} (LOCAL_DEV/Cloud Run)`);
   });
 }
 

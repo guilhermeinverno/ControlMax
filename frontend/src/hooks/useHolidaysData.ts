@@ -35,6 +35,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [newHolidayName, setNewHolidayName] = useState('');
   const [newHolidayDay, setNewHolidayDay] = useState(1);
@@ -71,7 +72,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
     );
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   const handleAddHoliday = async (e: HtmlFormSubmitEvent) => {
     e.preventDefault();
@@ -171,6 +172,7 @@ export function useHolidaysData(tenantId?: string, isReadOnly = true) {
     setErrorMsg,
     successMsg,
     setSuccessMsg,
+    retryLoad: () => setReloadToken((n) => n + 1),
     newHolidayName,
     setNewHolidayName,
     newHolidayDay,

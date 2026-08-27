@@ -5,7 +5,7 @@ describe('resolveOperationalUnit', () => {
   it('exige tenantId', () => {
     const result = resolveOperationalUnit({});
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/tenant/i);
+    if (result.ok === false) expect(result.error).toMatch(/tenant/i);
   });
 
   it('prioriza caixa aberta', () => {

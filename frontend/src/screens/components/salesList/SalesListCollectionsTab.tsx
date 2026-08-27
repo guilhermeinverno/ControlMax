@@ -4,6 +4,7 @@ import { Screen } from '../../../types';
 import { listViewBody } from '../../../utils/listViewBody';
 import { formatSalesListCents } from '../../../utils/salesListFormat';
 import { SalesListCollection } from '../../../utils/salesListMapper';
+import { ListEmptyState } from '../../../components/ListFeedback';
 
 interface SalesListCollectionsTabProps {
   collections: SalesListCollection[];
@@ -32,10 +33,11 @@ export function SalesListCollectionsTab({
           ))}
         </>,
         (
-          <div className="bg-white p-12 text-center rounded-xl border border-gray-200 shadow-md">
-            <Calendar className="w-10 h-10 text-gray-300 mx-auto mb-2" />
-            <p className="text-xs font-bold text-gray-500">Nenhum recaudo registrado hoje</p>
-          </div>
+          <ListEmptyState
+            title="Nenhum recaudo registrado hoje"
+            description="Os recebimentos do dia aparecerão aqui."
+            icon={<Calendar className="w-10 h-10" />}
+          />
         ),
         <>
           {collections.map((col) => {

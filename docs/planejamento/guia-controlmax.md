@@ -36,11 +36,13 @@ Documento consolidado com o ecossistema de funcionalidades já entregues no Cont
 | Módulo | Estado Atual | Evolução Enterprise |
 | :--- | :--- | :--- |
 | **Segurança & RBAC** | ✅ Matriz + claims + **revogação de sessão** (`ENT-04`) | — |
-| **Auditoria** | ✅ `audit_logs` + diff + UI | Dashboards analíticos / detecção de anomalias |
-| **Arquitetura financeira** | ✅ Ledger sombra (`ledger_shadow`) paralelo | Cutover double-entry (`ENT-09`) |
+| **Auditoria** | ✅ `audit_logs` + diff + UI + Analytics ENT-08 | Detecção de anomalias (futuro) |
+| **Arquitetura financeira** | ✅ Ledger sombra + **cutover** (`ENT-09`) | Apply ops: dual → canonical |
+
 | **Validação** | ✅ **Zod** nos DTOs P0 do BFF (`ENT-01`) | Expandir schemas às demais rotas |
-| **Infra** | Vercel front + Node/Functions back + **rate limit in-memory** (`ENT-03`) | Terraform + Redis se multi-instância |
-| **IA** | Contexto bruto → Gemini | Medir custo/latência → RAG só se necessário (§5.6) |
+| **Infra** | Vercel front + Cloud Run/Functions back + rate limit in-memory + **Terraform staging (`ENT-06`)** | Redis se multi-instância; tfvars `prod` |
+| **IA** | Contexto com **RAG leve** (`ENT-07`) | Vector DB / embeddings se volume exigir |
+
 | **Sync offline** | ✅ Fila + idempotência + **retry 5xx** + auto-sync online (`ENT-05`) | — |
 
 ---
@@ -55,22 +57,20 @@ Hooks: `useHasPermission`, `useTenantRoles`. BFF: `/api/admin/roles`.
 Ver `frontend/src/types/audit.ts` / `backend/auditLog.ts` / `services/auditService.ts`.  
 `reason` obrigatório em estorno/override.
 
-### 3.3 Ledger sombra (`ledger_shadow`) — ENT-02
+### 3.3 Ledger (`ledger_shadow`) — ENT-02 + ENT-09
 
-Append-only paralelo ao estado por documento. **Não** substitui `boxes`/`sales` até cutover (`ENT-09`).
+Append-only. Campo `mode`: `shadow` \| `canonical`. Política: env `LEDGER_MODE=shadow|dual|canonical`.
 
 ```
-LedgerShadowEntry {
+LedgerEntry {
   tenantId, transactionId, debitAccount, creditAccount, amountCents,
-  source, boxId?, saleId?, mode: "shadow", timestamp
+  source, boxId?, saleId?, mode: "shadow"|"canonical", timestamp
 }
 ```
 
-Serviço: `backend/services/ledgerService.ts` (`setLedgerShadowInTransaction`, `reconcileBoxShadow`).  
-Reconcile: `GET /api/transactions/ledger/reconcile/:boxId`.  
+Serviço: `backend/services/ledgerService.ts`.  
+Reconcile / balance / cutover: ver [`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md).  
 Client write = **deny** (igual `audit_logs`).
-
-Rollout: sombra → homologar delta=0 → `ENT-09` cutover.
 ---
 
 ## 4. Diretrizes UX & Resilience (becos sem saída)
@@ -80,7 +80,7 @@ Rollout: sombra → homologar delta=0 → `ENT-09` cutover.
 3. `ErrorBoundary` local em rotas críticas.
 4. Mutações destrutivas / estorno com `reason` → auditoria.
 
-*(Parcialmente aplicado em RegisterPayment, CompanyList, PlatformManagement, etc.)*
+*(Aplicado: ErrorBoundary local em rotas via `RouteErrorBoundary`; empty/retry em CompanyList, RouteList, DeviceList, CustomerBlacklist; modal-safe em RegisterPayment / platform.)*
 
 ---
 
@@ -88,12 +88,12 @@ Rollout: sombra → homologar delta=0 → `ENT-09` cutover.
 
 | ID | Risco | Prioridade |
 |----|--------|------------|
-| 5.1 | Sem ledger; race em caixas concorrentes | ✅ mitigado com sombra (`ENT-02`); cutover = `ENT-09` |
+| 5.1 | Sem ledger; race em caixas concorrentes | ✅ sombra + cutover (`ENT-02`/`ENT-09`); apply ops |
 | 5.2 | DTOs sem Zod | ✅ mitigado nos P0 (`ENT-01`); expandir demais rotas |
 | 5.3 | Sem rate limit em `/api/gemini/*` e finanças | ✅ mitigado in-memory (`ENT-03`); Redis se multi-instância |
 | 5.4 | Claims em cache no token até refresh | ✅ mitigado (`ENT-04`: revoke + checkRevoked + force refresh) |
 | 5.5 | Poucos testes de conflito SyncManager | ✅ mitigado (`ENT-05`: suite + retry 5xx/429 + online auto) |
-| 5.6 | Contexto Gemini bruto pode escalar custo | Média (medir antes de RAG) |
+| 5.6 | Contexto Gemini bruto pode escalar custo | ✅ mitigado com RAG leve (`ENT-07`); embeddings = follow-up |
 
 ---
 
@@ -106,7 +106,7 @@ Ordem sugerida (alinhada a `PLANO-DESENVOLVIMENTO.md` Fase 6+):
 3. ~~**ENT-03** Rate limiting (financeiro + assistente)~~ ✅  
 4. ~~**ENT-04** Claims: force refresh / revogação de sessão~~ ✅  
 5. ~~**ENT-05** Testes de conflito SyncManager~~ ✅  
-6. **ENT-06** Terraform / IaC (ops)  
-7. **ENT-07** RAG no assistente (só se métricas de 5.6 exigirem)
+6. ~~**ENT-06** Terraform / IaC (ops)~~ ✅ — `infra/terraform` + [`TERRAFORM.md`](../ops/TERRAFORM.md)  
+7. ~~**ENT-07** RAG no assistente~~ ✅ — `backend/services/assistantRag.ts` (keywords; sem vector DB)
 
 **Pré-requisito externo:** deploy rules/indexes + SYNC-01 + QA Gate (outro time).

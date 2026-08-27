@@ -19,6 +19,7 @@ ControlMax/
 ├── backend/           # Express (BFF) + Firebase Admin SDK + Gemini
 ├── docs/              # Documentação oficial (SSOT, planos, ops, specs)
 ├── scripts/           # Utilitários (ex.: maintenance/)
+├── infra/terraform/   # IaC staging Cloud Run (ENT-06)
 ├── firestore.rules
 ├── firestore.indexes.json
 ├── firebase.json
@@ -174,11 +175,11 @@ Rotas que gravam auditoria (não exaustivo de todos os logs, mas canônicas):
 - `PUT /api/admin/roles/:id`, `PUT /api/admin/users/:id`
 - `PUT /api/platform/settings`
 
-UI: `AuditLogs.tsx`. Client write em `audit_logs` / `security_logs` = **deny**.
+UI: `AuditLogs.tsx` (lista + Analytics ENT-08 / export XLSX). Client write em `audit_logs` / `security_logs` = **deny**.
 
-### 3.3 Ledger sombra (`ledger_shadow`) — ENT-02
+### 3.3 Ledger (`ledger_shadow`) — ENT-02 / ENT-09
 
-Append-only paralelo; **não** é fonte de saldo até `ENT-09`.
+Append-only; `mode` = `shadow` \| `canonical`. Env `LEDGER_MODE=shadow|dual|canonical`.
 
 | Campo | Conteúdo |
 |-------|----------|
@@ -186,9 +187,11 @@ Append-only paralelo; **não** é fonte de saldo até `ENT-09`.
 | `amountCents` | Inteiro > 0 |
 | `transactionId` | Idempotency key / correlação |
 | `source` | `sale` \| `collection` \| `reversal` \| `box_open` \| … |
-| `mode` | sempre `"shadow"` |
+| `mode` | `"shadow"` \| `"canonical"` |
 
-Serviço: `backend/services/ledgerService.ts`. Reconcile: `GET /api/transactions/ledger/reconcile/:boxId`. Client write = **deny**.
+Serviço: `backend/services/ledgerService.ts`.  
+Reconcile: `GET /api/transactions/ledger/reconcile/:boxId` · Balance: `.../ledger/balance/:boxId` · Cutover: `POST .../ledger/cutover/:boxId`.  
+Runbook: [`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md). Client write = **deny**.
 
 ---
 
@@ -242,8 +245,9 @@ Proxy `/api` do Vite **só** em `npm run dev`. Produção usa `VITE_API_URL`.
 ### 5.2 Backend
 
 - Local: `cd backend && npm run dev` (`LOCAL_DEV=true`, porta **3000**).
-- Produção típica: Firebase Cloud Function `api` (Gen2, `us-central1`) **ou** host Node com `npm run build && npm start`.
+- Produção típica: Firebase Cloud Function `api` (Gen2, `us-central1`) **ou** **Cloud Run** via IaC ([`docs/ops/TERRAFORM.md`](../ops/TERRAFORM.md) / `infra/terraform`, imagem `backend/Dockerfile`).
 - CORS: `FRONTEND_ORIGIN` (default `http://localhost:5173`).
+- Cloud Run: escuta `PORT` quando `K_SERVICE` / `CLOUD_RUN=true`.
 
 ### 5.3 Variáveis de ambiente
 
@@ -325,7 +329,7 @@ cd ../backend && npm run build && npm test
 **Admin:** `POST /users`, `PUT /users/:id`, `POST /tenants`, `POST /blacklist`, `POST /blacklist/remove`  
 **Admin billing:** `PUT /tenants/:id/billing`, `GET|POST /saas-invoices`, `POST /saas-invoices/:id/mark-paid`, `GET /saas-billing/summary`  
 **Admin roles:** `GET|POST /`, `PUT|DELETE /:id` (montado em `/api/admin/roles`)  
-**Gemini:** `POST /api/gemini/assistant`
+**Gemini:** `POST /api/gemini/assistant` — contexto operacional via **RAG leve** (`services/assistantRag.ts` + `buildOperationalContextWithRag`). Desligar: `ASSISTANT_RAG_ENABLED=false`. Debug: `ASSISTANT_RAG_DEBUG=true`.
 
 ### 6.3 Diretrizes de refatoração segura
 

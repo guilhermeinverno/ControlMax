@@ -27,8 +27,10 @@ describe('ENT-05 SyncExecutor — offline, 5xx retry, conflitos', () => {
     await clearSyncDb();
     setOnline(true);
     registry = new OperationRegistry();
-    executeMock = vi.fn();
-    registry.register('payment', { execute: executeMock });
+    executeMock = vi.fn(async (_payload: unknown) => undefined);
+    registry.register('payment', {
+      execute: executeMock as (payload: unknown) => Promise<unknown>,
+    });
     executor = new SyncExecutor(registry, {} as SyncHttpClient);
   });
 

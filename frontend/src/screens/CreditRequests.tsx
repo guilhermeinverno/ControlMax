@@ -11,6 +11,7 @@ import {
   type CreditRequestTab,
 } from '../utils/creditRequestFilters';
 import { listViewBody } from '../utils/listViewBody';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 import { CreditRequestCard } from './components/creditRequests/CreditRequestCard';
 import { CreditRequestCreateModal } from './components/creditRequests/CreditRequestCreateModal';
 import { CreditRequestsTabBar } from './components/creditRequests/CreditRequestsTabBar';
@@ -54,9 +55,11 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
       </div>
 
       {(data.error || data.actionError) && (
-        <div className="mx-3 mt-2 bg-red-50 border border-red-200 text-red-700 p-2.5 text-xs flex items-center rounded-sm">
-          <AlertCircle className="w-4 h-4 mr-2 shrink-0 text-red-500" />
-          <span>{data.error || data.actionError}</span>
+        <div className="mx-3 mt-2">
+          <ListErrorBanner
+            message={data.error || data.actionError || ''}
+            onRetry={data.error ? data.retryLoad : undefined}
+          />
         </div>
       )}
 
@@ -94,10 +97,13 @@ export function CreditRequests({ onNavigate }: CreditRequestsProps) {
             </div>
           ),
           (
-            <div className="flex flex-col items-center justify-center p-8 bg-white border border-gray-200 rounded text-center">
-              <AlertCircle className="w-8 h-8 text-gray-300 mb-2" />
-              <span className="text-xs text-gray-400 italic">Nenhuma solicitação encontrada</span>
-            </div>
+            <ListEmptyState
+              title="Nenhuma solicitação encontrada"
+              description="Crie uma nova solicitação ou limpe os filtros."
+              icon={<AlertCircle className="w-10 h-10" />}
+              actionLabel={canCreate ? 'Nova solicitação' : undefined}
+              onAction={canCreate ? data.openAddModal : undefined}
+            />
           ),
           (
             <div className="space-y-3">

@@ -1,32 +1,26 @@
 import { useEffect, useMemo, useState } from 'react';
 import { collection, limit, onSnapshot, orderBy, query, where } from 'firebase/firestore';
-import { AlertCircle, Loader2, RefreshCw, Shield } from 'lucide-react';
+import { AlertCircle, BarChart3, Download, List, Loader2, RefreshCw, Shield } from 'lucide-react';
 import { db } from '../lib/firebase';
 import { useTenant } from '../hooks/useTenant';
 import { Screen } from '../types';
 import { parseUnknownTimestamp } from '../utils/timestampParsing';
+import {
+  aggregateAuditLogs,
+  exportAuditAnalyticsXlsx,
+  type AuditAnalyticsRow,
+  type AuditAnalyticsWindow,
+} from '../utils/auditAnalytics';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 
 interface AuditLogsProps {
   onNavigate?: (screen: Screen) => void;
 }
 
 type LogSource = 'security_logs' | 'audit_logs' | 'all';
+type ViewMode = 'list' | 'analytics';
 
-interface UnifiedLogRow {
-  id: string;
-  source: 'security_logs' | 'audit_logs';
-  tenantId: string;
-  userId: string;
-  userName: string;
-  userEmail: string;
-  action: string;
-  status: string;
-  entity: string;
-  entityId: string;
-  detail: string;
-  changesCount: number;
-  at: Date | null;
-}
+const QUERY_LIMIT = 300;
 
 function formatTs(d: Date | null): string {
   if (!d) return '—';
@@ -35,17 +29,23 @@ function formatTs(d: Date | null): string {
 
 /**
  * AUD-01 — Log de ações reais (security_logs + audit_logs).
+ * ENT-08 — aba Analytics (agregações + export XLSX).
  */
 export function AuditLogs({ onNavigate }: AuditLogsProps) {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
   const [source, setSource] = useState<LogSource>('all');
-  const [securityRows, setSecurityRows] = useState<UnifiedLogRow[]>([]);
-  const [auditRows, setAuditRows] = useState<UnifiedLogRow[]>([]);
+  const [view, setView] = useState<ViewMode>('list');
+  const [period, setPeriod] = useState<AuditAnalyticsWindow>('30d');
+  const [securityRows, setSecurityRows] = useState<AuditAnalyticsRow[]>([]);
+  const [auditRows, setAuditRows] = useState<AuditAnalyticsRow[]>([]);
   const [loadingSec, setLoadingSec] = useState(true);
   const [loadingAud, setLoadingAud] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  const canView = isSuperAdmin || ['admin', 'supervisor', 'gerente', 'director', 'coordinador'].includes(String(role || '').toLowerCase());
+  const canView =
+    isSuperAdmin ||
+    ['admin', 'supervisor', 'gerente', 'director', 'coordinador'].includes(String(role || '').toLowerCase());
 
   useEffect(() => {
     if (!tenantId || !canView) return;
@@ -56,18 +56,16 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
       collection(db, 'security_logs'),
       where('tenantId', '==', tenantId),
       orderBy('timestamp', 'desc'),
-      limit(100)
+      limit(QUERY_LIMIT)
     );
 
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const rows: UnifiedLogRow[] = snap.docs.map((docSnap) => {
+        const rows: AuditAnalyticsRow[] = snap.docs.map((docSnap) => {
           const d = docSnap.data();
           const at =
-            parseUnknownTimestamp(d.timestamp) ||
-            parseUnknownTimestamp(d.createdAt) ||
-            null;
+            parseUnknownTimestamp(d.timestamp) || parseUnknownTimestamp(d.createdAt) || null;
           return {
             id: docSnap.id,
             source: 'security_logs',
@@ -95,7 +93,7 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
     );
 
     return () => unsub();
-  }, [tenantId, canView]);
+  }, [tenantId, canView, reloadToken]);
 
   useEffect(() => {
     if (!tenantId || !canView) return;
@@ -105,13 +103,13 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
       collection(db, 'audit_logs'),
       where('tenantId', '==', tenantId),
       orderBy('timestamp', 'desc'),
-      limit(100)
+      limit(QUERY_LIMIT)
     );
 
     const unsub = onSnapshot(
       q,
       (snap) => {
-        const rows: UnifiedLogRow[] = snap.docs.map((docSnap) => {
+        const rows: AuditAnalyticsRow[] = snap.docs.map((docSnap) => {
           const d = docSnap.data();
           const at = parseUnknownTimestamp(d.timestamp) || parseUnknownTimestamp(d.createdAt) || null;
           return {
@@ -141,17 +139,32 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
     );
 
     return () => unsub();
-  }, [tenantId, canView]);
+  }, [tenantId, canView, reloadToken]);
 
-  const rows = useMemo(() => {
-    const merged =
-      source === 'security_logs'
-        ? securityRows
-        : source === 'audit_logs'
-          ? auditRows
-          : [...securityRows, ...auditRows];
-    return merged.sort((a, b) => (b.at?.getTime() || 0) - (a.at?.getTime() || 0));
+  const mergedSourceRows = useMemo(() => {
+    if (source === 'security_logs') return securityRows;
+    if (source === 'audit_logs') return auditRows;
+    return [...securityRows, ...auditRows];
   }, [source, securityRows, auditRows]);
+
+  const rows = useMemo(
+    () => [...mergedSourceRows].sort((a, b) => (b.at?.getTime() || 0) - (a.at?.getTime() || 0)),
+    [mergedSourceRows]
+  );
+
+  const analytics = useMemo(
+    () => aggregateAuditLogs(mergedSourceRows, period, { topN: 15 }),
+    [mergedSourceRows, period]
+  );
+
+  const handleExport = () => {
+    try {
+      exportAuditAnalyticsXlsx(analytics);
+    } catch (err) {
+      console.error('Failed to export audit analytics:', err);
+      alert('Erro ao exportar planilha Excel.');
+    }
+  };
 
   if (tenantLoading) {
     return (
@@ -191,10 +204,34 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
           <Shield className="w-6 h-6 text-[#6A008A]" />
           <div>
             <h1 className="text-lg font-black text-gray-900 uppercase tracking-tight">Log de Acciones</h1>
-            <p className="text-xs text-gray-500">Registros reais de `security_logs` e `audit_logs` (AUD-01)</p>
+            <p className="text-xs text-gray-500">
+              `security_logs` + `audit_logs` (AUD-01) · analytics (ENT-08)
+            </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setView('list')}
+              className={`px-3 py-2 text-xs font-bold flex items-center gap-1 cursor-pointer ${
+                view === 'list' ? 'bg-[#6A008A] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <List className="w-3.5 h-3.5" />
+              Lista
+            </button>
+            <button
+              type="button"
+              onClick={() => setView('analytics')}
+              className={`px-3 py-2 text-xs font-bold flex items-center gap-1 cursor-pointer border-l border-gray-200 ${
+                view === 'analytics' ? 'bg-[#6A008A] text-white' : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              Analytics
+            </button>
+          </div>
           <select
             value={source}
             onChange={(e) => setSource(e.target.value as LogSource)}
@@ -204,6 +241,28 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
             <option value="security_logs">Security</option>
             <option value="audit_logs">Audit</option>
           </select>
+          {view === 'analytics' && (
+            <>
+              <select
+                value={period}
+                onChange={(e) => setPeriod(e.target.value as AuditAnalyticsWindow)}
+                className="border border-gray-300 rounded-lg text-xs font-bold px-2 py-2 bg-white cursor-pointer"
+              >
+                <option value="7d">7 dias</option>
+                <option value="30d">30 dias</option>
+                <option value="90d">90 dias</option>
+              </select>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={loading || analytics.total === 0}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#6A008A] text-white text-xs font-bold disabled:opacity-50 cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Exportar XLSX
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 cursor-pointer"
@@ -216,88 +275,188 @@ export function AuditLogs({ onNavigate }: AuditLogsProps) {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 text-xs rounded-lg px-3 py-2 flex gap-2">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          {error}
-        </div>
+        <ListErrorBanner
+          message={error}
+          onRetry={() => {
+            setError(null);
+            setReloadToken((n) => n + 1);
+          }}
+        />
       )}
 
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-[#6A008A] text-white">
-              <tr>
-                <th className="px-3 py-2.5 font-bold">Data</th>
-                <th className="px-3 py-2.5 font-bold">Fonte</th>
-                <th className="px-3 py-2.5 font-bold">Usuário</th>
-                <th className="px-3 py-2.5 font-bold">Ação</th>
-                <th className="px-3 py-2.5 font-bold">Resultado</th>
-                <th className="px-3 py-2.5 font-bold">Entidade</th>
-                <th className="px-3 py-2.5 font-bold">ID</th>
-                <th className="px-3 py-2.5 font-bold">Motivo / detalhe</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && rows.length === 0 ? (
+      {view === 'analytics' ? (
+        <div className="space-y-4">
+          <p className="text-[11px] text-gray-500">
+            Amostra dos {analytics.sampleSize} eventos mais recentes (teto {QUERY_LIMIT}/coleção); filtro de
+            período aplicado no cliente ({period}).
+          </p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+            {[
+              { label: 'No período', value: analytics.total },
+              { label: 'Security', value: analytics.securityCount },
+              { label: 'Audit', value: analytics.auditCount },
+              { label: 'DENIED/FAIL', value: analytics.deniedCount },
+              { label: 'REVERSAL/OVERRIDE', value: analytics.reversalOverrideCount },
+              { label: 'Amostra bruta', value: analytics.sampleSize },
+            ].map((card) => (
+              <div key={card.label} className="bg-white border border-gray-200 rounded-xl px-3 py-3 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500">{card.label}</p>
+                <p className="text-xl font-black text-[#6A008A] mt-1">{card.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {loading && analytics.total === 0 ? (
+            <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-gray-500 text-xs">
+              <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
+              Carregando analytics…
+            </div>
+          ) : analytics.total === 0 ? (
+            <ListEmptyState
+              title="Nenhum evento no período"
+              description="Amplie a janela ou gere ações auditáveis."
+              icon={<Shield className="w-10 h-10" />}
+            />
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+              <AnalyticsTable title="Por ação" rows={analytics.byAction} />
+              <AnalyticsTable title="Por usuário" rows={analytics.byUser} />
+              <AnalyticsTable title="Por dia (UTC)" rows={[...analytics.byDay].reverse().slice(0, 15)} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#6A008A] text-white">
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
-                    <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
-                    Carregando logs…
-                  </td>
+                  <th className="px-3 py-2.5 font-bold">Data</th>
+                  <th className="px-3 py-2.5 font-bold">Fonte</th>
+                  <th className="px-3 py-2.5 font-bold">Usuário</th>
+                  <th className="px-3 py-2.5 font-bold">Ação</th>
+                  <th className="px-3 py-2.5 font-bold">Resultado</th>
+                  <th className="px-3 py-2.5 font-bold">Entidade</th>
+                  <th className="px-3 py-2.5 font-bold">ID</th>
+                  <th className="px-3 py-2.5 font-bold">Motivo / detalhe</th>
                 </tr>
-              ) : rows.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
-                    Nenhum log encontrado para este tenant. Confirme um caixa ou faça um ajuste para gerar registros.
-                  </td>
-                </tr>
-              ) : (
-                rows.map((row) => (
-                  <tr key={`${row.source}-${row.id}`} className="border-t border-gray-100 hover:bg-purple-50/40">
-                    <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-700">{formatTs(row.at)}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                          row.source === 'security_logs' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
-                        }`}
-                      >
-                        {row.source === 'security_logs' ? 'SEC' : 'AUD'}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="font-semibold text-gray-800">{row.userEmail || row.userName || '—'}</div>
-                      <div className="text-[10px] text-gray-400 font-mono">{row.userId || '—'}</div>
-                    </td>
-                    <td className="px-3 py-2 font-bold text-[#6A008A]">{row.action}</td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`font-bold ${
-                          row.status === 'DENIED' || row.status === 'FAIL'
-                            ? 'text-red-600'
-                            : row.status === 'SUCCESS' || row.status === 'RECORDED'
-                              ? 'text-emerald-600'
-                              : 'text-gray-600'
-                        }`}
-                      >
-                        {row.status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 font-semibold text-gray-700">{row.entity}</td>
-                    <td className="px-3 py-2 font-mono text-[11px] text-gray-500 max-w-[8rem] truncate" title={row.entityId}>
-                      {row.entityId}
-                      {row.changesCount > 0 ? (
-                        <span className="block text-[10px] text-purple-600 font-bold">{row.changesCount} campo(s)</span>
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600 max-w-[14rem] truncate" title={row.detail}>
-                      {row.detail || '—'}
+              </thead>
+              <tbody>
+                {loading && rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-8 text-center text-gray-500">
+                      <Loader2 className="w-5 h-5 animate-spin inline mr-2" />
+                      Carregando logs…
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : rows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-3 py-4">
+                      <ListEmptyState
+                        title="Nenhum log encontrado"
+                        description="Confirme um caixa ou faça um ajuste para gerar registros."
+                        icon={<Shield className="w-10 h-10" />}
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row) => (
+                    <tr key={`${row.source}-${row.id}`} className="border-t border-gray-100 hover:bg-purple-50/40">
+                      <td className="px-3 py-2 whitespace-nowrap font-medium text-gray-700">{formatTs(row.at)}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                            row.source === 'security_logs'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {row.source === 'security_logs' ? 'SEC' : 'AUD'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-semibold text-gray-800">{row.userEmail || row.userName || '—'}</div>
+                        <div className="text-[10px] text-gray-400 font-mono">{row.userId || '—'}</div>
+                      </td>
+                      <td className="px-3 py-2 font-bold text-[#6A008A]">{row.action}</td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`font-bold ${
+                            row.status === 'DENIED' || row.status === 'FAIL'
+                              ? 'text-red-600'
+                              : row.status === 'SUCCESS' || row.status === 'RECORDED'
+                                ? 'text-emerald-600'
+                                : 'text-gray-600'
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-gray-700">{row.entity}</td>
+                      <td
+                        className="px-3 py-2 font-mono text-[11px] text-gray-500 max-w-[8rem] truncate"
+                        title={row.entityId}
+                      >
+                        {row.entityId}
+                        {row.changesCount > 0 ? (
+                          <span className="block text-[10px] text-purple-600 font-bold">
+                            {row.changesCount} campo(s)
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-gray-600 max-w-[14rem] truncate" title={row.detail}>
+                        {row.detail || '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+function AnalyticsTable({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: Array<{ key: string; label: string; count: number }>;
+}) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div className="px-3 py-2 bg-[#6A008A] text-white text-xs font-black uppercase tracking-wide">{title}</div>
+      <div className="overflow-x-auto max-h-72">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-gray-50 text-gray-600 sticky top-0">
+            <tr>
+              <th className="px-3 py-2 font-bold">Item</th>
+              <th className="px-3 py-2 font-bold text-right">Qtd</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td colSpan={2} className="px-3 py-4 text-center text-gray-400">
+                  —
+                </td>
+              </tr>
+            ) : (
+              rows.map((r) => (
+                <tr key={r.key} className="border-t border-gray-100">
+                  <td className="px-3 py-1.5 font-medium text-gray-800 truncate max-w-[12rem]" title={r.label}>
+                    {r.label}
+                  </td>
+                  <td className="px-3 py-1.5 text-right font-black text-[#6A008A]">{r.count}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

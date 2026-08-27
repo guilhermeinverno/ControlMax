@@ -80,7 +80,7 @@ export function RoleManagement({ onNavigate }: RoleManagementProps) {
   const toggle = (module: PermissionModule, action: string) => {
     setMatrix((prev) => {
       const next = cloneMatrix(prev);
-      const mod = next[module] as Record<string, boolean>;
+      const mod = next[module] as unknown as Record<string, boolean>;
       mod[action] = !mod[action];
       return next;
     });
@@ -274,7 +274,7 @@ export function RoleManagement({ onNavigate }: RoleManagementProps) {
                       <div className="flex flex-wrap gap-3">
                         {group.actions.map((action) => {
                           const checked = Boolean(
-                            (matrix[group.module] as Record<string, boolean>)[action.key]
+                            (matrix[group.module] as unknown as Record<string, boolean>)[action.key]
                           );
                           return (
                             <label

@@ -25,6 +25,31 @@ rg -n '"audit_logs"' firestore.indexes.json
 
 Esperado nas rules: `collections`, `sales`, `boxes`, `security_logs`, `audit_logs` com **create/update/delete: if false** (só Admin SDK / BFF).
 
+### 1.1 Suite automatizada de rules + BFF (obrigatório no Gate)
+
+Antes do deploy, o time de ops/QA deve rodar a mesma suíte do CI (job `test-backend` em `.github/workflows/tests.yml`).
+
+**Pré-requisitos:** JDK **21**, `firebase-tools`, `npm ci` na raiz do monorepo.
+
+```bash
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+export LOCAL_DEV=true
+
+npx firebase emulators:exec --only firestore \
+  "npm test -w backend && npm test -w frontend -- src/tests/firestore.rules.test.ts"
+```
+
+Alternativa só rules: `npm run test:rules` (raiz).
+
+| Suite | Esperado |
+|-------|----------|
+| `frontend/src/tests/firestore.rules.test.ts` | 100% pass com Emulator `:8080` |
+| `backend` (incl. `auditoriaIntegracao` / idempotência) | 100% pass com Emulator + `LOCAL_DEV` |
+
+Sem Emulator, a suíte de rules falha com `ECONNREFUSED 127.0.0.1:8080` e a integração BFF falha por falta de credenciais/Firestore — **não** é regressão de código; é pré-requisito de ambiente.
+
+Relatório da varredura de saúde (build/unitários/greps) e correções TS: [`PENDENCIAS-DESENVOLVIMENTO.md`](../planejamento/PENDENCIAS-DESENVOLVIMENTO.md) §2.1.
+
 ---
 
 ## 2. Login e projeto

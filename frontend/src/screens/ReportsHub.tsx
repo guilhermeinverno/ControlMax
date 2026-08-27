@@ -66,7 +66,7 @@ const REPORTS: Array<{
   {
     screen: 'audit-logs',
     title: 'Log de acciones',
-    description: 'Auditoría real (security_logs / audit_logs).',
+    description: 'Auditoría + analytics (security_logs / audit_logs).',
     icon: Shield,
   },
   {

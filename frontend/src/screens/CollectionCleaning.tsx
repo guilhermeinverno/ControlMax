@@ -11,6 +11,7 @@ import {
 } from '../utils/collectionCleaningFilters';
 import type { CollectionStatusFilter } from '../types/collectionCleaning';
 import { AlertCircle, CheckCircle, Search, ShieldAlert } from 'lucide-react';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 import { CollectionCleaningStatsBar } from './components/collectionCleaning/CollectionCleaningStatsBar';
 import { CollectionCleaningCard } from './components/collectionCleaning/CollectionCleaningCard';
 import { CollectionCancelModal } from './components/collectionCleaning/CollectionCancelModal';
@@ -124,13 +125,7 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
         </form>
 
         {data.error && (
-          <div className="bg-red-100 border border-red-300 text-red-800 p-4 rounded text-sm flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-bold">Erro de Sincronização</p>
-              <p className="text-xs">{data.error}</p>
-            </div>
-          </div>
+          <ListErrorBanner message={data.error} onRetry={data.retryLoad} />
         )}
 
         <div className="space-y-3">
@@ -149,9 +144,11 @@ export function CollectionCleaning({ onNavigate }: CollectionCleaningProps) {
               </div>
             ),
             (
-              <div className="bg-white border border-gray-300 rounded text-center py-10 px-4 shadow-sm text-sm text-gray-500">
-                Nenhuma cobrança encontrada para esta data
-              </div>
+              <ListEmptyState
+                title="Nenhuma cobrança encontrada para esta data"
+                description="Ajuste a data ou o filtro de status e busque novamente."
+                icon={<Search className="w-10 h-10" />}
+              />
             ),
             (
               <div className="grid grid-cols-1 gap-3">

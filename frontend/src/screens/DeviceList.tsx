@@ -24,6 +24,7 @@ import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { ConfirmModal } from './components/ConfirmModal';
 import { DeviceTable } from './components/devices/DeviceTable';
 import { DeviceBindModal } from './components/devices/DeviceBindModal';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 
 export function DeviceList() {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
@@ -320,10 +321,7 @@ export function DeviceList() {
 
         <div className="bg-white border border-gray-200 border-t-0 p-3 shadow-sm rounded-b-sm">
           {data.error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded mb-4 text-xs flex items-center">
-              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>{data.error}</span>
-            </div>
+            <ListErrorBanner message={data.error} onRetry={data.retryLoad} />
           )}
 
           <div className="mb-4 relative">
@@ -372,22 +370,13 @@ export function DeviceList() {
               </div>
             ),
             (
-              <div className="text-center py-12 bg-gray-50 border border-dashed border-gray-300 rounded-sm">
-                <Smartphone className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                <p className="text-sm font-bold text-gray-700">Nenhum dispositivo vinculado ainda</p>
-                <p className="text-xs text-gray-500 mt-1 mb-4">
-                  Adicione um novo dispositivo para os cobradores sincronizarem.
-                </p>
-                {isAdmin && (
-                  <button
-                    onClick={() => data.setIsBindModalOpen(true)}
-                    className="bg-[#6B21A8] hover:bg-[#581c87] text-white text-xs font-bold px-4 py-2 rounded shadow-sm transition-all cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 mr-1 inline" />
-                    Vincular Primeiro Aparelho
-                  </button>
-                )}
-              </div>
+              <ListEmptyState
+                title="Nenhum dispositivo vinculado ainda"
+                description="Adicione um novo dispositivo para os cobradores sincronizarem."
+                icon={<Smartphone className="w-10 h-10" />}
+                actionLabel={isAdmin ? 'Vincular Primeiro Aparelho' : undefined}
+                onAction={isAdmin ? () => data.setIsBindModalOpen(true) : undefined}
+              />
             ),
             (
               <DeviceTable

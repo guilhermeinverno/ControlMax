@@ -37,6 +37,7 @@ O monorepo divide as responsabilidades do sistema nas seguintes pastas principai
 - **`frontend/`**: Toda a interface visual web (React 19 + Vite 6) e regras de navegação do usuário.
 - **`docs/`**: Documentação oficial — SSOT, planos, ops/QA e specs (índice em [`docs/README.md`](docs/README.md); canônico: [`docs/arquitetura/ARQUITETURA-SSOT.md`](docs/arquitetura/ARQUITETURA-SSOT.md)).
 - **`scripts/`**: Utilitários (ex.: `scripts/maintenance/` — patches históricos, fora do build).
+- **`infra/terraform/`**: IaC do BFF staging (Cloud Run) — ver [`docs/ops/TERRAFORM.md`](docs/ops/TERRAFORM.md).
 
 ### 2.2 Precisão Financeira Estrita (Manejo de Centavos)
 Para evitar as imprecisões de arredondamento inerentes a números de ponto flutuante em JavaScript (IEEE 754), **todos os valores monetários no ControlMax devem ser manipulados e armazenados como números inteiros (centavos)**.
@@ -88,8 +89,9 @@ O ControlMax funciona com base em empresas e filiais parceiras. Cada empresa tem
 ├── docs/                 Documentação oficial (ver docs/README.md)
 │   ├── arquitetura/      SSOT + indexes Firestore
 │   ├── planejamento/     Pendências e planos
-│   ├── ops/              Gate deploy, QA, Vercel
+│   ├── ops/              Gate deploy, QA, Vercel, Terraform
 │   └── controlmax/       Spec de produto / ADRs
+├── infra/terraform/      IaC staging Cloud Run (ENT-06)
 └── scripts/maintenance/  Patches one-shot (não CI)
 ```
 

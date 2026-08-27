@@ -25,9 +25,11 @@ Build: commit/hash anotado no resultado. Ambiente: homolog preferencial.
 
 ## 0. Pré-Gate (bloqueante)
 
+- [ ] Suite Emulator: `firestore.rules.test.ts` + testes BFF/idempotência (`DEPLOY-FIRESTORE-GATE.md` §1.1)
 - [ ] Deploy rules + indexes concluído (tabela em `DEPLOY-FIRESTORE-GATE.md`)
 - [ ] BFF `/api` acessível (local ou Cloud Run)
 - [ ] Login **sem** auto-provision (email inexistente → erro, sem criar user)
+- [ ] Conferir relatório de saúde / fixes TS em [`PENDENCIAS-DESENVOLVIMENTO.md`](../planejamento/PENDENCIAS-DESENVOLVIMENTO.md) §2.1
 
 ---
 

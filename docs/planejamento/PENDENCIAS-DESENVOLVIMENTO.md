@@ -1,7 +1,7 @@
 # Pendências de Desenvolvimento — ControlMax (atualizado)
 
 **Data da análise:** 27/08/2026  
-**Branch ativa:** `merged-dev-fabio`  
+**Branch ativa:** `Dev-Improvments-Fabio`  
 **Fontes cruzadas:**
 - [`guia-controlmax.md`](./guia-controlmax.md) — evolução enterprise
 - [`ARQUITETURA-SSOT.md`](../arquitetura/ARQUITETURA-SSOT.md) — SSOT arquitetural
@@ -10,8 +10,8 @@
 - [`PLANO-DESENVOLVIMENTO.md`](./PLANO-DESENVOLVIMENTO.md)
 
 > **Piloto (código):** Fases 0–5 + P1/P2 entregues.  
-> **Gate GO:** ainda depende de ops/QA.  
-> **Próximo ciclo de código:** evolução enterprise do guia (§6).
+> **Enterprise (código):** ENT-01…09 + UX residual entregues nesta branch.  
+> **Gate GO:** ainda depende de ops/QA (outro time).
 
 ---
 
@@ -20,20 +20,58 @@
 | Faixa | Implementado (código) | Aberto |
 |-------|----------------------:|--------|
 | **Piloto P0–P2 + CLEAN** | Tudo | 0 feature |
-| **Gate (ops/QA)** | Checklists prontos | Deploy + SYNC-01 + QA regressivo |
-| **Enterprise (guia)** | Fase 6–7 (até ENT-05) | Audit BI / Terraform → … |
+| **Gate (ops/QA)** | Checklists prontos | Emulator rules + Deploy + SYNC-01 + QA regressivo |
+| **Enterprise (guia)** | ENT-01…09 ✅ | Gate ops/QA |
 
 ---
 
-## 2. Gate Piloto — ainda aberto (outro desenvolvedor)
+## 2. Gate Piloto — ainda aberto (outro desenvolvedor / ops-QA)
 
 | # | Item | Doc |
 |---|------|-----|
+| 0 | **Suite `firestore.rules` + integração BFF no Emulator** (JDK 21 + `firebase-tools`) | [`DEPLOY-FIRESTORE-GATE.md`](../ops/DEPLOY-FIRESTORE-GATE.md) §1.1 / CI `test-backend` |
 | 1 | Deploy `firestore.rules` + `firestore.indexes.json` | [`DEPLOY-FIRESTORE-GATE.md`](../ops/DEPLOY-FIRESTORE-GATE.md) |
 | 2 | Homologação SyncManager em dispositivo | [`SYNC-01-CHECKLIST-QA.md`](../ops/SYNC-01-CHECKLIST-QA.md) |
 | 3 | QA regressivo (caixa, sale, collection, multi-tenant) | [`GATE-PILOTO-QA.md`](../ops/GATE-PILOTO-QA.md) |
 
+**Como rodar o item 0 (bloqueante antes do deploy se CI local falhar):**
+
+```bash
+# Pré: Java 21 + firebase-tools (ver workflow .github/workflows/tests.yml)
+export FIRESTORE_EMULATOR_HOST=127.0.0.1:8080
+export LOCAL_DEV=true
+npx firebase emulators:exec --only firestore \
+  "npm test -w backend && npm test -w frontend -- src/tests/firestore.rules.test.ts"
+```
+
 **Ops residual (opcional pós-deploy):** executar `npm run backfill:claims` nos usuários legados.
+
+### 2.1 Varredura de saúde (27/08/2026) — relatório para o time de Gate
+
+Executada na branch `Dev-Improvments-Fabio` pós ENT-06…09 + limpeza/refatoração.
+
+| Checagem | Resultado |
+|----------|-----------|
+| `frontend` `npm run lint` (`tsc --noEmit`) | ✅ após 6 correções |
+| `frontend` `npm run build` | ✅ |
+| `backend` `npm run build` (esbuild) | ✅ |
+| `frontend` unitários (excl. rules) | ✅ 117/117 |
+| `backend` unitários (excl. `auditoriaIntegracao`) | ✅ 77/77 |
+| `firestore.rules.test.ts` + `auditoriaIntegracao` | ⛔ **pendente Gate** — exige Emulator (item 0) |
+| Grep bypass emails no código app | ✅ 0 hits (só docs de arquivo) |
+| Writes client em `sales`/`collections`/`boxes`/`security_logs` | ✅ só `salesSeed.ts` órfão (sem import no app) |
+| Endpoints `/api/*` hooks/sync ↔ Express | ✅ sem dead-ends |
+
+**Correções TypeScript aplicadas nesta varredura (6):**
+
+1. `CompanyList.tsx` — import `AlertCircle`  
+2. `UserUnitsChecklist.tsx` — path `useTenantUnits` (`../../../hooks/…`)  
+3. `RoleManagement.tsx` + `permissionMatrix.ts` — cast via `unknown`  
+4. `VendedorMobile.tsx` — `amountCents` → `amount`  
+5. Narrowing `ResolveOperationalUnitResult` (`ok === false`)  
+6. `syncExecutor.test.ts` — tipagem do mock `execute`  
+
+**Nota:** `backend` não tem script `lint`; CI de produção de build usa esbuild.
 
 ---
 
@@ -61,18 +99,18 @@ Ordenadas por risco / sequenciamento do guia:
 | `ENT-03` | **Rate limiting** em `/api/transactions/*`, `/api/boxes/*`, `/api/gemini/assistant` | P0 segurança | §5.3 / §6.3 | ✅ |
 | `ENT-04` | Claims: **force refresh / revogação** de sessão após mudança de role | P1 | §5.4 | ✅ |
 | `ENT-05` | Testes automatizados de **conflito SyncManager** (duplo enqueue, edição concorrente) | P1 | §5.5 | ✅ |
-| `ENT-06` | Infra como Código (**Terraform**) | P2 ops | §6.5 | ⬜ |
-| `ENT-07` | **RAG** no assistente (após medir custo/latência do contexto bruto) | P2 IA | §5.6 / §6.6 | ⬜ |
-| `ENT-08` | Dashboards analíticos sobre `audit_logs` | P2 | §2 Auditoria | ⬜ |
-| `ENT-09` | Double-entry **cutover** (só após sombra estável) | P2 | §3.3 | ⬜ |
+| `ENT-06` | Infra como Código (**Terraform**) | P2 ops | §6.5 | ✅ |
+| `ENT-07` | **RAG** no assistente (após medir custo/latência do contexto bruto) | P2 IA | §5.6 / §6.6 | ✅ |
+| `ENT-08` | Dashboards analíticos sobre `audit_logs` | P2 | §2 Auditoria | ✅ |
+| `ENT-09` | Double-entry **cutover** (só após sombra estável) | P2 | §3.3 | ✅ |
 
 ### UX residual (guia §4)
 
 | Item | Status |
 |------|--------|
 | Erro BFF sem fechar modal (amostras críticas) | ✅ parcial (RegisterPayment, clientes, platform) |
-| ErrorBoundary local por módulo crítico | ⬜ mapear e completar |
-| Empty states + retry em todas as listagens | ⬜ gradual |
+| ErrorBoundary local por módulo crítico | ✅ `RouteErrorBoundary` em todas as rotas via `ScreenWrapper` |
+| Empty states + retry em listagens | ✅ ampliado (Company/Route/Device/Blacklist/User/Audit/Holidays/Credit/Cleaning/Sales collections) |
 
 ---
 
@@ -90,9 +128,9 @@ Ordenadas por risco / sequenciamento do guia:
 
 ## 6. Ordem recomendada
 
-1. **Ops/QA:** deploy rules/indexes (incl. `ledger_shadow`) → Gate QA → SYNC-01.  
-2. **Código:** `ENT-08` dashboards `audit_logs` (ou `ENT-06` Terraform ops).  
-3. Depois: `ENT-07` RAG se métricas pedirem → `ENT-09` cutover ledger.
+1. **Ops/QA:** Emulator rules + BFF integração (item 0) → deploy rules/indexes (incl. `ledger_shadow`) → Gate QA → SYNC-01.  
+2. **Ops ledger:** homologar `delta=0` → `LEDGER_MODE=dual` → cutover caixas → `canonical` ([`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md)).  
+3. Dívidas UX menores (Sales grid, BC lists) — gradual.
 
 ---
 
@@ -108,6 +146,13 @@ Ordenadas por risco / sequenciamento do guia:
 | 27/08/2026 | **ENT-03** rate limit in-memory (gemini 10/min, financial 120/min) + 429 tipado. |
 | 27/08/2026 | **ENT-04** revokeRefreshTokens + verifyIdToken(checkRevoked) + getIdToken(true)/retry CLAIMS_STALE. |
 | 27/08/2026 | **ENT-05** suite Sync conflito + retry 5xx/429 + auto `processAll` no evento online. |
+| 27/08/2026 | **ENT-08** Analytics em `/audit-logs` (agregações + export XLSX client-side). |
+| 27/08/2026 | **ENT-06** Terraform staging (Cloud Run + AR + secrets) — [`docs/ops/TERRAFORM.md`](../ops/TERRAFORM.md). |
+| 27/08/2026 | UX residual: `RouteErrorBoundary` + `ListFeedback` (retry/empty) em rotas críticas / listagens-chave. |
+| 27/08/2026 | UX: 2ª onda `ListFeedback` — UserList, AuditLogs, Holidays, CreditRequests, CollectionCleaning, Sales collections. |
+| 27/08/2026 | **ENT-07** RAG leve no assistente (`assistantRag` + chunks; `ASSISTANT_RAG_ENABLED` / `ASSISTANT_RAG_DEBUG`). |
+| 27/08/2026 | **ENT-09** cutover ledger (`LEDGER_MODE`, balance/cutover APIs) — [`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md). |
+| 27/08/2026 | Varredura saúde: build FE/BE OK; 6 fixes TS; unitários OK; **rules/integração Emulator** → Gate item 0. |
 
 ---
 
@@ -116,6 +161,7 @@ Ordenadas por risco / sequenciamento do guia:
 ```
 [x] Piloto P0–P2 + CLEAN (código)
 [x] SSOT arquitetura
+[ ] Gate: Emulator firestore.rules + BFF integração
 [ ] Gate: deploy rules/indexes
 [ ] Gate: SYNC-01 assinado
 [ ] Gate: QA regressivo
@@ -124,8 +170,9 @@ Ordenadas por risco / sequenciamento do guia:
 [x] ENT-03 Rate limiting
 [x] ENT-04 Revogação claims / force refresh
 [x] ENT-05 Testes conflito Sync
-[ ] ENT-06 Terraform
-[ ] ENT-07 RAG (condicional)
-[ ] ENT-08 Audit analytics
-[ ] ENT-09 Ledger cutover
+[x] ENT-06 Terraform
+[x] ENT-07 RAG (condicional → entregue leve)
+[x] ENT-08 Audit analytics
+[x] ENT-09 Ledger cutover
+[x] Varredura saúde pós-refatoração (build + unitários + greps)
 ```

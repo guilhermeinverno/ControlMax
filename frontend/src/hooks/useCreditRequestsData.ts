@@ -33,6 +33,7 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
   const [requests, setRequests] = useState<CreditRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [newClientName, setNewClientName] = useState('');
@@ -48,6 +49,8 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
   } | null>(null);
   const [savingActionId, setSavingActionId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  const retryLoad = () => setReloadToken((n) => n + 1);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -95,7 +98,7 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
     );
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   const resetNewForm = () => {
     setNewClientName('');
@@ -194,6 +197,7 @@ export function useCreditRequestsData(tenantId?: string, userName?: string) {
     requests,
     loading,
     error,
+    retryLoad,
     actionError,
     showAddModal,
     setShowAddModal,

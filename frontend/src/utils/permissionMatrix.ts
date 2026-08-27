@@ -6,7 +6,7 @@ export function hasMatrixPermission(
   action: string
 ): boolean {
   if (!matrix) return false;
-  const mod = matrix[module] as Record<string, boolean> | undefined;
+  const mod = matrix[module] as unknown as Record<string, boolean> | undefined;
   if (!mod) return false;
   return mod[action] === true;
 }

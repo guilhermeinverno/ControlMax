@@ -2,6 +2,7 @@ import { Clock, Loader2 } from 'lucide-react';
 import { listViewBody } from '../../../utils/listViewBody';
 import type { Holiday } from '../../../types/holiday';
 import { MONTH_NAMES } from '../../../types/holiday';
+import { ListEmptyState } from '../../../components/ListFeedback';
 
 interface HolidaysUpcomingPanelProps {
   loading: boolean;
@@ -25,7 +26,11 @@ export function HolidaysUpcomingPanel({ loading, upcoming }: HolidaysUpcomingPan
           </div>
         ),
         (
-          <div className="text-center py-6 text-gray-400 text-xs">No hay feriados activos próximos.</div>
+          <ListEmptyState
+            title="No hay feriados activos próximos"
+            description="Active feriados en el calendario para verlos aquí."
+            icon={<Clock className="w-10 h-10" />}
+          />
         ),
         (
           <div className="space-y-2">

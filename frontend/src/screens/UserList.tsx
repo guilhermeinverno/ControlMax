@@ -10,6 +10,7 @@ import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft, Map
 import { useTenantRoles } from '../hooks/useTenantRoles';
 import { useTenantUnits } from '../hooks/useTenantUnits';
 import { UserUnitsChecklist } from './components/userList/UserUnitsChecklist';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 
 interface AppUser {
   id?: string;
@@ -53,6 +54,7 @@ export function UserList() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Form states - Step 1: Información de usuario
   const [formUsername, setFormUsername] = useState('');
@@ -103,7 +105,7 @@ export function UserList() {
     });
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   // Handle Switch Active/Inactive in Firestore
   const toggleUserStatus = async (user: AppUser) => {
@@ -401,10 +403,11 @@ export function UserList() {
 
           {/* Cards list matching the image style exactly */}
           {listError && (
-            <div className="mb-4 bg-red-50 border border-red-300 text-red-800 p-3 rounded text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <span>{listError}</span>
-            </div>
+            <ListErrorBanner
+              message={listError}
+              onRetry={() => setReloadToken((n) => n + 1)}
+              retryLabel="Reintentar"
+            />
           )}
 
           {listViewBody(
@@ -416,9 +419,11 @@ export function UserList() {
             </div>
           ),
             (
-            <div className="py-12 text-center text-xs font-bold text-gray-400">
-              No hay usuarios que coincidan con la búsqueda.
-            </div>
+            <ListEmptyState
+              title="No hay usuarios que coincidan con la búsqueda"
+              description="Ajuste los filtros o cree un nuevo usuario."
+              icon={<Users className="w-10 h-10" />}
+            />
           ),
             (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -12,7 +12,10 @@ import {
   accountDespesas,
   accountRecebiveis,
   accountReceitas,
+  cutoverBoxToLedger,
+  getLedgerModePolicy,
   reconcileBoxShadow,
+  resolveBoxBalanceCents,
   setLedgerShadowInTransaction,
 } from "./services/ledgerService";
 import { validateBody } from "./middleware/validateBody";
@@ -1279,10 +1282,85 @@ router.get("/ledger/reconcile/:boxId", async (req: AuthenticatedRequest, res: Re
 
   try {
     const result = await reconcileBoxShadow(tenantId, boxId);
-    return res.json({ success: true, reconcile: result });
+    return res.json({
+      success: true,
+      ledgerMode: getLedgerModePolicy(),
+      reconcile: result,
+    });
   } catch (error: any) {
     console.error("Erro reconcile ledger:", error);
     return res.status(400).json({ error: error.message || "Erro ao reconciliar ledger." });
+  }
+});
+
+/** ENT-09 — saldo efetivo (ledger se cutover; senão documento). */
+router.get("/ledger/balance/:boxId", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const { tenantId, role, isSuperAdmin } = req.user;
+  const roleLower = String(role || "").toLowerCase();
+  const canRead =
+    isSuperAdmin === true ||
+    ["admin", "superadmin", "gerente", "supervisor", "director", "coordinador"].includes(roleLower);
+
+  if (!canRead) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  const boxId = String(req.params.boxId || "").trim();
+  if (!boxId) return res.status(400).json({ error: "boxId inválido." });
+
+  try {
+    const result = await resolveBoxBalanceCents(tenantId, boxId);
+    return res.json({
+      success: true,
+      ledgerMode: getLedgerModePolicy(),
+      balance: result,
+    });
+  } catch (error: any) {
+    console.error("Erro balance ledger:", error);
+    return res.status(400).json({ error: error.message || "Erro ao obter saldo ledger." });
+  }
+});
+
+/**
+ * ENT-09 — cutover double-entry do caixa.
+ * Body: { dryRun?: boolean, force?: boolean }
+ * Requer deltaCents===0 (salvo force). Ideal: LEDGER_MODE=dual em homolog → canonical em prod.
+ */
+router.post("/ledger/cutover/:boxId", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const { tenantId, role, isSuperAdmin, uid } = req.user;
+  const roleLower = String(role || "").toLowerCase();
+  const canCutover =
+    isSuperAdmin === true || ["admin", "superadmin", "gerente", "director"].includes(roleLower);
+
+  if (!canCutover) {
+    return res.status(403).json({ error: "Acesso negado." });
+  }
+
+  const boxId = String(req.params.boxId || "").trim();
+  if (!boxId) return res.status(400).json({ error: "boxId inválido." });
+
+  const dryRun = req.body?.dryRun === true || req.query?.dryRun === "1";
+  const force = req.body?.force === true;
+
+  try {
+    const result = await cutoverBoxToLedger(tenantId, boxId, {
+      dryRun,
+      force,
+      userId: uid,
+    });
+    const status = result.applied || result.dryRun ? 200 : 409;
+    return res.status(status).json({
+      success: result.applied || (result.dryRun && result.reconcile.consistent),
+      ledgerMode: getLedgerModePolicy(),
+      cutover: result,
+    });
+  } catch (error: any) {
+    console.error("Erro cutover ledger:", error);
+    return res.status(400).json({ error: error.message || "Erro no cutover do ledger." });
   }
 });
 

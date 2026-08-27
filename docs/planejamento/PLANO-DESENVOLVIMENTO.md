@@ -28,8 +28,8 @@
 Fases 0–5   Piloto (SEC/FIN/CTX/AUTH/AUD/P1/CLEAN)     ✅ código
 Gate        Deploy rules + SYNC-01 + QA regressivo     🟡 ops/QA
 Fase 6      Enterprise (Zod ✅ Ledger ✅ RL ✅)           ✅
-Fase 7+     Claims ✅ / Sync testes ✅ / audit BI        🟡 ENT-08 próximo
-Fase 8      Terraform / RAG / cutover ledger           ⬜
+Fase 7+     Claims ✅ / Sync testes ✅ / audit BI ✅     ✅
+Fase 8      Terraform ✅ / RAG ✅ / cutover ledger ✅  ✅
 ```
 
 | Fase | Meta | Status |
@@ -37,8 +37,8 @@ Fase 8      Terraform / RAG / cutover ledger           ⬜
 | **0–5** | Piloto seguro + P1/P2 + limpeza | ✅ código |
 | **Gate** | Go/No-go produção piloto | 🟡 checklists prontos; execução externa |
 | **6** | Zod + ledger sombra + rate limit | ✅ |
-| **7** | Revogação claims, Sync conflict tests, audit dashboards | 🟡 `ENT-04`/`ENT-05` ✅ · `ENT-08` ⬜ |
-| **8** | Terraform, RAG condicional, cutover double-entry | ⬜ |
+| **7** | Revogação claims, Sync conflict tests, audit dashboards | ✅ |
+| **8** | Terraform, RAG, cutover double-entry | ✅ código (`ENT-06`/`07`/`09`); apply ops externo |
 
 ---
 
@@ -50,6 +50,7 @@ Fase 8      Terraform / RAG / cutover ledger           ⬜
 [x] CTX-01 … CTX-03
 [x] AUTH-01 · AUD-01
 [x] P1-01 … P1-05 · CLEAN-01 … CLEAN-03
+[ ] Emulator rules + BFF integração — DEPLOY-FIRESTORE-GATE.md §1.1
 [ ] Deploy firestore.rules + indexes — DEPLOY-FIRESTORE-GATE.md
 [ ] SYNC-01 — SYNC-01-CHECKLIST-QA.md
 [ ] QA regressivo — GATE-PILOTO-QA.md
@@ -98,7 +99,7 @@ Fonte: `guia-controlmax.md` §5–§6. Não bloqueia o Go do piloto; pode inicia
 |----|---------|---------|----------------|
 | `ENT-04` | Revogação claims / force refresh | M | ✅ `revokeRefreshTokens` + `verifyIdToken(..., true)` + FE `getIdToken(true)` / retry `CLAIMS_STALE` |
 | `ENT-05` | Testes conflito SyncManager | M | ✅ suite + retry 5xx/429 + auto-sync online; 409 → FAILED |
-| `ENT-08` | Dashboards `audit_logs` | L | Agregações por usuário/período/ação; export. |
+| `ENT-08` | Dashboards `audit_logs` | L | ✅ Analytics em `/audit-logs` (agregações + XLSX); util `auditAnalytics.ts` |
 
 ---
 
@@ -106,9 +107,9 @@ Fonte: `guia-controlmax.md` §5–§6. Não bloqueia o Go do piloto; pode inicia
 
 | ID | Entrega | Esforço | Depende | DoD |
 |----|---------|---------|---------|-----|
-| `ENT-06` | Terraform / IaC | XL | Gate estável | Staging aplicável via IaC |
-| `ENT-07` | RAG assistente | XL | Métricas custo/latência contexto bruto | Só se KPI exigir |
-| `ENT-09` | Cutover double-entry | XL | `ENT-02` estável | Saldos do ledger; sombra off |
+| `ENT-06` | Terraform / IaC | XL | Gate estável | ✅ staging Cloud Run + AR + secrets (`infra/terraform`, [`TERRAFORM.md`](../ops/TERRAFORM.md)) |
+| `ENT-07` | RAG assistente | XL | Métricas custo/latência | ✅ retrieval por keywords (`services/assistantRag.ts`); off com `ASSISTANT_RAG_ENABLED=false` |
+| `ENT-09` | Cutover double-entry | XL | `ENT-02` estável | ✅ `LEDGER_MODE` + `/ledger/cutover` + `/ledger/balance` ([`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md)) |
 
 ---
 
@@ -126,17 +127,18 @@ Fonte: `guia-controlmax.md` §5–§6. Não bloqueia o Go do piloto; pode inicia
 - [x] `ENT-03` Rate limit
 - [x] `ENT-04` Revogação claims
 - [x] `ENT-05` Testes Sync conflito
-- [ ] `ENT-08` Audit analytics
-- [ ] `ENT-06` Terraform
-- [ ] `ENT-07` RAG (condicional)
-- [ ] `ENT-09` Ledger cutover
+- [x] `ENT-08` Audit analytics
+- [x] `ENT-06` Terraform
+- [x] `ENT-07` RAG (condicional)
+- [x] `ENT-09` Ledger cutover
 
 ---
 
 ## 7. Próximo passo imediato
 
-1. **Ops/QA:** Gate (deploy rules/indexes incl. `ledger_shadow` → QA → SYNC-01).  
-2. **Dev:** `ENT-08` dashboards `audit_logs` (ou ops `ENT-06`).
+1. **Ops/QA:** Emulator rules (§1.1) → deploy rules/indexes (incl. `ledger_shadow`) → QA → SYNC-01.  
+2. **Ops ledger:** reconcile delta=0 → dual → cutover → `LEDGER_MODE=canonical` ([`LEDGER-CUTOVER.md`](../ops/LEDGER-CUTOVER.md)).  
+3. **Ops:** aplicar staging Terraform — [`TERRAFORM.md`](../ops/TERRAFORM.md).
 
 ---
 

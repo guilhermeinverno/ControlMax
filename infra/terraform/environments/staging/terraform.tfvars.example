@@ -1,0 +1,18 @@
+project_id      = "YOUR_GCP_STAGING_PROJECT_ID"
+region          = "us-central1"
+environment     = "staging"
+service_name    = "controlmax-api"
+frontend_origin = "https://your-staging-frontend.vercel.app"
+
+# Após o 1º apply (só APIs + AR), builde e ajuste esta imagem; re-apply.
+# Ex.: us-central1-docker.pkg.dev/YOUR_PROJECT/controlmax/api:staging
+image = "us-central1-docker.pkg.dev/YOUR_GCP_STAGING_PROJECT_ID/controlmax/api:staging"
+
+min_instances = 0
+max_instances = 5
+cpu           = "1"
+memory        = "512Mi"
+
+create_secret_placeholders = true
+# true só depois de: gcloud secrets versions add … (ver docs/ops/TERRAFORM.md)
+attach_secrets = false

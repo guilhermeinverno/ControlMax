@@ -3,6 +3,7 @@ import { AlertCircle, Check } from 'lucide-react';
 import { useCompanyListData } from '../hooks/useCompanyListData';
 import { useCustomerCreateForm } from '../hooks/useCustomerCreateForm';
 import { useTenant } from '../hooks/useTenant';
+import { ListErrorBanner } from '../components/ListFeedback';
 import { CustomerDetailModal } from './components/CompanyListCustomerModal';
 import { CompanyListCreateForm } from './components/companyList/CompanyListCreateForm';
 import { CompanyListCustomerGrid } from './components/companyList/CompanyListCustomerGrid';
@@ -93,17 +94,7 @@ export function CompanyList({ params, onNavigate }: CompanyListProps) {
             onCancel={handleCreateCancel}
           />
         ) : listData.listError ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
-            <AlertCircle className="w-8 h-8 text-red-500" />
-            <p className="text-sm font-semibold text-red-700">{listData.listError}</p>
-            <button
-              type="button"
-              onClick={listData.retryLoad}
-              className="px-4 py-2 text-xs font-bold text-white bg-[#6A008A] hover:bg-[#52006A] rounded-lg"
-            >
-              Tentar Novamente
-            </button>
-          </div>
+          <ListErrorBanner message={listData.listError} onRetry={listData.retryLoad} />
         ) : (
           <CompanyListCustomerGrid
             loadingCustomers={listData.loadingCustomers}

@@ -265,7 +265,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
         selectedUnitId,
         selectedCnId,
       });
-      if (!unitResolution.ok) {
+      if (unitResolution.ok === false) {
         setFormError(unitResolution.error);
         return;
       }
@@ -911,8 +911,8 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                 const pendingInstallments = Math.max(0, sale.installments - (sale.paidInstallments || 0));
 
                 const saleCollections = collections.filter(c => c.saleId === sale.id);
-                const hasPaidToday = saleCollections.some(c => (c.amount !== undefined ? c.amount > 0 : (c.amountCents !== undefined && c.amountCents > 0)));
-                const hasNoPaymentToday = saleCollections.some(c => (c.amount === 0 || c.amountCents === 0));
+                const hasPaidToday = saleCollections.some(c => c.amount > 0);
+                const hasNoPaymentToday = saleCollections.some(c => c.amount === 0);
 
                 return (
                   <div 
