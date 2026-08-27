@@ -4,7 +4,7 @@ import { getErrorMessage } from '../utils/errorMessage';
 import { useState } from 'react';
 import { Screen } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { useBox } from '../hooks/useBox';
 import { ArrowLeft, Share2, Calculator, Check, Copy, AlertTriangle } from 'lucide-react';
 
@@ -65,7 +65,7 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
   if (error && !activeBox) {
     return (
       <div className="flex flex-col bg-slate-50 min-h-screen text-[#333333]">
-        <UnitSelectors />
+        <GlobalContextSelector variant="default" />
         <div className="px-3 pt-3 pb-6">
           <div className="bg-red-50 border border-red-300 rounded-sm p-4 text-xs flex flex-col items-center text-center space-y-2 shadow-sm">
             <span className="font-bold text-red-800 text-sm">Erro ao verificar caixa aberta</span>
@@ -79,7 +79,7 @@ export function CloseBox({ onNavigate }: CloseBoxProps) {
   if (!activeBox) {
     return (
       <div className="flex flex-col bg-slate-50 min-h-screen text-[#333333]">
-        <UnitSelectors />
+        <GlobalContextSelector variant="default" />
         <div className="px-3 pt-3 pb-6 flex flex-col space-y-3">
           <div className="bg-yellow-50 border border-yellow-300 rounded-sm p-4 text-xs flex flex-col items-center text-center space-y-2 shadow-sm">
             <span className="font-bold text-yellow-800 text-sm">Nenhuma caixa aberta encontrada</span>

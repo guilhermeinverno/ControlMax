@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { formatCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
 import { subscribeTenantCollectionByDate } from '../utils/firestoreDateSubscription';
+import { submitFinancialApproval } from '../utils/financialApproval';
+import { financialFetchHeaders } from '../utils/financialFetchHeaders';
 import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import type { BCExpense } from '../types/bcExpense';
 import { todayDateString } from '../types/bcExpense';
@@ -73,18 +74,30 @@ export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin 
     setFormSuccess(null);
 
     try {
-      await addDoc(collection(db, 'bc_expenses'), {
-        tenantId,
-        cnId: formCnId,
-        cnName: formCnName,
-        userId: auth.currentUser?.uid || 'unknown',
-        userName: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Usuário',
-        amount: valueCents,
-        description: description.trim(),
-        category,
-        status: isAdmin ? 'approved' : 'pending',
-        createdAt: serverTimestamp(),
+      if (!auth?.currentUser) {
+        throw new Error('Usuario no autenticado.');
+      }
+      const idempotencyKey = crypto.randomUUID();
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/transactions/expense', {
+        method: 'POST',
+        headers: financialFetchHeaders(token, idempotencyKey),
+        body: JSON.stringify({
+          mode: 'retiro',
+          cnId: formCnId,
+          cnName: formCnName,
+          expenseType: category,
+          amountCents: valueCents,
+          comment: description.trim(),
+          description: description.trim(),
+          category,
+          idempotencyKey,
+        }),
       });
+      const data = await response.json().catch(() => ({} as { error?: string }));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao registrar egreso.');
+      }
 
       setFormSuccess('Egreso de Centro de Negócios registrado com sucesso!');
       setAmountInput('');
@@ -96,7 +109,7 @@ export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin 
       }, 1500);
     } catch (err) {
       console.error('Error creating BC Expense:', err);
-      setFormError('Erro ao registrar egreso. Tente novamente.');
+      setFormError(err instanceof Error ? err.message : 'Erro ao registrar egreso. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -106,11 +119,7 @@ export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin 
     if (!expenseToApprove) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_expenses', expenseToApprove.id), {
-        status: 'approved',
-        approvedBy: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Admin',
-        approvedAt: serverTimestamp(),
-      });
+      await submitFinancialApproval('bc_expense', expenseToApprove.id, 'approved');
       setExpenseToApprove(null);
     } catch (err) {
       console.error('Error approving BC Expense:', err);
@@ -124,11 +133,7 @@ export function useBCExpensesData(tenantId?: string, userName?: string, isAdmin 
     if (!expenseToReject) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_expenses', expenseToReject.id), {
-        status: 'rejected',
-        approvedBy: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Admin',
-        approvedAt: serverTimestamp(),
-      });
+      await submitFinancialApproval('bc_expense', expenseToReject.id, 'rejected');
       setExpenseToReject(null);
     } catch (err) {
       console.error('Error rejecting BC Expense:', err);

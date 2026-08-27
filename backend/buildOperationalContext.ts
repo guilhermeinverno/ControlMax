@@ -1,5 +1,11 @@
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "./firebase";
+import {
+  assembleContextFromChunks,
+  retrieveRelevantChunks,
+  type ContextChunk,
+  type RagMetrics,
+} from "./services/assistantRag";
 
 function toDate(value: { toDate?: () => Date; seconds?: number } | null | undefined): Date | null {
   if (!value) return null;
@@ -16,10 +22,14 @@ function isToday(timestamp: { toDate?: () => Date; seconds?: number } | null | u
   return date >= startOfToday;
 }
 
-export async function buildOperationalContext(tenantId: string): Promise<string> {
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
+function formatMoneyBr(cents: number): string {
+  return (cents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+}
 
+/**
+ * Monta chunks estruturados do tenant (fonte para RAG / contexto legado).
+ */
+export async function buildOperationalContextChunks(tenantId: string): Promise<ContextChunk[]> {
   const qUsers = query(
     collection(db, "users"),
     where("tenantId", "==", tenantId),
@@ -82,15 +92,111 @@ export async function buildOperationalContext(tenantId: string): Promise<string>
     list.map((r) => `${r.name} (Atribuída a: ${r.assignedUserName || "Ninguém"})`).join("; ") ||
     "Nenhuma";
 
-  return `
---- CONTEXTO EM TEMPO REAL DO SISTEMA ---
-Data/Hora Atual do Servidor: ${new Date().toLocaleString("pt-BR")}
-Cobradores Ativos Cadastrados (Total ${collectors.length}): ${formatNames(collectors)}
-Cobradores em Rota Hoje (Caixa Aberto Hoje) (Total ${onRouteCollectors.length}): ${formatNames(onRouteCollectors)}
-Cobradores que ainda NÃO saíram para a rota hoje (Sem caixa aberto hoje) (Total ${notOnRouteCollectors.length}): ${formatNames(notOnRouteCollectors)}
-Rotas Ativas Cadastradas: ${formatRoutes(routes)}
-Faturamento Hoje (Vendas): R$ ${(totalSalesTodayCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-Total Cobrado Hoje (Recebimentos): R$ ${(totalCollectedTodayCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-----------------------------------------
-Utilize estritamente estas informações reais em tempo real para responder de forma precisa a perguntas sobre quem saiu ou não para a rota, faturamento do dia, recebimentos ou rotas cadastradas. Seja extremamente preciso e nunca invente nomes ou valores.`;
+  const nowLabel = new Date().toLocaleString("pt-BR");
+
+  const chunks: ContextChunk[] = [
+    {
+      id: "summary",
+      title: "Resumo do dia",
+      keywords: ["resumo", "hoje", "dia", "geral", "status", "situacao"],
+      alwaysInclude: true,
+      body: `Data/Hora: ${nowLabel}
+Cobradores ativos: ${collectors.length}
+Em rota (caixa aberto hoje): ${onRouteCollectors.length}
+Ainda não saíram: ${notOnRouteCollectors.length}
+Rotas ativas: ${routes.length}
+Faturamento vendas hoje: R$ ${formatMoneyBr(totalSalesTodayCents)}
+Total cobrado hoje: R$ ${formatMoneyBr(totalCollectedTodayCents)}`,
+    },
+    {
+      id: "collectors",
+      title: "Cobradores e rota",
+      keywords: [
+        "cobrador",
+        "cobradores",
+        "coletor",
+        "rota",
+        "sairam",
+        "saio",
+        "pendente",
+        "quem",
+        "collector",
+        "ruta",
+      ],
+      body: `Cobradores ativos (${collectors.length}): ${formatNames(collectors)}
+Em rota hoje (${onRouteCollectors.length}): ${formatNames(onRouteCollectors)}
+Ainda NÃO saíram (${notOnRouteCollectors.length}): ${formatNames(notOnRouteCollectors)}`,
+    },
+    {
+      id: "boxes",
+      title: "Caixas abertos hoje",
+      keywords: ["caixa", "caixas", "box", "aberto", "abrir", "fechar", "caja"],
+      body:
+        openBoxes.length === 0
+          ? "Nenhum caixa aberto hoje."
+          : openBoxes
+              .map(
+                (b) =>
+                  `Caixa ${b.id} — userId=${b.userId || "?"} status=${b.status || "open"} inicial=${b.initialAmount ?? "?"}`
+              )
+              .join("\n"),
+    },
+    {
+      id: "routes",
+      title: "Rotas ativas",
+      keywords: ["rota", "rotas", "route", "atribuida", "assigned"],
+      body: `Rotas: ${formatRoutes(routes)}`,
+    },
+    {
+      id: "finance",
+      title: "Financeiro do dia",
+      keywords: [
+        "faturamento",
+        "venda",
+        "vendas",
+        "cobrado",
+        "recebimento",
+        "recebimentos",
+        "dinheiro",
+        "valor",
+        "finance",
+        "sales",
+        "collection",
+        "cobran",
+      ],
+      body: `Vendas hoje: ${salesToday.length} ops · R$ ${formatMoneyBr(totalSalesTodayCents)}
+Recebimentos hoje: ${collectionsToday.length} ops · R$ ${formatMoneyBr(totalCollectedTodayCents)}`,
+    },
+  ];
+
+  return chunks;
+}
+
+export interface BuildOperationalContextResult {
+  text: string;
+  metrics: RagMetrics;
+}
+
+/**
+ * Contexto para o assistente com RAG (default) ou full se ASSISTANT_RAG_ENABLED=false.
+ */
+export async function buildOperationalContextWithRag(
+  tenantId: string,
+  userQuery: string,
+  options?: { forceFull?: boolean }
+): Promise<BuildOperationalContextResult> {
+  const chunks = await buildOperationalContextChunks(tenantId);
+  const { selected, metrics } = retrieveRelevantChunks(userQuery, chunks, {
+    forceFull: options?.forceFull,
+  });
+  return {
+    text: assembleContextFromChunks(selected),
+    metrics,
+  };
+}
+
+/** Compat: contexto completo (todos os chunks). */
+export async function buildOperationalContext(tenantId: string): Promise<string> {
+  const { text } = await buildOperationalContextWithRag(tenantId, "", { forceFull: true });
+  return text;
 }

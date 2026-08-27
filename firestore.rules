@@ -53,6 +53,13 @@ service cloud.firestore {
       }
     }
 
+    // RBAC dinâmico — leitura no client; escrita apenas Admin SDK / BFF
+    match /tenant_roles/{roleId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
+      allow create, update, delete: if false;
+    }
+
     match /users/{userId} {
       allow get: if isAuthenticated() && (
         isSuperAdmin() || 
@@ -125,8 +132,8 @@ service cloud.firestore {
     match /collections/{collectionId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
-      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
-      allow update, delete: if false;
+      // FIN-01: escritas apenas via Admin SDK / BFF (igual sales/boxes)
+      allow create, update, delete: if false;
     }
 
     match /transfers/{transferId} {
@@ -167,6 +174,13 @@ service cloud.firestore {
     match /bc_transfers/{transferId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       allow write: if false;
+    }
+
+    // P1-01 — lista negra: leitura no client; escrita só Admin SDK / BFF
+    match /customer_blacklist/{entryId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
+      allow create, update, delete: if false;
     }
     // -------------------------------------------------------------
 
@@ -262,8 +276,29 @@ service cloud.firestore {
 
     match /security_logs/{logId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
-      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
-      allow update, delete: if false;
+      // FIN-01: create apenas via Admin SDK / BFF (imutável no client)
+      allow create, update, delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
+    // ENT-02: ledger append-only (sombra) — só Admin SDK / BFF
+    match /ledger_shadow/{entryId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
+    match /report_jobs/{jobId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
+    match /saas_invoices/{invoiceId} {
+      allow read: if isAuthenticated() && isSuperAdmin();
+      allow create, update, delete: if false;
     }
   }
 }

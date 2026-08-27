@@ -1,33 +1,15 @@
-import { doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import type { CleaningCollection } from '../types/collectionCleaning';
 
+/**
+ * Cancelamento de cobrança no client SDK não é permitido (FIN-01: collections/boxes write=false).
+ * Use o estorno via BFF: POST /api/transactions/reversal.
+ */
 export async function cancelCollectionAndUpdateBox(
-  collectionToCancel: CleaningCollection,
-  cancelReason: string,
-  userName?: string
+  _collectionToCancel: CleaningCollection,
+  _cancelReason: string,
+  _userName?: string
 ): Promise<void> {
-  await updateDoc(doc(db, 'collections', collectionToCancel.id), {
-    status: 'cancelled',
-    cancelReason,
-    cancelledBy: userName || 'Admin/Supervisor',
-    cancelledAt: serverTimestamp(),
-  });
-
-  const boxRef = doc(db, 'boxes', collectionToCancel.boxId);
-  const boxSnap = await getDoc(boxRef);
-  if (!boxSnap.exists()) return;
-
-  const boxData = boxSnap.data();
-  if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
-  const newTotal = Math.max(0, (boxData.totalCollections || 0) - collectionToCancel.amount);
-  const newFinal =
-    (boxData.initialAmount || 0) +
-    newTotal +
-    (boxData.totalIncomes || 0) -
-    (boxData.totalExpenses || 0) -
-    (boxData.totalSales || 0) -
-    (boxData.totalTransfers || 0);
-
-  await updateDoc(boxRef, { totalCollections: newTotal, finalAmount: newFinal });
+  throw new Error(
+    'Cancelamento de cobrança pelo client não é permitido. Utilize o estorno via BFF (/api/transactions/reversal).'
+  );
 }

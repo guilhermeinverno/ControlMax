@@ -2,11 +2,15 @@ import { logFirestoreError } from '../utils/firestoreError';
 import { useState, useEffect } from 'react';
 import type { HtmlFormSubmitEvent } from '../types/reactEvents';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, addDoc, updateDoc, doc, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, updateDoc, doc, onSnapshot } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { listViewBody } from '../utils/listViewBody';
 import { logSecurityAction } from '../utils/securityLogger';
-import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Users, UserPlus, Search, Check, AlertCircle, ArrowRight, ArrowLeft, MapPin, X } from 'lucide-react';
+import { useTenantRoles } from '../hooks/useTenantRoles';
+import { useTenantUnits } from '../hooks/useTenantUnits';
+import { UserUnitsChecklist } from './components/userList/UserUnitsChecklist';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 
 interface AppUser {
   id?: string;
@@ -15,6 +19,7 @@ interface AppUser {
   email: string;
   documentNumber: string;
   role: string;
+  roleId?: string;
   firstName: string;
   middleName: string;
   lastName1: string;
@@ -22,10 +27,19 @@ interface AppUser {
   active: boolean;
   googleKey?: string;
   createdAt: string;
+  usuario_unidades?: string[];
+  usuarioUnidades?: string[];
+}
+
+function readUserUnits(user: AppUser): string[] {
+  const raw = user.usuario_unidades ?? user.usuarioUnidades ?? [];
+  return Array.isArray(raw) ? raw.map(String).filter(Boolean) : [];
 }
 
 export function UserList() {
   const { tenantId, role } = useTenant();
+  const { roles: tenantRoles, loading: rolesLoading } = useTenantRoles();
+  const { units: tenantUnits, loading: unitsLoading, error: unitsError } = useTenantUnits(tenantId);
 
   // Mode: 'list' or 'create'
   const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
@@ -40,12 +54,14 @@ export function UserList() {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Form states - Step 1: Información de usuario
   const [formUsername, setFormUsername] = useState('');
   const [formDocNumber, setFormDocNumber] = useState('');
   const [formEmail, setFormEmail] = useState('');
-  const [formRole, setFormRole] = useState('Cajero');
+  const [formRole, setFormRole] = useState('collector');
+  const [formRoleId, setFormRoleId] = useState('');
   const [formFirstName, setFormFirstName] = useState('');
   const [formMiddleName, setFormMiddleName] = useState('');
   const [formLastName1, setFormLastName1] = useState('');
@@ -54,6 +70,12 @@ export function UserList() {
   // Form states - Step 2: Configuración
   const [formGoogleKey, setFormGoogleKey] = useState('');
   const [formActive, setFormActive] = useState(true);
+  const [formUsuarioUnidades, setFormUsuarioUnidades] = useState<string[]>([]);
+
+  // Edit units modal
+  const [editingUnitsUser, setEditingUnitsUser] = useState<AppUser | null>(null);
+  const [editUnitsSelection, setEditUnitsSelection] = useState<string[]>([]);
+  const [savingUnits, setSavingUnits] = useState(false);
 
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -67,36 +89,11 @@ export function UserList() {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('tenantId', '==', tenantId));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as AppUser[];
-
-      // Ensure coletor.teste@controlmax.com is present for enterprise test tenant
-      if (tenantId === 'teste@controlmax.dev' || tenantId.includes('teste')) {
-        const hasColetorTeste = list.some(u => u.email?.toLowerCase() === 'coletor.teste@controlmax.com');
-        if (!hasColetorTeste) {
-          try {
-            await addDoc(collection(db, 'users'), {
-              tenantId: 'teste@controlmax.dev',
-              username: 'coletor.teste',
-              userName: 'Coletor de Teste',
-              email: 'coletor.teste@controlmax.com',
-              documentNumber: '1007967200',
-              role: 'collector',
-              firstName: 'Coletor',
-              middleName: 'de',
-              lastName1: 'Teste',
-              lastName2: 'Demo',
-              active: true,
-              createdAt: new Date().toISOString()
-            });
-          } catch (err) {
-            console.warn('Auto-provision user in Firestore list:', err);
-          }
-        }
-      }
 
       setUsers(list);
       setListError(null);
@@ -108,7 +105,7 @@ export function UserList() {
     });
 
     return () => unsubscribe();
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   // Handle Switch Active/Inactive in Firestore
   const toggleUserStatus = async (user: AppUser) => {
@@ -150,15 +147,27 @@ export function UserList() {
     setSubmitting(true);
     setNotification(null);
 
-    // Standardize role to system internal codes
-    const roleNormalized = 
-      formRole.toLowerCase().includes('cajero') || formRole.toLowerCase().includes('cobrador') || formRole.toLowerCase().includes('collector')
-        ? 'collector'
-        : formRole.toLowerCase().includes('admin')
-        ? 'admin'
-        : formRole.toLowerCase().includes('superv')
-        ? 'supervisor'
-        : 'collector';
+    // Prefer roleId dinâmico; fallback legado por texto
+    let roleNormalized = 'collector';
+    let roleIdToSend = formRoleId || '';
+
+    if (formRoleId) {
+      const selectedTenantRole = tenantRoles.find((r) => r.id === formRoleId);
+      roleNormalized = selectedTenantRole?.legacyRole
+        ? String(selectedTenantRole.legacyRole)
+        : formRole || 'collector';
+    } else {
+      roleNormalized =
+        formRole.toLowerCase().includes('cajero') ||
+        formRole.toLowerCase().includes('cobrador') ||
+        formRole.toLowerCase().includes('collector')
+          ? 'collector'
+          : formRole.toLowerCase().includes('admin')
+            ? 'admin'
+            : formRole.toLowerCase().includes('superv')
+              ? 'supervisor'
+              : 'collector';
+    }
 
     const googleKeyFinal = formGoogleKey.trim() || `gkey_${Date.now()}`;
 
@@ -169,6 +178,7 @@ export function UserList() {
       email: formEmail.trim().toLowerCase(),
       documentNumber: formDocNumber.trim(),
       role: roleNormalized,
+      roleId: roleIdToSend,
       firstName: formFirstName.trim(),
       middleName: formMiddleName.trim() || '',
       lastName1: formLastName1.trim(),
@@ -179,36 +189,29 @@ export function UserList() {
     };
 
     try {
-      let createdViaApi = false;
-      try {
-        const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
-        const res = await fetch('/api/admin/users', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            email: newUserPayload.email,
-            name: newUserPayload.userName,
-            role: newUserPayload.role,
-            tenantId,
-            active: newUserPayload.active,
-            document: newUserPayload.documentNumber,
-            username: newUserPayload.username,
-          }),
-        });
+      const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          email: newUserPayload.email,
+          name: newUserPayload.userName,
+          role: newUserPayload.role,
+          roleId: newUserPayload.roleId || undefined,
+          tenantId,
+          active: newUserPayload.active,
+          document: newUserPayload.documentNumber,
+          username: newUserPayload.username,
+          usuario_unidades: formUsuarioUnidades,
+        }),
+      });
 
-        if (res.ok) {
-          createdViaApi = true;
-        }
-      } catch (apiErr) {
-        console.warn('Backend API endpoint unavailable, saving directly to Firestore users collection:', apiErr);
-      }
-
-      // If backend was not reached or returned an error, fallback to direct Firestore document creation
-      if (!createdViaApi) {
-        await addDoc(collection(db, 'users'), newUserPayload);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({} as { error?: string }));
+        throw new Error(errBody.error || `Erro da API admin (${res.status})`);
       }
       
       // Log security action
@@ -226,13 +229,15 @@ export function UserList() {
       setFormUsername('');
       setFormDocNumber('');
       setFormEmail('');
-      setFormRole('Cajero');
+      setFormRole('collector');
+      setFormRoleId('');
       setFormFirstName('');
       setFormMiddleName('');
       setFormLastName1('');
       setFormLastName2('');
       setFormGoogleKey('');
       setFormActive(true);
+      setFormUsuarioUnidades([]);
 
       // Finish and return to list
       setTimeout(() => {
@@ -242,9 +247,54 @@ export function UserList() {
       }, 1500);
     } catch (err) {
       console.error("Error creating user document:", err);
-      setNotification({ type: 'error', message: 'Erro ao registrar o funcionário no sistema.' });
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao registrar o funcionário no sistema.',
+      });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openEditUnits = (user: AppUser) => {
+    setEditingUnitsUser(user);
+    setEditUnitsSelection(readUserUnits(user));
+    setNotification(null);
+  };
+
+  const handleSaveUserUnits = async () => {
+    if (!editingUnitsUser?.id) return;
+    setSavingUnits(true);
+    setNotification(null);
+    try {
+      if (!auth?.currentUser) throw new Error('Usuario no autenticado.');
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/admin/users/${encodeURIComponent(editingUnitsUser.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          usuario_unidades: editUnitsSelection,
+          reason: 'Atualização de usuario_unidades',
+        }),
+      });
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        throw new Error(data.error || `Erro ao atualizar unidades (${res.status}).`);
+      }
+      setNotification({ type: 'success', message: 'Unidades do usuário atualizadas.' });
+      setEditingUnitsUser(null);
+      setTimeout(() => setNotification(null), 2500);
+    } catch (err) {
+      console.error(err);
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Erro ao salvar unidades.',
+      });
+    } finally {
+      setSavingUnits(false);
     }
   };
 
@@ -353,10 +403,11 @@ export function UserList() {
 
           {/* Cards list matching the image style exactly */}
           {listError && (
-            <div className="mb-4 bg-red-50 border border-red-300 text-red-800 p-3 rounded text-xs flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <span>{listError}</span>
-            </div>
+            <ListErrorBanner
+              message={listError}
+              onRetry={() => setReloadToken((n) => n + 1)}
+              retryLabel="Reintentar"
+            />
           )}
 
           {listViewBody(
@@ -368,9 +419,11 @@ export function UserList() {
             </div>
           ),
             (
-            <div className="py-12 text-center text-xs font-bold text-gray-400">
-              No hay usuarios que coincidan con la búsqueda.
-            </div>
+            <ListEmptyState
+              title="No hay usuarios que coincidan con la búsqueda"
+              description="Ajuste los filtros o cree un nuevo usuario."
+              icon={<Users className="w-10 h-10" />}
+            />
           ),
             (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -402,17 +455,30 @@ export function UserList() {
                     <span className="text-[10px] font-bold text-purple-700 uppercase tracking-wide bg-purple-50 px-2 py-0.5 rounded-sm inline-block mt-1">
                       {user.role}
                     </span>
+                    <p className="text-[10px] text-gray-500 font-semibold mt-1.5 flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-[#6B21A8] shrink-0" />
+                      {readUserUnits(user).length > 0
+                        ? `${readUserUnits(user).length} unidade(s)`
+                        : 'Sem unidades (acesso amplo)'}
+                    </p>
                   </div>
 
                   {/* Inline toggle switch state */}
                   <div className="border-t border-gray-100 pt-3 flex items-center justify-between text-xs text-gray-500 font-bold">
-                    <div className="flex flex-col">
+                    <div className="flex flex-col gap-1.5 min-w-0">
                       <span>Doc: {user.documentNumber}</span>
                       {user.googleKey && (
-                        <span className="text-[10px] text-purple-600 font-mono font-medium mt-0.5 truncate max-w-[150px]" title={`Chave Google: ${user.googleKey}`}>
+                        <span className="text-[10px] text-purple-600 font-mono font-medium truncate max-w-[150px]" title={`Chave Google: ${user.googleKey}`}>
                           G-Key: {user.googleKey}
                         </span>
                       )}
+                      <button
+                        type="button"
+                        onClick={() => openEditUnits(user)}
+                        className="text-[10px] font-extrabold uppercase tracking-wide text-[#6B21A8] hover:text-[#52006A] text-left cursor-pointer"
+                      >
+                        Editar unidades
+                      </button>
                     </div>
 
                     {/* Switch status toggle */}
@@ -530,20 +596,41 @@ export function UserList() {
                   />
                 </div>
 
-                {/* Profile dropdown */}
+                {/* Profile dropdown — TenantRoles dinâmicos */}
                 <div className="flex flex-col">
                   <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Perfil de usuario *</label>
                   <select
-                    value={formRole}
-                    onChange={(e) => setFormRole(e.target.value)}
+                    value={formRoleId || formRole}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const match = tenantRoles.find((r) => r.id === val);
+                      if (match) {
+                        setFormRoleId(match.id);
+                        setFormRole(match.legacyRole || 'collector');
+                      } else {
+                        setFormRoleId('');
+                        setFormRole(val);
+                      }
+                    }}
                     className="w-full border border-gray-300 rounded p-2 text-xs font-semibold outline-none bg-white focus:border-[#6B21A8]"
+                    disabled={rolesLoading}
                   >
-                    <option value="Super Administrador">Super Administrador</option>
-                    <option value="Administrador">Administrador</option>
-                    <option value="Revisador">Revisador</option>
-                    <option value="Cajero">Cajero / Operador de Caja</option>
-                    <option value="Supervisor">Supervisor de Ruta</option>
-                    <option value="Secretaria">Secretaria</option>
+                    <option value="">
+                      {rolesLoading ? 'Carregando perfis…' : 'Selecione um perfil…'}
+                    </option>
+                    {tenantRoles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                        {r.isSystemRole ? ' (sistema)' : ''}
+                      </option>
+                    ))}
+                    {tenantRoles.length === 0 && !rolesLoading && (
+                      <>
+                        <option value="collector">Cobrador (legado)</option>
+                        <option value="supervisor">Supervisor (legado)</option>
+                        <option value="admin">Administrador (legado)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -668,6 +755,23 @@ export function UserList() {
                   </div>
                 </div>
 
+                <div className="md:col-span-2 flex flex-col">
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">
+                    Unidades operacionais (usuario_unidades)
+                  </label>
+                  {unitsError ? (
+                    <p className="text-[11px] font-semibold text-red-600">{unitsError}</p>
+                  ) : (
+                    <UserUnitsChecklist
+                      units={tenantUnits}
+                      selectedIds={formUsuarioUnidades}
+                      onChange={setFormUsuarioUnidades}
+                      loading={unitsLoading}
+                      disabled={submitting}
+                    />
+                  )}
+                </div>
+
               </div>
 
               {/* Action bar Step 2 */}
@@ -693,6 +797,58 @@ export function UserList() {
             </form>
           )}
 
+        </div>
+      )}
+
+      {editingUnitsUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md border border-gray-200 overflow-hidden">
+            <div className="bg-[#6B21A8] text-white px-4 py-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider truncate">Editar unidades</h3>
+                <p className="text-[10px] text-white/80 truncate font-mono">{editingUnitsUser.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingUnitsUser(null)}
+                className="p-1.5 rounded hover:bg-white/10 cursor-pointer"
+                aria-label="Fechar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              {unitsError ? (
+                <p className="text-xs font-semibold text-red-600">{unitsError}</p>
+              ) : (
+                <UserUnitsChecklist
+                  units={tenantUnits}
+                  selectedIds={editUnitsSelection}
+                  onChange={setEditUnitsSelection}
+                  loading={unitsLoading}
+                  disabled={savingUnits}
+                />
+              )}
+              <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingUnitsUser(null)}
+                  disabled={savingUnits}
+                  className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg cursor-pointer disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleSaveUserUnits()}
+                  disabled={savingUnits}
+                  className="px-4 py-2 text-xs font-bold text-white bg-[#6B21A8] hover:bg-[#52006A] rounded-lg cursor-pointer disabled:opacity-50"
+                >
+                  {savingUnits ? 'Guardando…' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

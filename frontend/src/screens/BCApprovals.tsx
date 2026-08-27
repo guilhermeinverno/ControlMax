@@ -1,12 +1,13 @@
 import { fmtCents } from '../utils/fmtCents';
 import { useState, useEffect } from 'react';
 import { Screen, Box } from '../types';
-import { db, auth } from '../lib/firebase';
-import { collection, query, where, orderBy, onSnapshot, doc, updateDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { confirmBoxByAdmin } from '../utils/boxLifecycle';
 import { approvalStatusCardBorderClasses } from '../utils/statusLabels';
 import { listViewBody } from '../utils/listViewBody';
+import { submitFinancialApproval } from '../utils/financialApproval';
 import { Check, X, CheckCircle, XCircle, Search, User, AlertCircle, Archive } from 'lucide-react';
 
 interface BCApprovalsProps {
@@ -42,7 +43,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [confirmingBoxId, setConfirmingBoxId] = useState<string | null>(null);
 
-  const { tenantId, userName } = useTenant();
+  const { tenantId } = useTenant();
 
   // Load real-time expense approvals under this tenant
   useEffect(() => {
@@ -132,12 +133,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
 
   const handleApprove = async (id: string, requesterName: string, amount: number) => {
     try {
-      const expenseRef = doc(db, 'expenses', id);
-      await updateDoc(expenseRef, {
-        status: 'approved',
-        approvedBy: userName || auth?.currentUser?.email || 'Gestor',
-        approvedAt: serverTimestamp()
-      });
+      await submitFinancialApproval('expense', id, 'approved');
       setSuccessMessage(`¡Gasto de ${requesterName} por $ ${fmtCents(amount)} APROBADO correctamente!`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (error) {
@@ -151,12 +147,7 @@ export function BCApprovals({ onNavigate }: BCApprovalsProps) {
       return;
     }
     try {
-      const expenseRef = doc(db, 'expenses', id);
-      await updateDoc(expenseRef, {
-        status: 'rejected',
-        approvedBy: userName || auth?.currentUser?.email || 'Gestor',
-        approvedAt: serverTimestamp()
-      });
+      await submitFinancialApproval('expense', id, 'rejected');
       setSuccessMessage(`El gasto de ${requesterName} ha sido rechazado.`);
       setTimeout(() => setSuccessMessage(null), 4000);
     } catch (error) {

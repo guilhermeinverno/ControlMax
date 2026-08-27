@@ -133,6 +133,12 @@ export function SuperAdminShell({
           users={users}
           handleImpersonate={handleImpersonate}
           handleToggleTenantActive={handleToggleTenantActive}
+          tenantInvoices={tabData.tenantInvoices}
+          invoicesLoading={tabData.invoicesLoading}
+          loadTenantInvoices={tabData.loadTenantInvoices}
+          handleCreateInvoice={tabData.handleCreateInvoice}
+          handleMarkInvoicePaid={tabData.handleMarkInvoicePaid}
+          handleSetBillingStatus={tabData.handleSetBillingStatus}
         />
 
         <AIVoiceAssistant language="pt" />

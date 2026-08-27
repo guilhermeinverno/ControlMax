@@ -1,0 +1,12 @@
+node_modules
+dist
+coverage
+.env
+.env.*
+!.env.example
+*.log
+firebase-applet-config.json
+service-account*.json
+**/*.test.ts
+tests
+scripts

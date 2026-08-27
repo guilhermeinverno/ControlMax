@@ -3,6 +3,7 @@ import { AlertCircle, Check } from 'lucide-react';
 import { useCompanyListData } from '../hooks/useCompanyListData';
 import { useCustomerCreateForm } from '../hooks/useCustomerCreateForm';
 import { useTenant } from '../hooks/useTenant';
+import { ListErrorBanner } from '../components/ListFeedback';
 import { CustomerDetailModal } from './components/CompanyListCustomerModal';
 import { CompanyListCreateForm } from './components/companyList/CompanyListCreateForm';
 import { CompanyListCustomerGrid } from './components/companyList/CompanyListCustomerGrid';
@@ -92,6 +93,8 @@ export function CompanyList({ params, onNavigate }: CompanyListProps) {
             activeUnitsList={listData.activeUnitsList}
             onCancel={handleCreateCancel}
           />
+        ) : listData.listError ? (
+          <ListErrorBanner message={listData.listError} onRetry={listData.retryLoad} />
         ) : (
           <CompanyListCustomerGrid
             loadingCustomers={listData.loadingCustomers}

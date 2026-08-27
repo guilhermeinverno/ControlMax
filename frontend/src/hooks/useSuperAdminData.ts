@@ -26,6 +26,14 @@ import {
   prependTerminalLog,
   createActionTerminalLog,
 } from '../utils/superAdminTerminalLogs';
+import type { SaasBillingSummary, SaasInvoice } from '../types/superAdmin';
+import {
+  createSaasInvoice,
+  fetchSaasBillingSummary,
+  fetchSaasInvoices,
+  markSaasInvoicePaid,
+  updateTenantBilling,
+} from '../utils/saasBillingApi';
 
 export function useSuperAdminData() {
   const [tenants, setTenants] = useState<TenantDoc[]>([]);
@@ -61,17 +69,24 @@ export function useSuperAdminData() {
   const [clientCountSim, setClientCountSim] = useState(25);
   const [avgTicketSim, setAvgTicketSim] = useState(199);
   const [terminalLogs, setTerminalLogs] = useState<TerminalLog[]>([]);
+  const [billingSummary, setBillingSummary] = useState<SaasBillingSummary | null>(null);
+  const [tenantInvoices, setTenantInvoices] = useState<SaasInvoice[]>([]);
+  const [invoicesLoading, setInvoicesLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await loadSuperAdminData();
+      const [data, summary] = await Promise.all([
+        loadSuperAdminData(),
+        fetchSaasBillingSummary().catch(() => null),
+      ]);
       setTenants(data.tenants);
       setUsers(data.users);
       setBoxes(data.boxes);
       setSales(data.sales);
       setCollections(data.collections);
+      if (summary) setBillingSummary(summary);
     } catch (err: unknown) {
       console.error('Error loading SuperAdmin data:', err);
       toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
@@ -119,6 +134,10 @@ export function useSuperAdminData() {
           tenantId: cleanTenantId,
           name: newTenantName.trim(),
           active: true,
+          plan: 'Completo',
+          monthlyPrice: Math.round(parseFloat(newTenantPrice) * 100) || 19900,
+          billingStatus: 'active',
+          billingMethod: 'pix',
         }),
       });
 
@@ -264,9 +283,9 @@ export function useSuperAdminData() {
   const handleSavePlanEdit = async (tenantId: string) => {
     try {
       const priceInCents = Math.round(parseFloat(editPrice) * 100) || 0;
-      await updateDoc(doc(db, 'tenants', tenantId), {
+      await updateTenantBilling(tenantId, {
         plan: 'Completo',
-        monthlyPrice: priceInCents,
+        monthlyPriceCents: priceInCents,
       });
       setTerminalLogs((prev) =>
         prependTerminalLog(
@@ -282,7 +301,70 @@ export function useSuperAdminData() {
       await loadData();
     } catch (err: unknown) {
       console.error('Error editing plan:', err);
-      setError('Erro ao atualizar dados do plano.');
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar dados do plano.');
+    }
+  };
+
+  const loadTenantInvoices = useCallback(async (tenantId: string) => {
+    setInvoicesLoading(true);
+    try {
+      const list = await fetchSaasInvoices(tenantId);
+      setTenantInvoices(list);
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : 'Falha ao carregar faturas.');
+      setTenantInvoices([]);
+    } finally {
+      setInvoicesLoading(false);
+    }
+  }, []);
+
+  const handleCreateInvoice = async (tenantId: string) => {
+    try {
+      await createSaasInvoice({ tenantId, markPastDue: false });
+      toast.success('Fatura criada (aberta).');
+      await loadTenantInvoices(tenantId);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao criar fatura.');
+    }
+  };
+
+  const handleMarkInvoicePaid = async (invoiceId: string, tenantId: string) => {
+    try {
+      await markSaasInvoicePaid(invoiceId);
+      toast.success('Fatura marcada como paga.');
+      await loadTenantInvoices(tenantId);
+      await loadData();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao marcar pago.');
+    }
+  };
+
+  const handleSetBillingStatus = async (
+    tenantId: string,
+    billingStatus: 'active' | 'past_due' | 'suspended'
+  ) => {
+    try {
+      await updateTenantBilling(tenantId, {
+        billingStatus,
+        reactivate: billingStatus === 'active',
+        active: billingStatus !== 'suspended',
+      });
+      await loadData();
+      if (selectedTenantDetail?.tenantId === tenantId) {
+        setSelectedTenantDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                billingStatus,
+                active: billingStatus !== 'suspended',
+              }
+            : null
+        );
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar billing.');
     }
   };
 
@@ -369,6 +451,13 @@ export function useSuperAdminData() {
     avgTicketSim,
     setAvgTicketSim,
     terminalLogs,
+    billingSummary,
+    tenantInvoices,
+    invoicesLoading,
+    loadTenantInvoices,
+    handleCreateInvoice,
+    handleMarkInvoicePaid,
+    handleSetBillingStatus,
     processedTenants,
     filteredTenants,
     ...kpis,

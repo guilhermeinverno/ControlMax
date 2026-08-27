@@ -12,6 +12,7 @@ import { useTenant } from '../hooks/useTenant';
 import { reportPeriodBody } from '../utils/listViewBody';
 import { toJsDate } from '../utils/firestoreTimestamp';
 import * as XLSX from 'xlsx';
+import { fmtCents } from '../utils/currency';
 import {
   Calendar,
   Briefcase,
@@ -65,9 +66,6 @@ interface ExpenseItem {
   userId: string;
   createdAt: Timestamp;
 }
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
   const { tenantId, role, userName, loading: tenantLoading } = useTenant();
@@ -406,7 +404,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
               <div className="bg-white border border-gray-300 p-3.5 rounded flex items-center justify-between shadow-xs">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-green-700 tracking-wider">Total Recaudo</span>
-                  <h3 className="text-base font-extrabold text-[#16A34A] mt-1">$ {fmt(totalCollections)}</h3>
+                  <h3 className="text-base font-extrabold text-[#16A34A] mt-1">$ {fmtCents(totalCollections)}</h3>
                 </div>
                 <TrendingUp className="w-5 h-5 text-[#16A34A] opacity-65" />
               </div>
@@ -415,7 +413,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
               <div className="bg-white border border-gray-300 p-3.5 rounded flex items-center justify-between shadow-xs">
                 <div>
                   <span className="text-[10px] font-bold uppercase text-red-700 tracking-wider">Total Gastos</span>
-                  <h3 className="text-base font-extrabold text-[#DC2626] mt-1">$ {fmt(totalExpenses)}</h3>
+                  <h3 className="text-base font-extrabold text-[#DC2626] mt-1">$ {fmtCents(totalExpenses)}</h3>
                 </div>
                 <TrendingDown className="w-5 h-5 text-red-500 opacity-65" />
               </div>
@@ -442,7 +440,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                   <div className="divide-y divide-gray-150 mt-2 text-xs">
                     <div className="py-2.5 flex justify-between">
                       <span className="text-[#555555] font-semibold">Caja Inicial Total</span>
-                      <span className="font-bold text-gray-800">$ {fmt(totalInitial)}</span>
+                      <span className="font-bold text-gray-800">$ {fmtCents(totalInitial)}</span>
                     </div>
 
                     <div className="py-2.5 flex justify-between">
@@ -450,7 +448,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                         <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
                         Ingresos (+)
                       </span>
-                      <span className="font-bold text-green-600">+$ {fmt(totalIncomes)}</span>
+                      <span className="font-bold text-green-600">+$ {fmtCents(totalIncomes)}</span>
                     </div>
 
                     <div className="py-2.5 flex justify-between">
@@ -458,7 +456,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                         <span className="w-2 h-2 rounded-full bg-red-500 mr-2"></span>
                         Gastos (-)
                       </span>
-                      <span className="font-bold text-red-600">-$ {fmt(totalExpenses)}</span>
+                      <span className="font-bold text-red-600">-$ {fmtCents(totalExpenses)}</span>
                     </div>
 
                     <div className="py-2.5 flex justify-between">
@@ -466,7 +464,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                         <span className="w-2 h-2 rounded-full bg-red-400 mr-2"></span>
                         Ventas / Contratos de Crédito (-)
                       </span>
-                      <span className="font-bold text-red-600">-$ {fmt(totalSales)}</span>
+                      <span className="font-bold text-red-600">-$ {fmtCents(totalSales)}</span>
                     </div>
 
                     <div className="py-2.5 flex justify-between">
@@ -474,7 +472,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                         <span className="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
                         Recaudo / Cobrança (+)
                       </span>
-                      <span className="font-bold text-green-600">+$ {fmt(totalCollections)}</span>
+                      <span className="font-bold text-green-600">+$ {fmtCents(totalCollections)}</span>
                     </div>
 
                     <div className="py-2.5 flex justify-between">
@@ -482,7 +480,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                         <span className="w-2 h-2 rounded-full bg-orange-400 mr-2"></span>
                         Transferencias (-)
                       </span>
-                      <span className="font-bold text-gray-700">-$ {fmt(totalTransfers)}</span>
+                      <span className="font-bold text-gray-700">-$ {fmtCents(totalTransfers)}</span>
                     </div>
                   </div>
                 </div>
@@ -491,7 +489,7 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                 <div className="bg-[#FAF5FF] border border-[#D8B4FE] text-[#7B1FA2] p-4 rounded-sm flex items-center justify-between mt-4">
                   <div>
                     <span className="text-[10px] font-bold uppercase tracking-wider block text-purple-700">Caja Final Total do Período</span>
-                    <h2 className="text-xl font-extrabold mt-1">$ {fmt(totalFinal)}</h2>
+                    <h2 className="text-xl font-extrabold mt-1">$ {fmtCents(totalFinal)}</h2>
                   </div>
                   <DollarSign className="w-8 h-8 text-purple-400 opacity-60" />
                 </div>
@@ -570,9 +568,9 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                               <span>{col.name}</span>
                             </td>
                             <td className="py-2.5 text-center font-bold text-gray-600">{col.boxes}</td>
-                            <td className="py-2.5 text-right font-bold text-[#16A34A]">$ {fmt(col.collections)}</td>
-                            <td className="py-2.5 text-right font-medium text-[#DC2626]">$ {fmt(col.expenses)}</td>
-                            <td className="py-2.5 text-right font-extrabold text-purple-950">$ {fmt(col.final)}</td>
+                            <td className="py-2.5 text-right font-bold text-[#16A34A]">$ {fmtCents(col.collections)}</td>
+                            <td className="py-2.5 text-right font-medium text-[#DC2626]">$ {fmtCents(col.expenses)}</td>
+                            <td className="py-2.5 text-right font-extrabold text-purple-950">$ {fmtCents(col.final)}</td>
                           </tr>
                         );
                       })}
@@ -580,9 +578,9 @@ export function PeriodSummary({ onNavigate }: PeriodSummaryProps) {
                       <tr className="bg-purple-50/50 border-t border-purple-200 font-bold">
                         <td className="py-3 text-purple-950">TOTAL PERÍODO</td>
                         <td className="py-3 text-center text-purple-950">{totalBoxes}</td>
-                        <td className="py-3 text-right text-green-700">$ {fmt(totalCollections)}</td>
-                        <td className="py-3 text-right text-red-600">$ {fmt(totalExpenses)}</td>
-                        <td className="py-3 text-right text-purple-950">$ {fmt(totalFinal)}</td>
+                        <td className="py-3 text-right text-green-700">$ {fmtCents(totalCollections)}</td>
+                        <td className="py-3 text-right text-red-600">$ {fmtCents(totalExpenses)}</td>
+                        <td className="py-3 text-right text-purple-950">$ {fmtCents(totalFinal)}</td>
                       </tr>
                     </tbody>
                   </table>

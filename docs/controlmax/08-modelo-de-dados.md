@@ -38,8 +38,12 @@ Não criaremos `orgId` separadamente, assumiremos que **`tenantId`** é o identi
 - `id`: string (uid do auth)
 - `tenantId`: reference
 - `role`: string (admin, supervisor, collector)
-- `assignedUnits`: array of strings (`unitId`s permitidos).
-- `assignedBc`: array of strings (`bcId`s permitidos).
+- `usuario_unidades`: array of strings (`unitId`s permitidos) — **fonte de verdade no piloto (CTX-02)**.
+- `usuarioUnidades`: alias camelCase aceito na leitura (frontend/BFF).
+- `assignedUnits`: **sinônimo de especificação** (= `usuario_unidades`). Não migrar no piloto; novos writes usam `usuario_unidades`.
+- `assignedBc`: array of strings (`bcId`s permitidos) — opcional / futuro.
+
+> **Decisão CTX-02 (27/08/2026):** manter `usuario_unidades` como campo canônico. BFF `POST /api/boxes/open` e `confirm` rejeitam unidade fora da lista (gestores sem lista: acesso amplo no piloto).
 
 ---
 

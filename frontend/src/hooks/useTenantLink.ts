@@ -1,16 +1,14 @@
 import { User } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-import { toast } from 'react-hot-toast';
 import {
   findRegisteredUserByEmail,
   mapRoleFromFirestore,
 } from './useTenantHelpers';
 import { applyExistingUserDoc, applyGuestState, TenantSetters } from './useTenantState';
 
-function getImpersonatedTenant(emailLower: string): string | null {
-  return (emailLower === 'gringoeletronica@gmail.com' || emailLower === 'controlmaxia@gmail.com')
-    ? localStorage.getItem('controlmax_impersonated_tenant')
-    : null;
+function getImpersonatedTenant(isSuperAdmin: boolean): string | null {
+  // Impersonação só para superadmin (flag/role no Firestore), nunca por lista de e-mails.
+  return isSuperAdmin ? localStorage.getItem('controlmax_impersonated_tenant') : null;
 }
 
 function buildLinkedUserPayload(
@@ -51,7 +49,12 @@ async function applyLinkedUser(
   foundData: Record<string, unknown>,
   setters: TenantSetters
 ) {
-  const impersonated = getImpersonatedTenant(emailLower);
+  const { isSuperAdmin } = mapRoleFromFirestore(
+    foundData.role,
+    emailLower,
+    foundData.isSuperAdmin as boolean | undefined
+  );
+  const impersonated = getImpersonatedTenant(isSuperAdmin);
   applyExistingUserDoc(user, emailLower, foundData, setters);
   if (impersonated) {
     setters.setTenantId(impersonated);

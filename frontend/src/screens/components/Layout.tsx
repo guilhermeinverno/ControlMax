@@ -3,7 +3,7 @@ import {
   Menu, User, LogOut, Check, Download, Smartphone, ClipboardList
 } from 'lucide-react';
 import { Screen } from '../../types';
-import { auth, db, getDemoUser, triggerAuthListeners } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
 import { signOut } from 'firebase/auth';
 import { useTenant } from '../../hooks/useTenant';
 import { useLocation } from '../../hooks/useLocation';
@@ -14,8 +14,7 @@ import { LayoutDesktopNav } from './layout/LayoutDesktopNav';
 import { layoutRoleLabel } from '../../utils/statusLabels';
 import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import { SyncStatusBadge } from '../../components/sync/SyncStatusBadge';
-
-import { useGlobalContext } from '../../context/GlobalContext';
+import { GlobalContextSelector } from './GlobalContextSelector';
 
 interface LayoutProps {
   children: ReactNode;
@@ -26,12 +25,11 @@ interface LayoutProps {
 
 export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: LayoutProps) {
   const { tenantId, role } = useTenant();
-  const { selectedCnId, selectedUnitId, setSelectedCnId, setSelectedUnitId } = useGlobalContext();
   const shouldHideGlobalHeader = currentScreen === 'bc-transfers' || currentScreen === 'transfer-sales' || currentScreen === 'sale-detail' || currentScreen === 'new-expense' || currentScreen === 'new-income' || (currentScreen === 'sales' && role === 'collector') || currentScreen === 'vendedor-mobile';
   useLocation(); // Rastreamento automático quando caixa aberta
 
 
-  const [collectorStats, setCollectorStats] = useState({ clients: 65, paid: 1, balance: 1007951 });
+  const [collectorStats, setCollectorStats] = useState({ clients: 0, paid: 0, balance: 0 });
 
   useEffect(() => {
     if (role !== 'collector' || !tenantId) return;
@@ -46,16 +44,20 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
     const unsub = onSnapshot(q, (snapshot) => {
       const activeSales = snapshot.docs.map(d => d.data());
-      const clientsCount = activeSales.length || 65;
-      const totalBal = activeSales.reduce((sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)), 0) || 1007951;
+      const clientsCount = activeSales.length;
+      const totalBal = activeSales.reduce(
+        (sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)),
+        0,
+      );
 
       setCollectorStats(prev => ({
         ...prev,
         clients: clientsCount,
-        balance: totalBal
+        balance: totalBal,
       }));
     }, (err) => {
-      console.warn("Error loading collector stats for layout header, using defaults:", err);
+      console.warn("Error loading collector stats for layout header:", err);
+      setCollectorStats(prev => ({ ...prev, clients: 0, balance: 0 }));
     });
 
     return unsub;
@@ -82,25 +84,16 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
       setCollectorStats(prev => ({
         ...prev,
-        paid: todayCollections.length || 1
+        paid: todayCollections.length,
       }));
     }, (err) => {
-      console.warn("Error loading collector collection stats for layout header, using defaults:", err);
+      console.warn("Error loading collector collection stats for layout header:", err);
+      setCollectorStats(prev => ({ ...prev, paid: 0 }));
     });
 
     return unsub;
   }, [tenantId, role]);
 
-  const handleDemoRoleChange = (newRole: 'admin' | 'collector') => {
-    localStorage.setItem('controlmax_demo_role', newRole);
-    const demoUser = getDemoUser();
-    triggerAuthListeners(demoUser);
-    if (newRole === 'collector') {
-      onNavigate('sales');
-    } else {
-      onNavigate('dashboard');
-    }
-  };
   const userEmail = auth.currentUser?.email || '';
   const currentEmail = userEmail.toLowerCase();
   const showSuperAdmin = isSuperAdmin;
@@ -197,11 +190,17 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
           nav={nav}
         />
 
-        {/* Right Section: Stretches purple background and holds profile */}
-        <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-4 lg:px-6 space-x-4">
+        {/* Right Section: contexto CN/Unidade + perfil */}
+        <div className="flex-1 bg-[#6A008A] flex items-center justify-end px-2 lg:px-4 gap-2 lg:gap-3 min-w-0">
+          {role !== 'collector' && (
+            <div className="hidden md:flex items-center min-w-0 max-w-[28rem]">
+              <GlobalContextSelector variant="header" />
+            </div>
+          )}
+
           <SyncStatusBadge />
 
-          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none cursor-pointer" onClick={() => nav('worker-profile')} title="Perfil do Usuário">
+          <button className="text-white p-1.5 hover:opacity-85 focus:outline-none cursor-pointer shrink-0" onClick={() => nav('worker-profile')} title="Perfil do Usuário">
             <div className="border-2 border-white/80 rounded-full p-1 bg-white/10 flex items-center justify-center">
               <User className="w-5 h-5 text-white" />
             </div>
@@ -209,7 +208,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
           
           {role !== 'collector' && (
             <button 
-              className="text-white p-1 hover:text-red-300 focus:outline-none transition-colors" 
+              className="text-white p-1 hover:text-red-300 focus:outline-none transition-colors shrink-0" 
               onClick={handleLogout} 
               title="Cerrar Sesión"
             >
@@ -219,6 +218,13 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
         </div>
 
       </header>
+      )}
+
+      {/* Barra de contexto em tablet/mobile (header compacto no desktop) */}
+      {!shouldHideGlobalHeader && role !== 'collector' && (
+        <div className="md:hidden bg-[#5a0075] border-b border-white/10 px-3 py-2">
+          <GlobalContextSelector variant="header" />
+        </div>
       )}
 
       {/* BODY CONTENT: Spans the full viewport width on desktop */}

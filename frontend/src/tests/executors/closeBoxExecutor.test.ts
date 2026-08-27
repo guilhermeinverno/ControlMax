@@ -18,8 +18,7 @@ describe('CloseBoxExecutor', () => {
     id: 'close-123',
     tenantId: 'tenant-abc',
     boxId: 'box-456',
-    collectorId: 'collector-789',
-    finalBalanceCents: 15000,
+    realFinalAmount: 15000,
     notes: 'Caixa fechado com saldo correto.',
     closedAt: '2026-08-04T18:00:00Z',
   };
@@ -55,7 +54,8 @@ describe('CloseBoxExecutor', () => {
       HttpMethod.POST,
       '/api/boxes/close',
       {
-        ...validPayload,
+        boxId: 'box-456',
+        realFinalAmount: 15000,
         idempotencyKey: 'close-123',
       },
       {
@@ -79,17 +79,10 @@ describe('CloseBoxExecutor', () => {
     );
   });
 
-  it('deve falhar de forma defensiva se faltar collectorId', async () => {
-    const invalidPayload = { ...validPayload, collectorId: '' };
+  it('deve falhar de forma defensiva se realFinalAmount for menor que 0', async () => {
+    const invalidPayload = { ...validPayload, realFinalAmount: -50 };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: collectorId is required'
-    );
-  });
-
-  it('deve falhar de forma defensiva se finalBalanceCents for menor que 0', async () => {
-    const invalidPayload = { ...validPayload, finalBalanceCents: -50 };
-    await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: finalBalanceCents must be greater than or equal to 0'
+      'Validation Error: realFinalAmount must be greater than or equal to 0'
     );
   });
 

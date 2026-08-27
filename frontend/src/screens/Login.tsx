@@ -5,6 +5,7 @@ import { signInWithPopup, GoogleAuthProvider, signInWithEmailAndPassword } from 
 import type { AuthError } from 'firebase/auth';
 import { Sparkles, LogIn, Eye, EyeOff, Download } from 'lucide-react';
 import { useLayoutUi } from '../hooks/useLayoutUi';
+import { forceRefreshIdToken } from '../utils/authToken';
 
 interface LoginProps {
   onSuccess: () => void;
@@ -29,44 +30,19 @@ export function Login({ onSuccess }: LoginProps) {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+      // ENT-04: garante claims frescas no ID token após login
+      await forceRefreshIdToken().catch(() => undefined);
       onSuccess();
     } catch (err: unknown) {
       const authError = err as AuthError;
-      console.warn("Email/Password login failed, attempting auto-provisioning for test account:", authError);
-
-      if (
-        authError.code === 'auth/user-not-found' ||
-        authError.code === 'auth/invalid-credential'
-      ) {
-        try {
-          const { createUserWithEmailAndPassword } = await import('firebase/auth');
-          const { setDoc, doc } = await import('firebase/firestore');
-          const { db: fireDb } = await import('../lib/firebase');
-
-          const userCred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-          if (userCred.user) {
-            // Provision user document bound to enterprise tenantId: teste@controlmax.dev
-            await setDoc(doc(fireDb, 'users', userCred.user.uid), {
-              email: email.trim().toLowerCase(),
-              userName: 'Coletor de Teste',
-              role: 'collector',
-              tenantId: 'teste@controlmax.dev',
-              companyName: 'Empresa Teste',
-              active: true,
-              createdAt: new Date().toISOString(),
-            }, { merge: true });
-          }
-
-          onSuccess();
-          return;
-        } catch (createErr) {
-          console.error("Auto-provisioning failed:", createErr);
-          setError('E-mail ou senha incorretos.');
-          return;
-        }
-      }
+      console.warn('Email/Password login failed:', authError.code);
 
       switch (authError.code) {
+        case 'auth/user-not-found':
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+          setError('E-mail ou senha incorretos. Se não possui cadastro, contate o administrador.');
+          break;
         case 'auth/invalid-email':
           setError('Formato de e-mail inválido.');
           break;
@@ -89,6 +65,7 @@ export function Login({ onSuccess }: LoginProps) {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
+      await forceRefreshIdToken().catch(() => undefined);
       onSuccess();
     } catch (err: unknown) {
       const authError = err as AuthError;

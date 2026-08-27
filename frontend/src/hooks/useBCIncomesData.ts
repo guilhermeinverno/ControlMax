@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { formatCurrencyBRL, parseCurrencyBRLToCents } from '../utils/currency';
 import { subscribeTenantCollectionByDate } from '../utils/firestoreDateSubscription';
+import { submitFinancialApproval } from '../utils/financialApproval';
+import { financialFetchHeaders } from '../utils/financialFetchHeaders';
 import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import type { BCIncome } from '../types/bcIncome';
 import { todayDateString } from '../types/bcIncome';
@@ -72,18 +73,29 @@ export function useBCIncomesData(tenantId?: string, userName?: string, usuarioUn
     setFormSuccess(null);
 
     try {
-      await addDoc(collection(db, 'bc_incomes'), {
-        tenantId,
-        cnId: formCnId,
-        cnName: formCnName,
-        userId: auth.currentUser?.uid || 'unknown',
-        userName: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'Usuário',
-        amount: valueCents,
-        description: description.trim(),
-        category,
-        status: 'pending',
-        createdAt: serverTimestamp(),
+      if (!auth?.currentUser) {
+        throw new Error('Usuario no autenticado.');
+      }
+      const idempotencyKey = crypto.randomUUID();
+      const token = await auth.currentUser.getIdToken();
+      const response = await fetch('/api/transactions/income', {
+        method: 'POST',
+        headers: financialFetchHeaders(token, idempotencyKey),
+        body: JSON.stringify({
+          mode: 'bc',
+          cnId: formCnId,
+          cnName: formCnName,
+          amountCents: valueCents,
+          comment: description.trim(),
+          description: description.trim(),
+          category,
+          idempotencyKey,
+        }),
       });
+      const data = await response.json().catch(() => ({} as { error?: string }));
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao registrar ingresso.');
+      }
 
       setFormSuccess('Ingresso de Centro de Negócios registrado com sucesso!');
       setAmountInput('');
@@ -95,7 +107,7 @@ export function useBCIncomesData(tenantId?: string, userName?: string, usuarioUn
       }, 1500);
     } catch (err) {
       console.error('Error creating BC Income:', err);
-      setFormError('Erro ao registrar ingresso. Tente novamente.');
+      setFormError(err instanceof Error ? err.message : 'Erro ao registrar ingresso. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -105,11 +117,7 @@ export function useBCIncomesData(tenantId?: string, userName?: string, usuarioUn
     if (!incomeToApprove) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_incomes', incomeToApprove.id), {
-        status: 'approved',
-        approvedBy: auth.currentUser?.uid || 'unknown',
-        approvedAt: serverTimestamp(),
-      });
+      await submitFinancialApproval('bc_income', incomeToApprove.id, 'approved');
       setIncomeToApprove(null);
     } catch (err) {
       console.error('Error approving BC Income:', err);
@@ -123,11 +131,7 @@ export function useBCIncomesData(tenantId?: string, userName?: string, usuarioUn
     if (!incomeToReject) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_incomes', incomeToReject.id), {
-        status: 'rejected',
-        approvedBy: auth.currentUser?.uid || 'unknown',
-        approvedAt: serverTimestamp(),
-      });
+      await submitFinancialApproval('bc_income', incomeToReject.id, 'rejected');
       setIncomeToReject(null);
     } catch (err) {
       console.error('Error rejecting BC Income:', err);

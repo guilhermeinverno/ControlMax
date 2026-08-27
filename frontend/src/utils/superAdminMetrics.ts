@@ -48,6 +48,8 @@ export function buildTenantMetrics(
       createdAt: tenant.createdAt || Timestamp.now(),
       plan: tenant.plan || 'Completo',
       monthlyPrice: tenant.monthlyPrice !== undefined ? tenant.monthlyPrice / 100 : 199,
+      billingStatus: tenant.billingStatus || (tenant.active === false ? 'suspended' : 'active'),
+      billingMethod: tenant.billingMethod || 'pix',
       totalUsers: tenantUsers.length,
       totalClients: sales.filter((s) => s.tenantId === tenant.id && s.clientId).length,
       totalBoxes: tenantBoxes.length,
@@ -93,10 +95,14 @@ export function computeSuperAdminKpis(
   users: UserDoc[],
   collections: CollectionDoc[]
 ) {
-  const activeTenantsCount = processedTenants.filter((t) => t.active).length;
-  const mrrEstimated = processedTenants.filter((t) => t.active).reduce((sum, t) => sum + t.monthlyPrice, 0);
+  const activeBilling = processedTenants.filter(
+    (t) => t.active && t.billingStatus === 'active'
+  );
+  const activeTenantsCount = activeBilling.length;
+  const mrrEstimated = activeBilling.reduce((sum, t) => sum + t.monthlyPrice, 0);
+  const pastDueCount = processedTenants.filter((t) => t.billingStatus === 'past_due').length;
   const totalGlobalUsers = users.length;
   const totalGlobalRecaudoVolume = collections.reduce((sum, col) => sum + (col.amount || 0), 0);
 
-  return { activeTenantsCount, mrrEstimated, totalGlobalUsers, totalGlobalRecaudoVolume };
+  return { activeTenantsCount, mrrEstimated, pastDueCount, totalGlobalUsers, totalGlobalRecaudoVolume };
 }

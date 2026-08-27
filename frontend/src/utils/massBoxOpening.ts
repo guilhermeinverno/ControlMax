@@ -1,7 +1,6 @@
-import { collection, doc, serverTimestamp, writeBatch } from 'firebase/firestore';
-import { db } from '../lib/firebase';
 import { parseCurrencyBRLToCents } from './currency';
 import type { MassBoxOpeningBox, MassBoxOpeningUser } from '../hooks/useMassBoxOpeningData';
+import { openBoxesBatchViaBff } from './massBoxBatchApi';
 
 interface OpenBoxesBatchInput {
   tenantId: string;
@@ -12,50 +11,9 @@ interface OpenBoxesBatchInput {
   generalObservation: string;
 }
 
-export async function openBoxesBatch({
-  tenantId,
-  selectedCollectors,
-  useIndividualAmounts,
-  individualAmounts,
-  defaultAmountCents,
-  generalObservation,
-}: OpenBoxesBatchInput) {
-  const batchSize = 500;
-
-  for (let i = 0; i < selectedCollectors.length; i += batchSize) {
-    const chunk = selectedCollectors.slice(i, i + batchSize);
-    const batch = writeBatch(db);
-    const boxesRef = collection(db, 'boxes');
-
-    chunk.forEach((collector) => {
-      const newBoxRef = doc(boxesRef);
-      const amount = useIndividualAmounts
-        ? parseCurrencyBRLToCents(individualAmounts[collector.id] || '0,00')
-        : defaultAmountCents;
-
-      batch.set(newBoxRef, {
-        tenantId,
-        unitId: collector.defaultUnitId || '',
-        unitName: collector.defaultUnitName || 'Sin asignar',
-        cnId: collector.defaultCnId || '',
-        cnName: collector.defaultCnName || 'Sin asignar',
-        userId: collector.id,
-        userName: collector.userName,
-        status: 'open',
-        openedAt: serverTimestamp(),
-        initialAmount: amount,
-        observation: generalObservation,
-        totalIncomes: 0,
-        totalExpenses: 0,
-        totalSales: 0,
-        totalCollections: 0,
-        totalTransfers: 0,
-        finalAmount: amount,
-      });
-    });
-
-    await batch.commit();
-  }
+/** Abertura massiva via BFF (P1-04). Mantém assinatura usada por MassBoxOpening. */
+export async function openBoxesBatch(input: OpenBoxesBatchInput) {
+  return openBoxesBatchViaBff(input);
 }
 
 export function filterCollectors(collectors: MassBoxOpeningUser[], searchQuery: string): MassBoxOpeningUser[] {
@@ -79,6 +37,19 @@ export function toggleSelectAll({ filteredCollectors, activeBoxes, selectedIds }
   if (allEligibleSelected) {
     return selectedIds.filter((id) => !eligibleIds.includes(id));
   }
-
   return Array.from(new Set([...selectedIds, ...eligibleIds]));
 }
+
+export function expectedBoxAmount(box: MassBoxOpeningBox): number {
+  return (
+    (box.initialAmount || 0) +
+    (box.totalCollections || 0) +
+    (box.totalIncomes || 0) -
+    (box.totalExpenses || 0) -
+    (box.totalSales || 0) -
+    (box.totalTransfers || 0)
+  );
+}
+
+// re-export parse helper used by tests/UI
+export { parseCurrencyBRLToCents };

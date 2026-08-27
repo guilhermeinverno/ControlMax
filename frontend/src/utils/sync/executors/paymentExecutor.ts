@@ -7,7 +7,6 @@ export class PaymentExecutor implements OperationHandler<PaymentPayload, Payment
   constructor(private readonly httpClient: SyncHttpClient) {}
 
   async execute(payload: PaymentPayload): Promise<PaymentResponse> {
-    // Validações defensivas
     if (!payload.tenantId) {
       throw new Error("Validation Error: tenantId is required");
     }
@@ -17,16 +16,22 @@ export class PaymentExecutor implements OperationHandler<PaymentPayload, Payment
     if (!payload.customerId) {
       throw new Error("Validation Error: customerId is required");
     }
+    if (!payload.referenceSaleId) {
+      throw new Error("Validation Error: referenceSaleId (saleId) is required");
+    }
     if (payload.amountCents < 0) {
       throw new Error("Validation Error: amountCents must be greater than or equal to 0");
     }
 
-    // Chamada BFF
-    return await this.httpClient.request<PaymentResponse, any>(
+    // Contrato BFF: /api/transactions/collection
+    return await this.httpClient.request<PaymentResponse, Record<string, unknown>>(
       HttpMethod.POST,
       "/api/transactions/collection",
       {
-        ...payload,
+        saleId: payload.referenceSaleId,
+        amountCents: payload.amountCents,
+        paymentMethod: payload.paymentMethod,
+        comment: payload.comment || "",
         idempotencyKey: payload.id,
       },
       {

@@ -15,6 +15,11 @@ interface UnitSelectorsProps {
   showVerTodas?: boolean;
   verTodas?: boolean;
   onVerTodasChange?: (val: boolean) => void;
+  /** Quando definido e não vazio, restringe unidades a este escopo (usuario_unidades). */
+  allowedUnitIds?: string[] | null;
+  /** compact = header escuro; default = cards brancos */
+  variant?: 'default' | 'header';
+  className?: string;
 }
 
 export function UnitSelectors({
@@ -24,7 +29,10 @@ export function UnitSelectors({
   onUnitChange,
   showVerTodas = false,
   verTodas = false,
-  onVerTodasChange
+  onVerTodasChange,
+  allowedUnitIds = null,
+  variant = 'default',
+  className = '',
 }: UnitSelectorsProps) {
   const { tenantId } = useTenant();
 
@@ -124,11 +132,15 @@ export function UnitSelectors({
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const list = snapshot.docs.map(doc => ({
+      let list = snapshot.docs.map(doc => ({
         id: doc.id,
         name: doc.data().name || '',
         ...doc.data()
       })) as RouteOption[];
+      if (allowedUnitIds && allowedUnitIds.length > 0) {
+        const allowed = new Set(allowedUnitIds);
+        list = list.filter((u) => allowed.has(u.id));
+      }
       setUnits(list);
       setLoadingUnits(false);
     }, (err) => {
@@ -140,11 +152,16 @@ export function UnitSelectors({
       );
 
       const unsubFallback = onSnapshot(fallbackQ, (snapshot) => {
-        const list = snapshot.docs.map(doc => ({
+        let list = snapshot.docs.map(doc => ({
           id: doc.id,
           name: doc.data().name || '',
           ...doc.data()
         })) as RouteOption[];
+
+        if (allowedUnitIds && allowedUnitIds.length > 0) {
+          const allowed = new Set(allowedUnitIds);
+          list = list.filter((u) => allowed.has(u.id));
+        }
 
         // Client-side sort
         list.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -165,11 +182,16 @@ export function UnitSelectors({
     });
 
     return () => unsubscribe();
-  }, [tenantId, selectedCnId]);
+  }, [tenantId, selectedCnId, Array.isArray(allowedUnitIds) ? allowedUnitIds.join('|') : '']);
+
+  const isHeader = variant === 'header';
+  const selectClass = isHeader
+    ? 'w-full min-w-[9rem] max-w-[14rem] border border-white/40 rounded bg-[#5a0075] text-white text-xs font-semibold p-1.5 outline-none h-9 appearance-none focus:ring-1 focus:ring-white/60 cursor-pointer'
+    : 'w-full border border-[#6B21A8] rounded bg-white text-[#333333] text-sm p-2 outline-none h-10 shadow-sm appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer font-bold';
 
   return (
-    <div className="px-3 py-2">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+    <div className={isHeader ? className : `px-3 py-2 ${className}`.trim()}>
+      <div className={isHeader ? 'flex flex-wrap items-center gap-2' : 'grid grid-cols-1 md:grid-cols-3 gap-3 items-center'}>
         
         {/* Select CN */}
         <div className="relative w-full">
@@ -189,15 +211,14 @@ export function UnitSelectors({
               }
               onUnitChange?.('', '');
             }}
-            className="w-full border border-[#6B21A8] rounded bg-white 
-              text-[#333333] text-sm p-2 outline-none h-10 shadow-sm 
-              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer font-bold"
+            className={selectClass}
+            title="Centro de Negócios"
           >
             {cns.length === 0 && !loadingCns ? (
               <option value="" disabled>Nenhum CN cadastrado</option>
             ) : (
               [
-                <option key="__all_cn__" value="">Todos os Centros de Negocio</option>,
+                <option key="__all_cn__" value="">{isHeader ? 'Todos os CN' : 'Todos os Centros de Negocio'}</option>,
                 ...cns.map(cn => (
                   <option key={cn.id} value={cn.id}>{String(cn.name ?? '')}</option>
                 )),
@@ -205,9 +226,8 @@ export function UnitSelectors({
             )}
           </select>
           {loadingCns && (
-            <div className="absolute right-8 top-3">
-              <div className="w-4 h-4 border-2 border-[#6B21A8] 
-                border-t-transparent rounded-full animate-spin" />
+            <div className={`absolute right-2 ${isHeader ? 'top-2.5' : 'top-3'}`}>
+              <div className={`w-3.5 h-3.5 border-2 ${isHeader ? 'border-white' : 'border-[#6B21A8]'} border-t-transparent rounded-full animate-spin`} />
             </div>
           )}
         </div>
@@ -225,15 +245,14 @@ export function UnitSelectors({
               }
               onUnitChange?.(val, opt?.name || '');
             }}
-            className="w-full border border-[#6B21A8] rounded bg-white 
-              text-[#333333] text-sm p-2 outline-none h-10 shadow-sm 
-              appearance-none focus:ring-1 focus:ring-[#6B21A8] cursor-pointer font-bold"
+            className={selectClass}
+            title="Unidade / Rota"
           >
             {units.length === 0 && !loadingUnits ? (
               <option value="" disabled>Nenhuma unidade</option>
             ) : (
               [
-                <option key="__all_units__" value="">Todas as unidades ({units.length})</option>,
+                <option key="__all_units__" value="">{isHeader ? `Unidades (${units.length})` : `Todas as unidades (${units.length})`}</option>,
                 ...units.map(u => (
                   <option key={u.id} value={u.id}>{String(u.name ?? '')}</option>
                 )),
@@ -241,15 +260,14 @@ export function UnitSelectors({
             )}
           </select>
           {loadingUnits && (
-            <div className="absolute right-8 top-3">
-              <div className="w-4 h-4 border-2 border-[#6B21A8] 
-                border-t-transparent rounded-full animate-spin" />
+            <div className={`absolute right-2 ${isHeader ? 'top-2.5' : 'top-3'}`}>
+              <div className={`w-3.5 h-3.5 border-2 ${isHeader ? 'border-white' : 'border-[#6B21A8]'} border-t-transparent rounded-full animate-spin`} />
             </div>
           )}
         </div>
 
         {/* Checkbox ver todas */}
-        {showVerTodas && (
+        {showVerTodas && !isHeader && (
           <div className="flex items-center pl-1 h-10">
             <input
               type="checkbox"

@@ -2,6 +2,7 @@ import { AlertCircle, Calendar, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useTenant } from '../hooks/useTenant';
 import { useHolidaysData } from '../hooks/useHolidaysData';
 import { groupHolidaysByMonth, getUpcomingHolidays } from '../utils/holidayAggregates';
+import { ListErrorBanner } from '../components/ListFeedback';
 import { HolidaysCalendarList } from './components/holidays/HolidaysCalendarList';
 import { HolidaysUpcomingPanel } from './components/holidays/HolidaysUpcomingPanel';
 import { HolidaysAddForm } from './components/holidays/HolidaysAddForm';
@@ -28,15 +29,14 @@ export function Holidays() {
       </div>
 
       {data.errorMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-800 p-3.5 rounded text-xs flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
-            <span>{data.errorMsg}</span>
-          </div>
-          <button onClick={() => data.setErrorMsg(null)} className="text-red-900 font-bold hover:underline">
-            X
-          </button>
-        </div>
+        <ListErrorBanner
+          message={data.errorMsg}
+          onRetry={() => {
+            data.setErrorMsg(null);
+            data.retryLoad();
+          }}
+          retryLabel="Reintentar"
+        />
       )}
 
       {data.successMsg && (

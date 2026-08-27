@@ -4,6 +4,8 @@ import {
   parseCurrencyBRLToCents,
   formatCurrencyBRL,
   autocompleteCurrencyBRL,
+  fmtCents,
+  resolvePendingCents,
 } from "./currency";
 
 describe("Testes Unitários para a utilidade de moeda (currency.ts)", () => {
@@ -48,6 +50,36 @@ describe("Testes Unitários para a utilidade de moeda (currency.ts)", () => {
 
     test("Autocompleta valor para 2 casas decimais", () => {
       expect(autocompleteCurrencyBRL("10,5")).toBe("10,50");
+    });
+  });
+
+  describe("fmtCents (CLEAN-01)", () => {
+    test("formata 12345 centavos como 123,45", () => {
+      expect(fmtCents(12345)).toBe("123,45");
+    });
+
+    test("trata NaN como zero", () => {
+      expect(fmtCents(Number.NaN)).toBe("0,00");
+    });
+  });
+
+  describe("resolvePendingCents (CLEAN-02)", () => {
+    test("prioriza saldoPendienteCents", () => {
+      expect(
+        resolvePendingCents({
+          saldoPendienteCents: 1500,
+          balance: 900,
+          saldoPendiente: "9,00",
+        })
+      ).toBe(1500);
+    });
+
+    test("usa balance se cents ausente", () => {
+      expect(resolvePendingCents({ balance: 900 })).toBe(900);
+    });
+
+    test("faz parse da string legado", () => {
+      expect(resolvePendingCents({ saldoPendiente: "12,50" })).toBe(1250);
     });
   });
 });

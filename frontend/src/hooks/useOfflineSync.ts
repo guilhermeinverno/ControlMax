@@ -20,7 +20,7 @@ export function useOfflineSync() {
       openedAt: (data as any).openedAt || now,
     };
 
-    const userId = auth?.currentUser?.uid || data.collectorId;
+    const userId = auth?.currentUser?.uid || data.collectorId || "anonymous";
     await SyncManager.enqueue('openBox', payload, data.tenantId, userId);
 
     if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -87,7 +87,7 @@ export function useOfflineSync() {
       closedAt: (data as any).closedAt || now,
     };
 
-    const userId = auth?.currentUser?.uid || data.collectorId;
+    const userId = auth?.currentUser?.uid || data.collectorId || "anonymous";
     await SyncManager.enqueue('closeBox', payload, data.tenantId, userId);
 
     if (typeof navigator !== 'undefined' && navigator.onLine) {

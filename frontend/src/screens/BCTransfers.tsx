@@ -1,14 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { HtmlFormSubmitEvent, HtmlInputChangeEvent } from '../types/reactEvents';
 import { Screen } from '../types';
-import { auth, db } from '../lib/firebase';
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-} from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { useBCTransfersHistory } from '../hooks/useBCTransfersHistory';
@@ -16,8 +8,10 @@ import type { BCTransfer } from '../hooks/useBCTransfersHistory';
 import { ConfirmModal } from './components/ConfirmModal';
 import {
   formatCurrencyBRL,
-  parseCurrencyBRLToCents
+  parseCurrencyBRLToCents,
+  fmtCents,
 } from '../utils/currency';
+import { createBcTransfer, approveBcTransfer } from '../utils/bcTransferSave';
 import { transferStatusLabel, transferStatusBadgeClasses } from '../utils/statusLabels';
 import { toJsDate } from '../utils/firestoreTimestamp';
 import { computeTransferTotals, filterTransfers } from '../utils/bcTransferFilters';
@@ -46,9 +40,6 @@ import {
 interface BCTransfersProps {
   onNavigate?: (screen: Screen) => void;
 }
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function BCTransfers({ onNavigate }: BCTransfersProps) {
   const { tenantId, role, userName, isSuperAdmin, loading: tenantLoading } = useTenant();
@@ -148,18 +139,14 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
     setFormSuccess(null);
 
     try {
-      await addDoc(collection(db, 'bc_transfers'), {
-        tenantId,
+      await createBcTransfer({
         fromType,
-        fromId: auth.currentUser?.uid || 'unknown',
         fromName: fromName.trim(),
         toCnId,
         toCnName,
-        amount: valueCents,
+        amountCents: valueCents,
         description: description.trim(),
-        status: 'pending',
         boxId: fromType === 'collector' ? (boxId.trim() || '') : '',
-        createdAt: serverTimestamp(),
       });
 
       setFormSuccess("Transferência registrada com sucesso!");
@@ -179,7 +166,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
 
     } catch (err) {
       console.error("Error creating BCTransfer:", err);
-      setFormError("Erro ao registrar transferência. Tente novamente.");
+      setFormError(err instanceof Error ? err.message : "Erro ao registrar transferência. Tente novamente.");
     } finally {
       setSubmitting(false);
     }
@@ -190,15 +177,11 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
     if (!transferToConfirm) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_transfers', transferToConfirm.id), {
-        status: 'confirmed',
-        confirmedBy: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'unknown',
-        confirmedAt: serverTimestamp()
-      });
+      await approveBcTransfer(transferToConfirm.id, true);
       setTransferToConfirm(null);
     } catch (err) {
       console.error("Error confirming BCTransfer:", err);
-      alert("Erro ao confirmar transferência.");
+      alert(err instanceof Error ? err.message : "Erro ao confirmar transferência.");
     } finally {
       setActionInProgress(false);
     }
@@ -208,15 +191,11 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
     if (!transferToReject) return;
     setActionInProgress(true);
     try {
-      await updateDoc(doc(db, 'bc_transfers', transferToReject.id), {
-        status: 'rejected',
-        confirmedBy: userName || auth.currentUser?.displayName || auth.currentUser?.email?.split('@')[0] || 'unknown',
-        confirmedAt: serverTimestamp()
-      });
+      await approveBcTransfer(transferToReject.id, false);
       setTransferToReject(null);
     } catch (err) {
       console.error("Error rejecting BCTransfer:", err);
-      alert("Erro ao rejeitar transferência.");
+      alert(err instanceof Error ? err.message : "Erro ao rejeitar transferência.");
     } finally {
       setActionInProgress(false);
     }
@@ -445,7 +424,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                   Confirmado
                 </span>
                 <span className="text-sm font-black text-green-600 font-mono block mt-0.5">
-                  $ {fmt(totalConfirmed)}
+                  $ {fmtCents(totalConfirmed)}
                 </span>
               </div>
               <div className="bg-white border border-slate-100 rounded-xl p-3 text-center shadow-xs">
@@ -453,7 +432,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                   Pendente ({pendingCount})
                 </span>
                 <span className="text-sm font-black text-amber-500 font-mono block mt-0.5">
-                  $ {fmt(totalPending)}
+                  $ {fmtCents(totalPending)}
                 </span>
               </div>
             </div>
@@ -509,7 +488,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
                           </div>
                           <div className="text-right shrink-0">
                             <span className="text-sm font-black text-slate-900 block font-mono">
-                              $ {fmt(transfer.amount)}
+                              $ {fmtCents(transfer.amount)}
                             </span>
                             <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full inline-block mt-1 ${transferStatusBadgeClasses(transfer.status)}`}>
                               {transferStatusLabel(transfer.status)}
@@ -559,7 +538,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
         onClose={() => setTransferToConfirm(null)}
         onConfirm={handleConfirmTransfer}
         title="Confirmar Transferência?"
-        subtitle={`Deseja realmente confirmar esta transferência de $ ${transferToConfirm ? fmt(transferToConfirm.amount) : '0,00'}?`}
+        subtitle={`Deseja realmente confirmar esta transferência de $ ${transferToConfirm ? fmtCents(transferToConfirm.amount) : '0,00'}?`}
         confirmText={actionInProgress ? "Confirmando..." : "Confirmar"}
         cancelText="Cancelar"
       />
@@ -570,7 +549,7 @@ export function BCTransfers({ onNavigate }: BCTransfersProps) {
         onClose={() => setTransferToReject(null)}
         onConfirm={handleRejectTransfer}
         title="Rejeitar Transferência?"
-        subtitle={`Deseja rejeitar a transferência de $ ${transferToReject ? fmt(transferToReject.amount) : '0,00'}?`}
+        subtitle={`Deseja rejeitar a transferência de $ ${transferToReject ? fmtCents(transferToReject.amount) : '0,00'}?`}
         confirmText={actionInProgress ? "Rejeitando..." : "Rejeitar"}
         cancelText="Cancelar"
       />

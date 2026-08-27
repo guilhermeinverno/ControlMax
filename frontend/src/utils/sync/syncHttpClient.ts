@@ -1,4 +1,4 @@
-import { auth } from "../../lib/firebase";
+import { getAuthIdToken, forceRefreshIdToken, isClaimsStaleResponse } from "../authToken";
 import { HttpMethod } from "./httpMethod";
 
 /**
@@ -12,11 +12,7 @@ export class SyncHttpClient {
 
   /**
    * Perform an HTTP request with Firebase Auth token attached.
-   * @param method HTTP method.
-   * @param url Full URL (including base path) to call.
-   * @param data Optional request body – will be JSON‑stringified.
-   * @param headers Optional additional headers.
-   * @returns Parsed JSON response typed as `Response`.
+   * ENT-04: em 401 CLAIMS_STALE força refresh do token e tenta 1 vez.
    */
   async request<Response, Request = unknown>(
     method: HttpMethod,
@@ -24,43 +20,55 @@ export class SyncHttpClient {
     data?: Request,
     headers: Record<string, string> = {}
   ): Promise<Response> {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error("Usuário não autenticado no Firebase Auth para envio da requisição (auth.currentUser é null).");
-    }
+    const doFetch = async (token: string) => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SyncHttpClient.DEFAULT_TIMEOUT);
 
-    const token = await currentUser.getIdToken();
-    if (!token) {
-      throw new Error("Não foi possível obter token de autenticação Válido do Firebase Auth.");
-    }
+      const init: RequestInit = {
+        method,
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...headers,
+        },
+      };
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SyncHttpClient.DEFAULT_TIMEOUT);
+      if (data !== undefined) {
+        init.body = JSON.stringify(data);
+      }
 
-    const init: RequestInit = {
-      method,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-        ...headers,
-      },
+      const fullUrl =
+        url.startsWith("/") && typeof window !== "undefined" ? `${window.location.origin}${url}` : url;
+
+      try {
+        return await fetch(fullUrl, init);
+      } finally {
+        clearTimeout(timeoutId);
+      }
     };
 
-    if (data !== undefined) {
-      init.body = JSON.stringify(data);
-    }
+    let token = await getAuthIdToken(false);
+    let response = await doFetch(token);
 
-    const fullUrl = url.startsWith('/') && typeof window !== 'undefined' ? `${window.location.origin}${url}` : url;
-    const response = await fetch(fullUrl, init);
-    clearTimeout(timeoutId);
+    if (response.status === 401) {
+      let body: unknown = null;
+      try {
+        body = await response.clone().json();
+      } catch {
+        body = null;
+      }
+      if (isClaimsStaleResponse(401, body)) {
+        token = await forceRefreshIdToken();
+        response = await doFetch(token);
+      }
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
-    // Assume JSON response – callers can type‑cast as needed.
     return (await response.json()) as Response;
   }
 }

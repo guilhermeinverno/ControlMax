@@ -19,16 +19,13 @@ describe('SaleExecutor', () => {
     tenantId: 'tenant-abc',
     boxId: 'box-456',
     customerId: 'customer-789',
-    items: [
-      {
-        productId: 'prod-1',
-        quantity: 2,
-        unitPriceCents: 500,
-        totalCents: 1000,
-      },
-    ],
-    totalCents: 1000,
-    paymentMethod: 'cash',
+    clientName: 'Cliente Teste',
+    amountCents: 100000,
+    installmentAmountCents: 5000,
+    totalInstallments: 20,
+    date: '2026-08-04',
+    notes: '',
+    frequency: 'diaria',
     createdAt: '2026-08-04T12:00:00Z',
   };
 
@@ -45,7 +42,7 @@ describe('SaleExecutor', () => {
     executor = new SaleExecutor(mockHttpClient);
   });
 
-  it('deve executar com sucesso o POST /api/sales retornando SaleResponse', async () => {
+  it('deve executar com sucesso o POST /api/transactions/sale retornando SaleResponse', async () => {
     const mockResponse: SaleResponse = {
       success: true,
       saleId: 'sale-123',
@@ -59,9 +56,18 @@ describe('SaleExecutor', () => {
     expect(result).toEqual(mockResponse);
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
-      '/api/sales',
+      '/api/transactions/sale',
       {
-        ...validPayload,
+        clientId: 'customer-789',
+        clientName: 'Cliente Teste',
+        amountCents: 100000,
+        installmentAmountCents: 5000,
+        totalInstallments: 20,
+        date: '2026-08-04',
+        notes: '',
+        photoUrl: '',
+        photoName: '',
+        frequency: 'diaria',
         idempotencyKey: 'sale-123',
       },
       {
@@ -92,10 +98,10 @@ describe('SaleExecutor', () => {
     );
   });
 
-  it('deve falhar de forma defensiva se a lista de itens estiver vazia', async () => {
-    const invalidPayload = { ...validPayload, items: [] };
+  it('deve falhar de forma defensiva se amountCents for inválido', async () => {
+    const invalidPayload = { ...validPayload, amountCents: 0 };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: sale must contain at least 1 item'
+      'Validation Error: amountCents must be greater than 0'
     );
   });
 

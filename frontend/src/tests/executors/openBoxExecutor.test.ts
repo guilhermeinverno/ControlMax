@@ -17,9 +17,12 @@ describe('OpenBoxExecutor', () => {
   const validPayload: OpenBoxPayload = {
     id: 'open-123',
     tenantId: 'tenant-abc',
-    boxId: 'box-456',
-    collectorId: 'collector-789',
-    initialBalanceCents: 10000,
+    unitId: 'unit-1',
+    unitName: 'Rota 1',
+    cnId: 'cn-1',
+    cnName: 'CN Centro',
+    initialAmount: 10000,
+    date: '2026-08-04',
     openedAt: '2026-08-04T12:00:00Z',
   };
 
@@ -53,7 +56,13 @@ describe('OpenBoxExecutor', () => {
       HttpMethod.POST,
       '/api/boxes/open',
       {
-        ...validPayload,
+        unitId: 'unit-1',
+        unitName: 'Rota 1',
+        cnId: 'cn-1',
+        cnName: 'CN Centro',
+        initialAmount: 10000,
+        observation: '',
+        date: '2026-08-04',
         idempotencyKey: 'open-123',
       },
       {
@@ -70,24 +79,24 @@ describe('OpenBoxExecutor', () => {
     );
   });
 
-  it('deve falhar de forma defensiva se faltar boxId', async () => {
-    const invalidPayload = { ...validPayload, boxId: '' };
+  it('deve falhar de forma defensiva se faltar unitId', async () => {
+    const invalidPayload = { ...validPayload, unitId: '' };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: boxId is required'
+      'Validation Error: unitId is required'
     );
   });
 
-  it('deve falhar de forma defensiva se faltar collectorId', async () => {
-    const invalidPayload = { ...validPayload, collectorId: '' };
+  it('deve falhar de forma defensiva se faltar cnId', async () => {
+    const invalidPayload = { ...validPayload, cnId: '' };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: collectorId is required'
+      'Validation Error: cnId is required'
     );
   });
 
-  it('deve falhar de forma defensiva se initialBalanceCents for menor que 0', async () => {
-    const invalidPayload = { ...validPayload, initialBalanceCents: -1 };
+  it('deve falhar de forma defensiva se initialAmount for menor que 0', async () => {
+    const invalidPayload = { ...validPayload, initialAmount: -1 };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
-      'Validation Error: initialBalanceCents must be greater than or equal to 0'
+      'Validation Error: initialAmount must be greater than or equal to 0'
     );
   });
 

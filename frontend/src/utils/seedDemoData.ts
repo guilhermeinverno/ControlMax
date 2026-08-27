@@ -22,7 +22,7 @@ export async function seedDemoData(customTenantId?: string) {
   await safeSetDoc(tenantRef, {
     name: tenantId === 'super_admin_tenant' ? 'Super Admin Workspace' : 'Gringo Eletrônica S.A.',
     ownerName: tenantId === 'super_admin_tenant' ? 'Super Admin' : 'Gringo Eletrônica',
-    ownerEmail: tenantId === 'super_admin_tenant' ? 'controlmaxia@gmail.com' : 'gringoeletronica@gmail.com',
+    ownerEmail: tenantId === 'super_admin_tenant' ? 'owner@controlmax.local' : 'admin@tenant.local',
     ownerPhone: '+55 11 99999-9999',
     plan: 'Premium',
     billingStatus: 'active',
@@ -271,7 +271,6 @@ export async function seedDemoData(customTenantId?: string) {
       valor: (s.amt / 100).toFixed(2),
       interes: '20,0%',
       saldoTotal: (s.amt / 100).toFixed(2),
-      saldoPendiente: (s.bal / 100).toFixed(2),
       saldoTotalCents: s.amt,
       saldoPendienteCents: s.bal,
     });

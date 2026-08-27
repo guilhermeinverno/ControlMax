@@ -188,7 +188,7 @@ function LayoutCentrosDropdown({
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
   const centrosScreens = [
     'bc-incomes', 'bc-expenses', 'bc-transfers', 'bc-approvals', 'open-box', 'box-summary',
-    'bc-map', 'sales', 'credit-requests', 'period-summary', 'mass-box-opening', 'transfer-sales',
+    'bc-map', 'sales', 'credit-requests', 'period-summary', 'mass-box-opening', 'mass-box-closing', 'transfer-sales',
     'insurance', 'finance', 'business-centers',
   ];
   const isActive = activeDropdown === 'centros' || centrosScreens.includes(currentScreen);
@@ -214,11 +214,11 @@ function LayoutCentrosDropdown({
           <button onClick={() => nav('bc-expenses')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Egresos <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
-          <button onClick={() => nav('bc-transfers')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between whitespace-nowrap">
-            Transferência de dinheiro <ChevronRight className="w-3 h-3 text-gray-400" />
+          <button onClick={() => nav('bc-transfers')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
+            Transferências CN <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
           <button onClick={() => nav('bc-approvals')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
-            Aprobar transferencias <ChevronRight className="w-3 h-3 text-gray-400" />
+            Aprobar gastos / cajas <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
           <button onClick={() => nav('open-box')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Abrir Caixa <ChevronRight className="w-3 h-3 text-[#8CC63F]" />
@@ -241,7 +241,7 @@ function LayoutCentrosDropdown({
           <button onClick={() => nav('period-summary')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Resumen por periodo <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
-          <button onClick={() => nav('mass-box-opening')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
+          <button onClick={() => nav('mass-box-closing')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
             Cierre masivo de cajas <ChevronRight className="w-3 h-3 text-gray-400" />
           </button>
           <button onClick={() => nav('transfer-sales')} className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-50 flex items-center justify-between">
@@ -270,7 +270,7 @@ function LayoutAdminDropdown({
   handleDropdownClick,
   nav,
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'role' | 'showSuperAdmin' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
-  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'platform-management', 'forms', 'holidays', 'profiles', 'vendedor-mobile', 'business-centers', 'route-list'];
+  const adminScreens = ['superadmin', 'user-list', 'device-list', 'company-list', 'customer-blacklist', 'platform-management', 'forms', 'holidays', 'profiles', 'role-management', 'vendedor-mobile', 'business-centers', 'route-list'];
   const isActive = activeDropdown === 'admin' || adminScreens.includes(currentScreen);
   const [hoverSubmenu, setHoverSubmenu] = useState<'plataforma' | 'usuarios' | 'clientes' | null>(null);
 
@@ -308,8 +308,9 @@ function LayoutAdminDropdown({
 
             <div 
               onMouseEnter={() => setHoverSubmenu('usuarios')}
-              onClick={() => nav('user-list')}
-              className="w-full text-left px-4 py-3 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between cursor-pointer"
+              className={`w-full text-left px-4 py-3 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                hoverSubmenu === 'usuarios' ? 'bg-purple-50 text-[#6A008A]' : 'text-gray-700 hover:bg-purple-50 hover:text-[#6A008A]'
+              }`}
             >
               <span>Gestión de Usuarios</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
@@ -317,8 +318,9 @@ function LayoutAdminDropdown({
 
             <div 
               onMouseEnter={() => setHoverSubmenu('clientes')}
-              onClick={() => nav('company-list')}
-              className="w-full text-left px-4 py-3 text-xs font-semibold text-gray-700 hover:bg-purple-50 hover:text-[#6A008A] flex items-center justify-between cursor-pointer"
+              className={`w-full text-left px-4 py-3 text-xs font-semibold transition-colors cursor-pointer flex items-center justify-between ${
+                hoverSubmenu === 'clientes' ? 'bg-purple-50 text-[#6A008A]' : 'text-gray-700 hover:bg-purple-50 hover:text-[#6A008A]'
+              }`}
             >
               <span>Gestión de Clientes</span>
               <ChevronRight className="w-3.5 h-3.5 text-gray-400" />
@@ -328,8 +330,13 @@ function LayoutAdminDropdown({
           {/* Flyout Submenu Column 2 */}
           {hoverSubmenu === 'plataforma' && (
             <div className="w-64 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 ml-1 text-xs text-gray-700 space-y-1">
-              <button onClick={() => nav('platform-management')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
-                Sociedades
+              <button
+                type="button"
+                disabled
+                title="Piloto: Sociedade = tenantId. CRUD multi-sociedade adiado (CTX-03)."
+                className="w-full text-left px-5 py-2.5 text-gray-400 cursor-not-allowed font-semibold"
+              >
+                Sociedades (piloto: via tenant)
               </button>
               <button onClick={() => nav('business-centers')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
                 Centros de negocios
@@ -351,6 +358,31 @@ function LayoutAdminDropdown({
               </button>
             </div>
           )}
+
+          {hoverSubmenu === 'clientes' && (
+            <div className="w-64 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 ml-1 text-xs text-gray-700 space-y-1">
+              <button onClick={() => nav('company-list')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Clientes
+              </button>
+              <button onClick={() => nav('customer-blacklist')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Lista negra
+              </button>
+            </div>
+          )}
+
+          {hoverSubmenu === 'usuarios' && (
+            <div className="w-64 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 ml-1 text-xs text-gray-700 space-y-1">
+              <button onClick={() => nav('user-list')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Usuarios
+              </button>
+              <button onClick={() => nav('role-management')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Perfis / Roles (RBAC)
+              </button>
+              <button onClick={() => nav('profiles')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
+                Permisos legados (chave flat)
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -363,7 +395,7 @@ function LayoutReportesDropdown({
   handleDropdownClick,
   nav,
 }: Pick<LayoutDesktopNavProps, 'currentScreen' | 'activeDropdown' | 'handleDropdownClick' | 'nav'>) {
-  const isActive = activeDropdown === 'reportes' || ['performance', 'statistics', 'collector-map', 'device-list'].includes(currentScreen);
+  const isActive = activeDropdown === 'reportes' || ['performance', 'statistics', 'collector-map', 'device-list', 'audit-logs', 'reports-hub'].includes(currentScreen);
 
   return (
     <div className="relative flex items-stretch border-r border-gray-200">
@@ -380,35 +412,35 @@ function LayoutReportesDropdown({
 
       {activeDropdown === 'reportes' && (
         <div className="absolute top-[64px] left-0 w-72 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 z-50 text-xs font-semibold text-gray-600 space-y-1">
-          <button onClick={() => nav('sales')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Ventas
+          <button onClick={() => nav('reports-hub')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A] font-bold text-[#6A008A]">
+            Catálogo de Reportes
           </button>
-          <button onClick={() => nav('platform-management')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Plataforma
-          </button>
-          <button onClick={() => nav('sales')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Procesos encolados
-          </button>
-          <button onClick={() => nav('statistics')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+          <button onClick={() => nav('audit-logs')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
             Log de Acciones
           </button>
-          <button onClick={() => nav('vendedor-mobile')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Log Móvil
+          <button onClick={() => nav('period-summary')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Resumen por periodo (Excel)
           </button>
-          <button onClick={() => nav('performance')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Reportes Personalizados
+          <button onClick={() => nav('finance')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Relatório financeiro
+          </button>
+          <button onClick={() => nav('box-summary')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Extracto de caja
+          </button>
+          <button onClick={() => nav('dashboard')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Dashboard / export caixa
           </button>
           <button onClick={() => nav('collector-map')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
             Ubicar Mis Trabajadores
           </button>
           <button onClick={() => nav('performance')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Reportes Rápidos
-          </button>
-          <button onClick={() => nav('device-list')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Reporte Dispositivos Vinculados
+            Performance
           </button>
           <button onClick={() => nav('statistics')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
-            Histórico de alertas de pánico
+            Estadísticas
+          </button>
+          <button onClick={() => nav('device-list')} className="w-full text-left px-6 py-2 hover:bg-purple-50 hover:text-[#6A008A]">
+            Dispositivos vinculados
           </button>
         </div>
       )}

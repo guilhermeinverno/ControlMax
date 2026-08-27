@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { useNavigation } from '../context/NavigationContext';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { ConfirmModal } from './components/ConfirmModal';
 import { DEFAULT_DEVICE_APP_VERSION } from '../constants/device';
 import { 
@@ -236,7 +236,7 @@ export function EditDevice() {
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen">
-      <UnitSelectors />
+      <GlobalContextSelector variant="default" />
 
       <div className="px-3 mt-2 mb-4">
         {/* Cabeçalho */}

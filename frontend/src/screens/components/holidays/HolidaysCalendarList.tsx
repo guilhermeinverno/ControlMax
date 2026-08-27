@@ -2,6 +2,7 @@ import { CalendarDays, Loader2, ToggleLeft, ToggleRight, Trash2 } from 'lucide-r
 import { listViewBody } from '../../../utils/listViewBody';
 import type { Holiday } from '../../../types/holiday';
 import { MONTH_NAMES } from '../../../types/holiday';
+import { ListEmptyState } from '../../../components/ListFeedback';
 
 interface HolidaysCalendarListProps {
   loading: boolean;
@@ -40,9 +41,11 @@ export function HolidaysCalendarList({
           </div>
         ),
         (
-          <div className="text-center py-16 text-gray-400 text-xs font-medium">
-            No hay días festivos registrados para este período.
-          </div>
+          <ListEmptyState
+            title="No hay días festivos registrados"
+            description="Agregue un feriado para bloquear cobros e intereses en esa fecha."
+            icon={<CalendarDays className="w-10 h-10" />}
+          />
         ),
         (
           <div className="space-y-6 max-h-[600px] overflow-y-auto pr-1">

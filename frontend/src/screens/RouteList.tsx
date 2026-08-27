@@ -12,7 +12,8 @@ import { hasAdminAccess } from '../types/operational';
 import { listViewBody } from '../utils/listViewBody';
 import { useNavigation } from '../context/NavigationContext';
 import { ConfirmModal } from './components/ConfirmModal';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
+import { ListEmptyState, ListErrorBanner } from '../components/ListFeedback';
 import { 
   Plus, 
   Search, 
@@ -63,6 +64,7 @@ export function RouteList() {
   const [collectors, setCollectors] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   // Busca e Filtros
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,7 +139,7 @@ export function RouteList() {
         unsubRef.current();
       }
     };
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
   // 2. Buscar coletores do tenant (filtrar por role='collector')
   useEffect(() => {
@@ -270,7 +272,7 @@ export function RouteList() {
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen">
-      <UnitSelectors />
+      <GlobalContextSelector variant="default" />
 
       <div className="px-3 mt-2 mb-4">
         {/* Cabeçalho */}
@@ -294,10 +296,10 @@ export function RouteList() {
         <div className="bg-white border border-gray-200 border-t-0 p-3 shadow-sm rounded-b-sm">
           
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded mb-4 text-xs flex items-center">
-              <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-              <span>{error}</span>
-            </div>
+            <ListErrorBanner
+              message={error}
+              onRetry={() => setReloadToken((n) => n + 1)}
+            />
           )}
 
           {/* Filtro de Busca */}
@@ -331,20 +333,13 @@ export function RouteList() {
             </div>
           ),
             (
-            <div className="text-center py-12 bg-gray-50 border border-dashed border-gray-300 rounded-sm">
-              <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm font-bold text-gray-700">Nenhuma rota cadastrada ainda</p>
-              <p className="text-xs text-gray-500 mt-1 mb-4">Cadastre uma nova rota para começar a organizar as cobranças.</p>
-              {isAdmin && (
-                <button 
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="bg-[#16A34A] hover:bg-[#15803d] text-white text-xs font-bold px-4 py-2 rounded shadow-sm transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5 mr-1 inline" />
-                  Criar Primeira Rota
-                </button>
-              )}
-            </div>
+            <ListEmptyState
+              title="Nenhuma rota cadastrada ainda"
+              description="Cadastre uma nova rota para começar a organizar as cobranças."
+              icon={<MapPin className="w-10 h-10" />}
+              actionLabel={isAdmin ? 'Criar Primeira Rota' : undefined}
+              onAction={isAdmin ? () => setIsCreateModalOpen(true) : undefined}
+            />
           ),
             (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

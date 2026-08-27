@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type { UnifiedMovement } from './financeMovements';
+import { fmtCents } from './currency';
 
 export type FinanceTabFilter = 'Todos' | 'Ingreso' | 'Egreso' | 'Transferencia' | 'Recaudo';
 
@@ -8,8 +9,9 @@ export const FINANCE_MONTHS = [
   'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
+/** @deprecated Prefer `fmtCents` from `./currency` (CLEAN-01). */
 export function fmtFinanceValue(cents: number): string {
-  return (cents / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return fmtCents(cents);
 }
 
 export function filterMovementsByDate(

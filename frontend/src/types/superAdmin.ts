@@ -6,7 +6,39 @@ export interface TenantDoc {
   active: boolean;
   createdAt?: Timestamp;
   plan?: 'Free' | 'Pro' | 'Enterprise' | 'Completo';
+  /** Mensalidade acordada em centavos. */
   monthlyPrice?: number;
+  billingStatus?: 'active' | 'past_due' | 'suspended';
+  billingMethod?: 'pix' | 'boleto' | 'contrato';
+}
+
+export interface SaasInvoice {
+  id: string;
+  tenantId: string;
+  tenantName?: string;
+  period: string;
+  amountCents: number;
+  status: 'open' | 'paid' | 'canceled';
+  method: 'pix' | 'boleto' | 'contrato';
+  externalRef?: string;
+  notes?: string;
+  dueAt?: string | null;
+  paidAt?: unknown;
+  createdAt?: unknown;
+}
+
+export interface SaasBillingSummary {
+  period: string;
+  mrrCents: number;
+  activeLicenses: number;
+  pastDue: number;
+  suspended: number;
+  invoices: {
+    openCents: number;
+    paidCents: number;
+    openCount: number;
+    paidCount: number;
+  };
 }
 
 export interface UserDoc {
@@ -50,7 +82,10 @@ export interface TenantMetrics {
   active: boolean;
   createdAt: Timestamp;
   plan: 'Free' | 'Pro' | 'Enterprise' | 'Completo';
+  /** Unidade major (ex.: 199.00), já convertida de cents. */
   monthlyPrice: number;
+  billingStatus: 'active' | 'past_due' | 'suspended';
+  billingMethod: 'pix' | 'boleto' | 'contrato';
   totalUsers: number;
   totalClients: number;
   totalBoxes: number;

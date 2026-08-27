@@ -1,8 +1,8 @@
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { hasAdminAccess } from '../types/operational';
 import { parseCurrencyBRLToFloat } from './currency';
 import { mapExpenseTypeToBcCategory } from './expenseTypeLabels';
+import { financialFetchHeaders } from './financialFetchHeaders';
 
 export interface ExpenseFormInput {
   tenantId?: string;
@@ -38,10 +38,6 @@ export function validateExpenseForm(input: ExpenseFormInput): string | null {
   return null;
 }
 
-function resolveApprovalStatus(role?: string, isSuperAdmin?: boolean): 'approved' | 'pending' {
-  return hasAdminAccess(role, isSuperAdmin) ? 'approved' : 'pending';
-}
-
 export function expenseSuccessMessage(
   egresoMode: 'gasto' | 'retiro',
   isApproved: 'approved' | 'pending',
@@ -57,81 +53,44 @@ export function expenseSuccessMessage(
     : '¡Solicitud de retiro de CN Principal enviada correctamente!';
 }
 
-async function persistBoxExpense(input: ExpenseFormInput, amountCents: number, status: 'approved' | 'pending') {
-  await addDoc(collection(db, 'expenses'), {
-    tenantId: input.tenantId,
-    boxId: input.selectedBoxId,
-    boxName: input.selectedBoxName,
-    cnId: input.selectedCnId,
-    cnName: input.selectedCnName,
-    type: 'expense',
-    expenseType: input.expenseType,
-    amount: amountCents,
-    comment: input.comment.trim(),
-    description: input.description.trim(),
-    attachmentName: input.fileName,
-    attachmentUrl: input.fileUrl,
-    status,
-    userId: auth?.currentUser?.uid ?? '',
-    userName: input.userName || auth?.currentUser?.email || 'Usuario',
-    requestedBy: input.userName || auth?.currentUser?.email || 'Usuario',
-    requestedById: auth?.currentUser?.uid ?? '',
-    createdAt: serverTimestamp(),
-  });
-
-  const boxRef = doc(db, 'boxes', input.selectedBoxId);
-  const boxSnap = await getDoc(boxRef);
-  if (!boxSnap.exists()) return;
-
-  const boxData = boxSnap.data();
-  if (boxData.status === 'confirmed') throw new Error('Operação bloqueada: Caixa já confirmada e auditada.');
-  const newExpenses = (boxData.totalExpenses || 0) + amountCents;
-  const finalAmount =
-    (boxData.initialAmount || 0) +
-    (boxData.totalCollections || 0) +
-    (boxData.totalIncomes || 0) -
-    newExpenses -
-    (boxData.totalSales || 0) -
-    (boxData.totalTransfers || 0);
-
-  await updateDoc(boxRef, {
-    totalExpenses: newExpenses,
-    finalAmount,
-  });
-}
-
-async function persistBcWithdrawal(input: ExpenseFormInput, amountCents: number, status: 'approved' | 'pending') {
-  await addDoc(collection(db, 'bc_expenses'), {
-    tenantId: input.tenantId,
-    cnId: input.selectedCnId,
-    cnName: input.selectedCnName,
-    userId: auth.currentUser?.uid || 'unknown',
-    userName:
-      input.userName ||
-      auth.currentUser?.displayName ||
-      auth.currentUser?.email?.split('@')[0] ||
-      'Usuario',
-    amount: amountCents,
-    description: input.description.trim(),
-    comment: input.comment.trim(),
-    category: mapExpenseTypeToBcCategory(input.expenseType),
-    expenseType: input.expenseType,
-    status,
-    attachmentName: input.fileName,
-    attachmentUrl: input.fileUrl,
-    createdAt: serverTimestamp(),
-  });
-}
-
+/**
+ * Persiste despesa/retiro via BFF (FIN-03). Sem writes client em expenses/bc_expenses/boxes.
+ */
 export async function persistExpense(input: ExpenseFormInput): Promise<'approved' | 'pending'> {
-  const amountCents = Math.round(parseCurrencyBRLToFloat(input.amount) * 100);
-  const status = resolveApprovalStatus(input.role, input.isSuperAdmin);
-
-  if (input.egresoMode === 'gasto') {
-    await persistBoxExpense(input, amountCents, status);
-  } else {
-    await persistBcWithdrawal(input, amountCents, status);
+  if (!auth?.currentUser) {
+    throw new Error('Usuario no autenticado.');
   }
 
+  const amountCents = Math.round(parseCurrencyBRLToFloat(input.amount) * 100);
+  const fallbackStatus = hasAdminAccess(input.role, input.isSuperAdmin) ? 'approved' : 'pending';
+  const idempotencyKey = crypto.randomUUID();
+  const token = await auth.currentUser.getIdToken();
+
+  const response = await fetch('/api/transactions/expense', {
+    method: 'POST',
+    headers: financialFetchHeaders(token, idempotencyKey),
+    body: JSON.stringify({
+      mode: input.egresoMode,
+      boxId: input.selectedBoxId,
+      boxName: input.selectedBoxName,
+      cnId: input.selectedCnId,
+      cnName: input.selectedCnName,
+      expenseType: input.expenseType,
+      amountCents,
+      comment: input.comment.trim(),
+      description: input.description.trim(),
+      attachmentName: input.fileName,
+      attachmentUrl: input.fileUrl,
+      category: mapExpenseTypeToBcCategory(input.expenseType),
+      idempotencyKey,
+    }),
+  });
+
+  const data = await response.json().catch(() => ({} as { error?: string; status?: string }));
+  if (!response.ok) {
+    throw new Error(data.error || `Erro ao registrar egreso (${response.status}).`);
+  }
+
+  const status = data.status === 'approved' || data.status === 'pending' ? data.status : fallbackStatus;
   return status;
 }

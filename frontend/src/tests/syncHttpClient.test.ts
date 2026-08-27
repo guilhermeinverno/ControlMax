@@ -57,7 +57,7 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
 
     await expect(
       httpClient.request(HttpMethod.POST, '/api/boxes/open', { boxId: 'box-1' })
-    ).rejects.toThrow('Usuário não autenticado no Firebase Auth para envio da requisição (auth.currentUser é null).');
+    ).rejects.toThrow('Usuário não autenticado no Firebase Auth (auth.currentUser é null).');
 
     // Garante que o fetch NÃO foi chamado sem o token
     expect(globalFetchMock).not.toHaveBeenCalled();
@@ -71,9 +71,12 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
     const payload: OpenBoxPayload = {
       id: 'idemp-open-101',
       tenantId: 'tenant-1',
-      boxId: 'box-101',
-      collectorId: 'collector-1',
-      initialBalanceCents: 5000,
+      unitId: 'unit-1',
+      unitName: 'Rota 1',
+      cnId: 'cn-1',
+      cnName: 'CN 1',
+      initialAmount: 5000,
+      date: '2026-08-15',
       openedAt: '2026-08-15T12:00:00Z',
     };
 
@@ -83,7 +86,13 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/boxes/open',
       {
-        ...payload,
+        unitId: 'unit-1',
+        unitName: 'Rota 1',
+        cnId: 'cn-1',
+        cnName: 'CN 1',
+        initialAmount: 5000,
+        observation: '',
+        date: '2026-08-15',
         idempotencyKey: 'idemp-open-101',
       },
       {
@@ -102,8 +111,7 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       id: 'idemp-close-202',
       tenantId: 'tenant-1',
       boxId: 'box-202',
-      collectorId: 'collector-1',
-      finalBalanceCents: 15000,
+      realFinalAmount: 15000,
       closedAt: '2026-08-15T18:00:00Z',
     };
 
@@ -113,7 +121,8 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/boxes/close',
       {
-        ...payload,
+        boxId: 'box-202',
+        realFinalAmount: 15000,
         idempotencyKey: 'idemp-close-202',
       },
       {
@@ -133,9 +142,11 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
-      items: [{ description: 'Item 1', quantity: 1, unitPriceCents: 2000 }],
-      totalCents: 2000,
+      clientName: 'Cliente 1',
+      amountCents: 2000,
+      installmentAmountCents: 200,
+      totalInstallments: 10,
+      date: '2026-08-15',
       createdAt: '2026-08-15T12:30:00Z',
     };
 
@@ -143,11 +154,13 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
 
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
-      '/api/sales',
-      {
-        ...payload,
+      '/api/transactions/sale',
+      expect.objectContaining({
+        clientId: 'customer-1',
+        clientName: 'Cliente 1',
+        amountCents: 2000,
         idempotencyKey: 'idemp-sale-303',
-      },
+      }),
       {
         'X-Tenant-ID': 'tenant-1',
         'X-Idempotency-Key': 'idemp-sale-303',
@@ -165,8 +178,10 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
       amountCents: 1000,
+      paymentMethod: 'cash',
+      referenceSaleId: 'sale-404',
+      comment: 'teste',
       createdAt: '2026-08-15T14:00:00Z',
     };
 
@@ -176,7 +191,10 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/transactions/collection',
       {
-        ...payload,
+        saleId: 'sale-404',
+        amountCents: 1000,
+        paymentMethod: 'cash',
+        comment: 'teste',
         idempotencyKey: 'idemp-pay-404',
       },
       {

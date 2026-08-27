@@ -12,7 +12,9 @@ const rulesPath = fs.existsSync(path.resolve(process.cwd(), "firestore.rules"))
 
 const rulesContent = fs.readFileSync(rulesPath, "utf8");
 
-describe("Testes de Regras de Segurança do Firestore", () => {
+const hasFirestoreEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+
+describe.skipIf(!hasFirestoreEmulator)("Testes de Regras de Segurança do Firestore", () => {
   let testEnv: RulesTestEnvironment;
 
   beforeAll(async () => {
@@ -354,14 +356,26 @@ describe("Testes de Regras de Segurança do Firestore", () => {
       );
     });
 
-    test("usuário do Tenant A consegue criar um log com seu próprio tenantId legítimo", async () => {
+    test("usuário do Tenant A NÃO consegue criar security_logs diretamente (deve usar BFF)", async () => {
       const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
       const dbA = userAContext.firestore();
 
-      await assertSucceeds(
+      await assertFails(
         dbA.doc("security_logs/log-legit").set({
           tenantId: "tenant-a",
           message: "Log legítimo de alteração",
+        })
+      );
+    });
+
+    test("superadmin também NÃO consegue criar security_logs pelo client SDK", async () => {
+      const superadminContext = await setupUser("super-uid", "super_admin_tenant", "superadmin", "superadmin@controlmax.dev");
+      const dbSuper = superadminContext.firestore();
+
+      await assertFails(
+        dbSuper.doc("security_logs/log-super").set({
+          tenantId: "tenant-a",
+          message: "Tentativa via client",
         })
       );
     });
@@ -477,6 +491,34 @@ describe("Testes de Regras de Segurança do Firestore", () => {
           amount: 10000,
         })
       );
+    });
+
+    test("usuário do próprio Tenant A NÃO consegue criar collections diretamente (FIN-01 / BFF)", async () => {
+      const userAContext = await setupUser("collector-a", "tenant-a", "collector", "collector-a@tenant-a.com");
+      const dbA = userAContext.firestore();
+
+      await assertFails(
+        dbA.doc("collections/col-tenant-a-new").set({
+          tenantId: "tenant-a",
+          saleId: "sale-1",
+          amount: 1000,
+        })
+      );
+    });
+
+    test("usuário do Tenant B não pode ler collections do Tenant A", async () => {
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        const adminDb = context.firestore();
+        await adminDb.doc("collections/col-tenant-a").set({
+          tenantId: "tenant-a",
+          amount: 2500,
+        });
+      });
+
+      const userBContext = await setupUser("collector-b", "tenant-b", "collector", "collector-b@tenant-b.com");
+      const dbB = userBContext.firestore();
+
+      await assertFails(dbB.doc("collections/col-tenant-a").get());
     });
 
     test("usuário do próprio Tenant A NÃO consegue atualizar sales diretamente (deve usar BFF)", async () => {

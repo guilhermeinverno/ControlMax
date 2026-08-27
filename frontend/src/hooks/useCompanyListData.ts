@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
 import { toast } from 'react-hot-toast';
-import { db } from '../lib/firebase';
-import { logFirestoreError } from '../utils/firestoreError';
+import { auth } from '../lib/firebase';
 import { BusinessCenter, Customer } from '../types/company';
 import { fetchActiveBusinessCenters, pickDefaultCnSelection } from '../utils/companyListCenters';
 import { filterCustomers } from '../utils/customerFilter';
@@ -16,18 +14,26 @@ interface UseCompanyListDataOptions {
 
 export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOptions) {
   const [centers, setCenters] = useState<BusinessCenter[]>([]);
+  const [centersError, setCentersError] = useState<string | null>(null);
   const [selectedCnId, setSelectedCnId] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [viewAllUnits, setViewAllUnits] = useState(false);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [customersError, setCustomersError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCustomerForModal, setSelectedCustomerForModal] = useState<Customer | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
+
+  const retryLoad = useCallback(() => {
+    setReloadToken((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     if (!tenantId) return;
 
     const loadCenters = async () => {
+      setCentersError(null);
       try {
         const list = await fetchActiveBusinessCenters(tenantId);
         setCenters(list);
@@ -37,14 +43,22 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
         setSelectedUnitId(defaults.unitId);
       } catch (err) {
         console.error('Error loading business centers:', err);
+        setCentersError('Falha ao carregar centros de negócio. Verifique sua conexão.');
         toast.error('Falha de sincronização. Verifique sua conexão com a internet.');
       }
     };
 
     void loadCenters();
-  }, [tenantId]);
+  }, [tenantId, reloadToken]);
 
-  useCompanyListCustomers(tenantId, selectedCnId, setCustomers, setLoadingCustomers);
+  useCompanyListCustomers(
+    tenantId,
+    selectedCnId,
+    setCustomers,
+    setLoadingCustomers,
+    setCustomersError,
+    reloadToken,
+  );
   useOpenCustomerFromParams(clientId, customers, setSelectedCustomerForModal);
 
   const handleCnChange = useCallback((cnId: string) => {
@@ -56,13 +70,32 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     if (!customer.id) return;
 
     try {
-      await updateDoc(doc(db, 'customers', customer.id), { active: !customer.active });
-    } catch (err) {
-      logFirestoreError(err, 'update', `customers/${customer.id}`, {
-        throwError: false,
-        extraAuth: { userId: 'system_user' },
+      if (!auth?.currentUser) {
+        throw new Error('Usuario no autenticado.');
+      }
+      const token = await auth.currentUser.getIdToken();
+      const res = await fetch(`/api/customers/${encodeURIComponent(customer.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          active: !customer.active,
+          reason: 'Alteração de status do cliente',
+        }),
       });
-      console.warn('Operação de cliente atualizada localmente.');
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        throw new Error(data.error || `Erro ao atualizar (${res.status}).`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Não foi possível alterar o status do cliente.',
+      );
     }
   }, []);
 
@@ -76,6 +109,8 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     [customers, selectedUnitId, viewAllUnits, searchQuery],
   );
 
+  const listError = centersError || customersError;
+
   return {
     centers,
     selectedCnId,
@@ -83,6 +118,7 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     viewAllUnits,
     customers,
     loadingCustomers,
+    listError,
     searchQuery,
     selectedCustomerForModal,
     activeUnitsList,
@@ -93,5 +129,6 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     setSelectedCustomerForModal,
     handleCnChange,
     toggleCustomerStatus,
+    retryLoad,
   };
 }

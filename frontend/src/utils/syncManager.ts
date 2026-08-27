@@ -149,14 +149,16 @@ export class SyncManager {
     await this.store.update(updated);
   }
 
-  /** Reset transaction status back to PENDING (for temporary network errors). */
-  public static async resetToPending(id: string): Promise<void> {
+  /** Reset transaction status back to PENDING (for temporary network/5xx errors). */
+  public static async resetToPending(id: string, errorMessage?: string): Promise<void> {
     const tx = await this.store.get(id);
     if (!tx) return;
     const updated = {
       ...tx,
       status: SyncStatus.PENDING,
+      retryCount: (tx.retryCount || 0) + 1,
       updatedAt: new Date().toISOString(),
+      errorMessage: errorMessage ?? tx.errorMessage,
     };
     await this.store.update(updated);
   }

@@ -7,6 +7,7 @@ import { boxStatusLabel, boxStatusBadgeBorderClasses } from '../utils/statusLabe
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { getBoxSummaryUserId, searchBoxSummaryForDate, type BoxTransaction } from '../utils/boxSummarySearch';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import * as XLSX from 'xlsx';
 
 interface BoxSummaryProps {
@@ -30,20 +31,6 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
 
   const todayStr = getTodayString();
   const [selectedDate, setSelectedDate] = useState(todayStr);
-
-  // CN and Unit Options (Mocked for now as requested)
-  // Pendente: Conectar con Firestore futuramente
-  const cnOptions = [
-    { id: 'CN_6501', name: 'CN de la sociedad 6501' }
-  ];
-
-  const unitOptions = [
-    { id: 'RT_03', name: 'Centro Histórico' }
-  ];
-
-  const [selectedCnId, setSelectedCnId] = useState('CN_6501');
-  const [selectedUnitId, setSelectedUnitId] = useState('RT_03');
-
   // Search results
   const [box, setBox] = useState<Box | null>(null);
   const [transactions, setTransactions] = useState<BoxTransaction[]>([]);
@@ -162,34 +149,8 @@ export function BoxSummary({ onNavigate }: BoxSummaryProps) {
         {/* FILTROS */}
         <div className="bg-white border border-gray-300 shadow-sm rounded-sm p-3">
           <div className="space-y-3">
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-[#555555] mb-1">CN de la sociedad</label>
-              {/* Pendente: Conectar con Firestore futuramente */}
-              <select 
-                value={selectedCnId}
-                onChange={(e) => setSelectedCnId(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-[#333333] outline-none focus:border-[#6B21A8] bg-white font-bold"
-              >
-                {cnOptions.map(cn => (
-                  <option key={cn.id} value={cn.id}>{cn.name}</option>
-                ))}
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-[#555555] mb-1">Unidad</label>
-              {/* Pendente: Conectar con Firestore futuramente */}
-              <select 
-                value={selectedUnitId}
-                onChange={(e) => setSelectedUnitId(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs text-[#333333] outline-none focus:border-[#6B21A8] bg-white font-bold"
-              >
-                {unitOptions.map(unit => (
-                  <option key={unit.id} value={unit.id}>{unit.name}</option>
-                ))}
-              </select>
-            </div>
-            
+            <GlobalContextSelector variant="default" showVerTodas />
+
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#555555] mb-1">Fecha</label>
               <input 
