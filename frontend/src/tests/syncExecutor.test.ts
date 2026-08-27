@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SyncManager, SyncStatus } from '../utils/syncManager';
@@ -11,10 +12,11 @@ async function clearSyncDb(): Promise<void> {
   await Promise.all(txs.map((tx) => SyncManager.remove(tx.id)));
 }
 
-function setOnline(value: boolean) {
-  Object.defineProperty(navigator, 'onLine', {
+function setOnline(online: boolean) {
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { onLine: online },
+    writable: true,
     configurable: true,
-    get: () => value,
   });
 }
 

@@ -12,7 +12,9 @@ const rulesPath = fs.existsSync(path.resolve(process.cwd(), "firestore.rules"))
 
 const rulesContent = fs.readFileSync(rulesPath, "utf8");
 
-describe("Testes de Regras de Segurança do Firestore", () => {
+const hasFirestoreEmulator = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
+
+describe.skipIf(!hasFirestoreEmulator)("Testes de Regras de Segurança do Firestore", () => {
   let testEnv: RulesTestEnvironment;
 
   beforeAll(async () => {
