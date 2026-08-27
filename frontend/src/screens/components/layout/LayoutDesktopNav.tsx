@@ -328,8 +328,13 @@ function LayoutAdminDropdown({
           {/* Flyout Submenu Column 2 */}
           {hoverSubmenu === 'plataforma' && (
             <div className="w-64 bg-white rounded-b-md shadow-2xl border-t-2 border-[#8CC63F] py-2 ml-1 text-xs text-gray-700 space-y-1">
-              <button onClick={() => nav('platform-management')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
-                Sociedades
+              <button
+                type="button"
+                disabled
+                title="Piloto: Sociedade = tenantId. CRUD multi-sociedade adiado (CTX-03)."
+                className="w-full text-left px-5 py-2.5 text-gray-400 cursor-not-allowed font-semibold"
+              >
+                Sociedades (piloto: via tenant)
               </button>
               <button onClick={() => nav('business-centers')} className="w-full text-left px-5 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] font-semibold">
                 Centros de negocios

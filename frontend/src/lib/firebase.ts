@@ -133,12 +133,11 @@ if (!firestoreDb) {
   }
 }
 
-// Reverted back to standard Firebase implementation for production release
-
+// Stubs legado — demo mode desativado (SEC-02). Mantidos só se algum import externo ainda referenciar.
 export const getDemoUser = (): User | null => null;
 export const startDemoMode = async () => {};
 export const stopDemoMode = async () => {};
-export function triggerAuthListeners(user: User | null) {}
+export function triggerAuthListeners(_user: User | null) {}
 
 export function onAuthStateChanged(
   authObj: Auth,

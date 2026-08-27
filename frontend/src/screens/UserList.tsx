@@ -67,36 +67,11 @@ export function UserList() {
     const usersRef = collection(db, 'users');
     const q = query(usersRef, where('tenantId', '==', tenantId));
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
+    const unsubscribe = onSnapshot(q, (snapshot) => {
       const list = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })) as AppUser[];
-
-      // Ensure coletor.teste@controlmax.com is present for enterprise test tenant
-      if (tenantId === 'teste@controlmax.dev' || tenantId.includes('teste')) {
-        const hasColetorTeste = list.some(u => u.email?.toLowerCase() === 'coletor.teste@controlmax.com');
-        if (!hasColetorTeste) {
-          try {
-            await addDoc(collection(db, 'users'), {
-              tenantId: 'teste@controlmax.dev',
-              username: 'coletor.teste',
-              userName: 'Coletor de Teste',
-              email: 'coletor.teste@controlmax.com',
-              documentNumber: '1007967200',
-              role: 'collector',
-              firstName: 'Coletor',
-              middleName: 'de',
-              lastName1: 'Teste',
-              lastName2: 'Demo',
-              active: true,
-              createdAt: new Date().toISOString()
-            });
-          } catch (err) {
-            console.warn('Auto-provision user in Firestore list:', err);
-          }
-        }
-      }
 
       setUsers(list);
       setListError(null);

@@ -1,6 +1,6 @@
 import { Router, Response } from "express";
 import { adminDb, AuthenticatedRequest } from "./authMiddleware";
-import { checkIdempotency, registerIdempotencySuccess } from "./idempotency";
+import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
 
 const router = Router();
@@ -21,6 +21,9 @@ function isValidAmount(val: any): boolean {
 router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
   const { 
     clientId, 
     clientName, 
@@ -28,7 +31,6 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
     installmentAmountCents, 
     totalInstallments, 
     date, 
-    idempotencyKey,
     notes,
     photoUrl,
     photoName,
@@ -140,7 +142,10 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { saleId, amountCents, paymentMethod, comment, idempotencyKey } = req.body;
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { saleId, amountCents, paymentMethod, comment } = req.body;
   const { tenantId, uid: userId, name: userName } = req.user;
 
   if (!saleId || amountCents === undefined || !paymentMethod) {
@@ -148,8 +153,9 @@ router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
   }
 
   const parsedAmount = Math.round(Number(amountCents));
-  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior que zero." });
+  // Permite 0 para visita sem pagamento (no-payment); rejeita apenas valores inválidos/negativos.
+  if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior ou igual a zero." });
   }
 
   try {
@@ -269,7 +275,10 @@ router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { boxId, type, amountCents, reason, idempotencyKey } = req.body;
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { boxId, type, amountCents, reason } = req.body;
   const { tenantId, uid: userId, name: userName, role } = req.user;
 
   if (!boxId || !type || amountCents === undefined || !reason) {
@@ -417,7 +426,10 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const { originalTransactionId, reason, idempotencyKey } = req.body;
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { originalTransactionId, reason } = req.body;
   const { tenantId, uid: userId, name: userName, role } = req.user;
 
   if (!originalTransactionId || !reason) {
@@ -540,5 +552,423 @@ router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+function mapExpenseTypeToBcCategory(type: string): string {
+  const normalized = String(type || "").toLowerCase();
+  if (normalized.includes("sueldo")) return "salary";
+  if (normalized.includes("arriendo")) return "rent";
+  if (
+    normalized.includes("gasolina") ||
+    normalized.includes("aceite") ||
+    normalized.includes("moto") ||
+    normalized.includes("pinchada")
+  ) {
+    return "transport";
+  }
+  if (
+    normalized.includes("almuerzo") ||
+    normalized.includes("recarga") ||
+    normalized.includes("internet") ||
+    normalized.includes("cel") ||
+    normalized.includes("factura") ||
+    normalized.includes("varios")
+  ) {
+    return "supplies";
+  }
+  return "other";
+}
+
+function resolveExpenseStatus(role: string): "approved" | "pending" {
+  return isManager(role) ? "approved" : "pending";
+}
+
+function computeBoxFinalAmount(boxData: Record<string, any>, overrides: {
+  totalCollections?: number;
+  totalIncomes?: number;
+  totalExpenses?: number;
+  totalSales?: number;
+  totalTransfers?: number;
+}): number {
+  return (
+    (boxData.initialAmount || 0) +
+    (overrides.totalCollections ?? boxData.totalCollections ?? 0) +
+    (overrides.totalIncomes ?? boxData.totalIncomes ?? 0) -
+    (overrides.totalExpenses ?? boxData.totalExpenses ?? 0) -
+    (overrides.totalSales ?? boxData.totalSales ?? 0) -
+    (overrides.totalTransfers ?? boxData.totalTransfers ?? 0)
+  );
+}
+
+// 5. Despesa / retiro (expense | bc_expense)
+router.post("/expense", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const {
+    mode,
+    boxId,
+    boxName,
+    cnId,
+    cnName,
+    expenseType,
+    amountCents,
+    comment,
+    description,
+    attachmentName,
+    attachmentUrl,
+    category,
+  } = req.body;
+  const { tenantId, uid: userId, name: userName, role } = req.user;
+
+  const resolvedMode = mode === "retiro" || mode === "bc" ? "retiro" : "gasto";
+
+  if (!cnId || !expenseType || amountCents === undefined || !comment || !description) {
+    return res.status(400).json({
+      error: "Campos obrigatórios ausentes (cnId, expenseType, amountCents, comment, description).",
+    });
+  }
+
+  if (resolvedMode === "gasto" && !boxId) {
+    return res.status(400).json({ error: "boxId é obrigatório para gasto de caixa." });
+  }
+
+  if (!isValidAmount(amountCents)) {
+    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior que zero." });
+  }
+
+  const parsedAmount = Math.round(Number(amountCents));
+  const status = resolveExpenseStatus(role);
+
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+        if (cached) {
+          if (cached.status === "completed") return { cached: true, response: cached.response };
+          throw new Error("Chave de idempotência em processamento.");
+        }
+      }
+
+      if (resolvedMode === "gasto") {
+        const boxRef = adminDb.collection("boxes").doc(boxId);
+        const boxSnap = await transaction.get(boxRef);
+        if (!boxSnap.exists) throw new Error("Caixa não encontrada.");
+
+        const boxData = boxSnap.data() || {};
+        if (boxData.tenantId !== tenantId) {
+          throw new Error("Acesso negado: Caixa pertence a outro tenant.");
+        }
+        if (boxData.status === "confirmed") {
+          throw new Error("Operação bloqueada: Caixa já confirmada e auditada.");
+        }
+
+        const expenseRef = adminDb.collection("expenses").doc();
+        transaction.set(expenseRef, {
+          tenantId,
+          boxId,
+          boxName: boxName || boxData.userName || "Caja",
+          cnId,
+          cnName: cnName || boxData.cnName || "",
+          type: "expense",
+          expenseType,
+          amount: parsedAmount,
+          comment: String(comment).trim(),
+          description: String(description).trim(),
+          attachmentName: attachmentName || "",
+          attachmentUrl: attachmentUrl || "",
+          status,
+          userId,
+          userName,
+          requestedBy: userName,
+          requestedById: userId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        // Só atualiza totais do caixa quando já aprovado (gestor).
+        if (status === "approved") {
+          const newTotalExpenses = (boxData.totalExpenses || 0) + parsedAmount;
+          transaction.update(boxRef, {
+            totalExpenses: newTotalExpenses,
+            finalAmount: computeBoxFinalAmount(boxData, { totalExpenses: newTotalExpenses }),
+          });
+        }
+
+        const responsePayload = { success: true, expenseId: expenseRef.id, status, mode: "gasto" };
+        if (idempotencyKey) {
+          registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+        }
+        return { cached: false, response: responsePayload };
+      }
+
+      // Retiro de CN → bc_expenses
+      const bcExpenseRef = adminDb.collection("bc_expenses").doc();
+      transaction.set(bcExpenseRef, {
+        tenantId,
+        cnId,
+        cnName: cnName || "",
+        userId,
+        userName,
+        amount: parsedAmount,
+        description: String(description).trim(),
+        comment: String(comment).trim(),
+        category: category || mapExpenseTypeToBcCategory(expenseType),
+        expenseType,
+        status,
+        attachmentName: attachmentName || "",
+        attachmentUrl: attachmentUrl || "",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      const responsePayload = { success: true, expenseId: bcExpenseRef.id, status, mode: "retiro" };
+      if (idempotencyKey) {
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+      }
+      return { cached: false, response: responsePayload };
+    });
+
+    return res.status(201).json(result.response);
+  } catch (error: any) {
+    console.error("Erro ao registrar despesa:", error);
+    return res.status(400).json({ error: error.message || "Erro ao registrar despesa." });
+  }
+});
+
+// 6. Receita (income | bc_income)
+router.post("/income", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const {
+    mode,
+    boxId,
+    boxName,
+    cnId,
+    cnName,
+    incomeType,
+    amountCents,
+    comment,
+    description,
+    attachmentName,
+    attachmentUrl,
+    saleId,
+    saleClientName,
+    category,
+  } = req.body;
+  const { tenantId, uid: userId, name: userName, role } = req.user;
+
+  const resolvedMode = mode === "bc" ? "bc" : "box";
+
+  if (amountCents === undefined || !comment) {
+    return res.status(400).json({ error: "Campos obrigatórios ausentes (amountCents, comment)." });
+  }
+
+  if (!isValidAmount(amountCents)) {
+    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior que zero." });
+  }
+
+  const parsedAmount = Math.round(Number(amountCents));
+
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+        if (cached) {
+          if (cached.status === "completed") return { cached: true, response: cached.response };
+          throw new Error("Chave de idempotência em processamento.");
+        }
+      }
+
+      if (resolvedMode === "bc") {
+        if (!cnId || !description) {
+          throw new Error("cnId e description são obrigatórios para ingresso de CN.");
+        }
+        const status = resolveExpenseStatus(role);
+        const bcIncomeRef = adminDb.collection("bc_incomes").doc();
+        transaction.set(bcIncomeRef, {
+          tenantId,
+          cnId,
+          cnName: cnName || "",
+          userId,
+          userName,
+          amount: parsedAmount,
+          description: String(description).trim(),
+          category: category || "deposit",
+          status,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        const responsePayload = { success: true, incomeId: bcIncomeRef.id, status, mode: "bc" };
+        if (idempotencyKey) {
+          registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+        }
+        return { cached: false, response: responsePayload };
+      }
+
+      if (!boxId || !incomeType) {
+        throw new Error("boxId e incomeType são obrigatórios para ingresso de caixa.");
+      }
+
+      const boxRef = adminDb.collection("boxes").doc(boxId);
+      const boxSnap = await transaction.get(boxRef);
+      if (!boxSnap.exists) throw new Error("Caixa não encontrada.");
+
+      const boxData = boxSnap.data() || {};
+      if (boxData.tenantId !== tenantId) {
+        throw new Error("Acesso negado: Caixa pertence a outro tenant.");
+      }
+      if (boxData.status === "confirmed") {
+        throw new Error("Operação bloqueada: Caixa já confirmada e auditada.");
+      }
+
+      const incomeRef = adminDb.collection("incomes").doc();
+      const incomePayload: Record<string, unknown> = {
+        tenantId,
+        boxId,
+        boxName: boxName || boxData.userName || "Caja",
+        cnId: cnId || boxData.cnId || "",
+        cnName: cnName || boxData.cnName || "",
+        type: "income",
+        incomeType,
+        amount: parsedAmount,
+        comment: String(comment).trim(),
+        description: String(description || "").trim(),
+        attachmentName: attachmentName || "",
+        attachmentUrl: attachmentUrl || "",
+        userId,
+        userName,
+        registeredBy: userName,
+        registeredById: userId,
+        createdAt: FieldValue.serverTimestamp(),
+      };
+      if (saleId) {
+        incomePayload.saleId = saleId;
+        incomePayload.saleClientName = saleClientName || "";
+      }
+
+      transaction.set(incomeRef, incomePayload);
+
+      const newTotalIncomes = (boxData.totalIncomes || 0) + parsedAmount;
+      transaction.update(boxRef, {
+        totalIncomes: newTotalIncomes,
+        finalAmount: computeBoxFinalAmount(boxData, { totalIncomes: newTotalIncomes }),
+      });
+
+      const responsePayload = { success: true, incomeId: incomeRef.id, mode: "box" };
+      if (idempotencyKey) {
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+      }
+      return { cached: false, response: responsePayload };
+    });
+
+    return res.status(201).json(result.response);
+  } catch (error: any) {
+    console.error("Erro ao registrar receita:", error);
+    return res.status(400).json({ error: error.message || "Erro ao registrar receita." });
+  }
+});
+
+// 7. Aprovação/rejeição (expenses, bc_expenses, bc_incomes)
+router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { resourceType, resourceId, status } = req.body;
+  const { tenantId, uid: userId, name: userName, role } = req.user;
+
+  if (!resourceType || !resourceId || !status) {
+    return res.status(400).json({
+      error: "Campos obrigatórios ausentes (resourceType, resourceId, status).",
+    });
+  }
+
+  if (!["approved", "rejected"].includes(status)) {
+    return res.status(400).json({ error: "status inválido (approved | rejected)." });
+  }
+
+  if (!isManager(role)) {
+    return res.status(403).json({ error: "Acesso negado: apenas gestores podem aprovar/rejeitar." });
+  }
+
+  const collectionName =
+    resourceType === "expense"
+      ? "expenses"
+      : resourceType === "bc_expense"
+        ? "bc_expenses"
+        : resourceType === "bc_income"
+          ? "bc_incomes"
+          : null;
+
+  if (!collectionName) {
+    return res.status(400).json({
+      error: "resourceType inválido (expense | bc_expense | bc_income).",
+    });
+  }
+
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+        if (cached) {
+          if (cached.status === "completed") return { cached: true, response: cached.response };
+          throw new Error("Chave de idempotência em processamento.");
+        }
+      }
+
+      const resourceRef = adminDb.collection(collectionName).doc(resourceId);
+      const resourceSnap = await transaction.get(resourceRef);
+      if (!resourceSnap.exists) throw new Error("Registro não encontrado.");
+
+      const data = resourceSnap.data() || {};
+      if (data.tenantId !== tenantId) {
+        throw new Error("Acesso negado: registro de outro tenant.");
+      }
+
+      if (data.status && data.status !== "pending") {
+        throw new Error(`Registro já está com status '${data.status}'.`);
+      }
+
+      transaction.update(resourceRef, {
+        status,
+        approvedBy: userName,
+        approvedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Ao aprovar gasto de caixa pendente, aplica efeito no caixa.
+      if (collectionName === "expenses" && status === "approved" && data.boxId) {
+        const boxRef = adminDb.collection("boxes").doc(data.boxId);
+        const boxSnap = await transaction.get(boxRef);
+        if (boxSnap.exists) {
+          const boxData = boxSnap.data() || {};
+          if (boxData.tenantId === tenantId && boxData.status !== "confirmed") {
+            const amount = Math.round(Number(data.amount || 0));
+            const newTotalExpenses = (boxData.totalExpenses || 0) + amount;
+            transaction.update(boxRef, {
+              totalExpenses: newTotalExpenses,
+              finalAmount: computeBoxFinalAmount(boxData, { totalExpenses: newTotalExpenses }),
+            });
+          }
+        }
+      }
+
+      const responsePayload = { success: true, resourceId, status };
+      if (idempotencyKey) {
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+      }
+      return { cached: false, response: responsePayload };
+    });
+
+    return res.status(200).json(result.response);
+  } catch (error: any) {
+    console.error("Erro ao processar aprovação:", error);
+    return res.status(400).json({ error: error.message || "Erro ao processar aprovação." });
+  }
+});
+
 export default router;
+
 

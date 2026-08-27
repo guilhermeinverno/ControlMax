@@ -133,9 +133,11 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
-      items: [{ description: 'Item 1', quantity: 1, unitPriceCents: 2000 }],
-      totalCents: 2000,
+      clientName: 'Cliente 1',
+      amountCents: 2000,
+      installmentAmountCents: 200,
+      totalInstallments: 10,
+      date: '2026-08-15',
       createdAt: '2026-08-15T12:30:00Z',
     };
 
@@ -143,11 +145,13 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
 
     expect(mockRequest).toHaveBeenCalledWith(
       HttpMethod.POST,
-      '/api/sales',
-      {
-        ...payload,
+      '/api/transactions/sale',
+      expect.objectContaining({
+        clientId: 'customer-1',
+        clientName: 'Cliente 1',
+        amountCents: 2000,
         idempotencyKey: 'idemp-sale-303',
-      },
+      }),
       {
         'X-Tenant-ID': 'tenant-1',
         'X-Idempotency-Key': 'idemp-sale-303',
@@ -165,8 +169,10 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
       amountCents: 1000,
+      paymentMethod: 'cash',
+      referenceSaleId: 'sale-404',
+      comment: 'teste',
       createdAt: '2026-08-15T14:00:00Z',
     };
 
@@ -176,7 +182,10 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       HttpMethod.POST,
       '/api/transactions/collection',
       {
-        ...payload,
+        saleId: 'sale-404',
+        amountCents: 1000,
+        paymentMethod: 'cash',
+        comment: 'teste',
         idempotencyKey: 'idemp-pay-404',
       },
       {

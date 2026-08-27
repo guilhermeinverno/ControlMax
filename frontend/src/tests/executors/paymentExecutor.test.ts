@@ -55,7 +55,10 @@ describe('PaymentExecutor', () => {
       HttpMethod.POST,
       '/api/transactions/collection',
       {
-        ...validPayload,
+        saleId: 'sale-999',
+        amountCents: 5000,
+        paymentMethod: 'cash',
+        comment: '',
         idempotencyKey: 'pay-123',
       },
       {
@@ -83,6 +86,31 @@ describe('PaymentExecutor', () => {
     const invalidPayload = { ...validPayload, customerId: '' };
     await expect(executor.execute(invalidPayload)).rejects.toThrow(
       'Validation Error: customerId is required'
+    );
+  });
+
+  it('deve falhar de forma defensiva se faltar referenceSaleId', async () => {
+    const invalidPayload = { ...validPayload, referenceSaleId: undefined };
+    await expect(executor.execute(invalidPayload)).rejects.toThrow(
+      'Validation Error: referenceSaleId (saleId) is required'
+    );
+  });
+
+  it('deve aceitar amountCents igual a 0 (visita sem pagamento)', async () => {
+    mockRequest.mockResolvedValue({ success: true });
+    const visitPayload = { ...validPayload, amountCents: 0, comment: 'Sem pagamento' };
+
+    await executor.execute(visitPayload);
+
+    expect(mockRequest).toHaveBeenCalledWith(
+      HttpMethod.POST,
+      '/api/transactions/collection',
+      expect.objectContaining({
+        amountCents: 0,
+        comment: 'Sem pagamento',
+        saleId: 'sale-999',
+      }),
+      expect.any(Object)
     );
   });
 

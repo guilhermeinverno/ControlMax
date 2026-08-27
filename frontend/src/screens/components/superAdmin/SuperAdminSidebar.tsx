@@ -158,7 +158,7 @@ export function SuperAdminSidebar({
             </div>
             <div className="min-w-0">
               <p className="text-xs font-extrabold text-white truncate">SaaS Owner</p>
-              <p className="text-[10px] text-indigo-400 font-bold truncate">{auth.currentUser?.email || 'gringoeletronica@gmail.com'}</p>
+              <p className="text-[10px] text-indigo-400 font-bold truncate">{auth.currentUser?.email || '—'}</p>
             </div>
           </div>
 

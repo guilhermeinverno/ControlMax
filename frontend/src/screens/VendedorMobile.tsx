@@ -5,7 +5,12 @@ import { collection, query, where, onSnapshot, addDoc, getDocs } from 'firebase/
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { useSalesListData } from '../hooks/useSalesListData';
+import { useGlobalContext } from '../context/GlobalContext';
 import { formatSalesListCents } from '../utils/salesListFormat';
+import { resolveOperationalUnit } from '../utils/resolveOperationalUnit';
+import { SyncManager } from '../utils/syncManager';
+import { syncExecutor } from '../utils/sync/setupSync';
+import type { SalePayload } from '../types/syncPayloads';
 import { 
   Menu, X, Search, SlidersHorizontal, Camera, Check, 
   ArrowLeft, Smartphone, Shield, Calculator, Users, 
@@ -32,6 +37,7 @@ function promiseWithTimeout<T>(promise: Promise<T>, ms: number, errorMsg = 'Time
 export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   const { tenantId, role, userName, usuarioUnidades } = useTenant();
   const { activeBox } = useBox();
+  const { selectedCnId, selectedUnitId } = useGlobalContext();
 
   // Screen routing states
   const [activeView, setActiveView] = useState<'dashboard' | 'new-customer' | 'new-sale'>((params?.activeView as any) || 'dashboard');
@@ -252,13 +258,26 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
     setSubmitting(true);
 
     try {
+      const unitResolution = resolveOperationalUnit({
+        tenantId,
+        activeBox,
+        usuarioUnidades,
+        selectedUnitId,
+        selectedCnId,
+      });
+      if (!unitResolution.ok) {
+        setFormError(unitResolution.error);
+        return;
+      }
+      const { context } = unitResolution;
+
       // Add Customer Doc in Firebase (customers collection) with 10s timeout
       const docRef = await promiseWithTimeout(
         addDoc(collection(db, 'customers'), {
-          tenantId: tenantId || 'tenant_oficinabrasil',
-          unitId: activeBox?.unitId || 'unit-demo',
-          unitName: activeBox?.unitName || 'Unidad Demo',
-          businessCenterId: activeBox?.cnId || 'bc-demo',
+          tenantId: context.tenantId,
+          unitId: context.unitId,
+          unitName: context.unitName,
+          businessCenterId: context.cnId || '',
           city: city || 'Brasilia',
           name: firstName,
           secondName: middleName || '',
@@ -339,21 +358,35 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
     setSubmitting(true);
 
     try {
+      if (!tenantId) {
+        setFormError('Sesión sin empresa (tenant). Vuelva a iniciar sesión.');
+        return;
+      }
+      if (!activeBox?.id) {
+        setFormError('No hay caixa abierta. Abra un caixa antes de registrar una venta.');
+        return;
+      }
+      if (!auth?.currentUser?.uid) {
+        setFormError('Usuario no autenticado. Vuelva a iniciar sesión.');
+        return;
+      }
+
       const amtCents = Math.round(parseCurrencyBRLToFloat(saleAmount) * 100);
       const multiplier = getInterestMultiplier(saleInterest);
       const totalAmountCents = Math.round(amtCents * multiplier);
       const installmentAmountCents = Math.round(parseCurrencyBRLToFloat(saleInstallmentValue) * 100);
 
       // Get Firebase Auth ID Token for authentication
-      const token = auth?.currentUser ? await auth.currentUser.getIdToken() : '';
-      const idempotencyKey = 'sale-' + Math.random().toString(36).substring(2) + '-' + Date.now();
+      const token = await auth.currentUser.getIdToken();
+      const idempotencyKey = crypto.randomUUID();
 
       const apiCall = async () => {
         const response = await fetch('/api/transactions/sale', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
+            'Authorization': `Bearer ${token}`,
+            'X-Idempotency-Key': idempotencyKey,
           },
           body: JSON.stringify({
             clientId: saleClient.id,
@@ -391,48 +424,64 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       };
 
       try {
-        // Add Sale Doc in Firebase via transaction API with 10s timeout
         await promiseWithTimeout(
           apiCall(),
           10000,
           'Tiempo de espera agotado al registrar la venta. Por favor verifique su conexión a Internet o si posee un caixa aberta.'
         );
       } catch (err: any) {
-        const isNetworkOrHtmlError = 
-          err.message === 'HTML_RESPONSE' || 
-          err.message.includes('Unexpected token') || 
-          err.message.includes('Failed to fetch') || 
-          err.message.includes('NetworkError') || 
-          err.message.includes('fetch');
+        const isNetworkOrHtmlError =
+          err.message === 'HTML_RESPONSE' ||
+          err.message.includes('Unexpected token') ||
+          err.message.includes('Failed to fetch') ||
+          err.message.includes('NetworkError') ||
+          err.message.includes('fetch') ||
+          err.message.includes('Tiempo de espera');
 
-        if (isNetworkOrHtmlError) {
-          console.warn('Backend API not reachable (HTML/Network). Falling back to direct client-side Firestore write...');
-          
-          // Direct client-side write fallback
-          await addDoc(collection(db, 'sales'), {
-            tenantId: tenantId || 'tenant_oficinabrasil',
-            clientId: saleClient.id,
-            clientName: saleClient.name,
-            clientDoc: 'SIN NÚMERO',
-            amount: amtCents,
-            interest: multiplier - 1,
-            installments: Number(saleInstallments),
-            installmentAmount: installmentAmountCents,
-            balance: totalAmountCents,
-            saldoPendienteCents: totalAmountCents,
-            status: 'active',
-            paidInstallments: 0,
-            createdAt: new Date().toISOString(),
-            userId: auth.currentUser?.uid || 'demo_collector',
-            notes: saleNotes || '',
-            photoUrl: salePhotoUrl || '',
-            photoName: salePhotoName || '',
-            frequency: saleFrequency
-          });
-        } else {
-          // If it was a real backend validation error (e.g. "Nenhum caixa aberto encontrado")
-          throw err;
+        if (!isNetworkOrHtmlError) throw err;
+
+        // FIN-03: offline/rede → SyncManager (sem write client em sales)
+        const salePayload: SalePayload = {
+          id: idempotencyKey,
+          tenantId,
+          boxId: activeBox.id,
+          customerId: saleClient.id,
+          clientName: saleClient.name,
+          amountCents: totalAmountCents,
+          installmentAmountCents,
+          totalInstallments: Number(saleInstallments),
+          date: new Date().toISOString().split('T')[0],
+          notes: saleNotes || '',
+          photoUrl: salePhotoUrl || '',
+          photoName: salePhotoName || '',
+          frequency: saleFrequency,
+          createdAt: new Date().toISOString(),
+        };
+
+        await SyncManager.enqueue(
+          'sale',
+          salePayload,
+          tenantId,
+          auth.currentUser.uid
+        );
+
+        if (typeof navigator !== 'undefined' && navigator.onLine) {
+          setTimeout(() => {
+            syncExecutor.processAll().catch((syncErr) => {
+              console.error('[FIN-03] Erro ao processar fila após enqueue de sale:', syncErr);
+            });
+          }, 0);
         }
+
+        alert('¡Venta encolada para sincronización! Se enviará cuando haya conexión.');
+        setSaleAmount('');
+        setSaleInterest('20');
+        setSaleNotes('');
+        setSalePhotoUrl('');
+        setSalePhotoName('');
+        setSaleInstallments(20);
+        setActiveView('dashboard');
+        return;
       }
 
       // Clear sale form first to avoid DOM mismatch

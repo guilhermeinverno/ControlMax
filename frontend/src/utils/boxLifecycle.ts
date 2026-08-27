@@ -2,6 +2,7 @@ import { getErrorMessage } from '../utils/errorMessage';
 import { logFirestoreError, type FirestoreOperationType } from '../utils/firestoreError';
 import { auth } from '../lib/firebase';
 import { Box } from '../types';
+import { financialFetchHeaders } from './financialFetchHeaders';
 
 export interface OpenBoxParams {
   date: string;
@@ -31,10 +32,7 @@ export async function createOpenBox(
 
   const response = await fetch('/api/boxes/open', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
+    headers: financialFetchHeaders(token, idempotencyKey),
     body: JSON.stringify({
       unitId: params.unitId,
       unitName: params.unitName,
@@ -59,10 +57,7 @@ export async function closeActiveBox(activeBox: Box, realFinalAmount: number): P
 
   const response = await fetch('/api/boxes/close', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
+    headers: financialFetchHeaders(token, idempotencyKey),
     body: JSON.stringify({
       boxId: activeBox.id,
       realFinalAmount,
@@ -82,10 +77,7 @@ export async function confirmBoxByAdmin(boxId: string, tenantId?: string): Promi
 
   const response = await fetch('/api/boxes/confirm', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    },
+    headers: financialFetchHeaders(token, idempotencyKey),
     body: JSON.stringify({
       boxId,
       idempotencyKey

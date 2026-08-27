@@ -2,8 +2,10 @@
 
 Documento vivo de acompanhamento. Atualize o status (`[ ]` / `[~]` / `[x]`) conforme cada item for concluído.
 
-**Última atualização:** 10/07/2026 — QA pré-deploy iniciado  
-**Contexto:** SonarQube **pausado** no Docker desde 10/07/2026 (foco em deploy; última varredura com **0 issues**, Quality Gate em ERROR por cobertura ~3,1%). Recuperação funcional comparada com `controlmax.old` concluída. Próximo responsável: colaborador de deploy após `git pull`.
+**Última atualização:** 27/08/2026  
+**Contexto:** Após pull de 27 commits. Diagnóstico atual em [`documentation/PENDENCIAS-DESENVOLVIMENTO.md`](documentation/PENDENCIAS-DESENVOLVIMENTO.md). Plano executável em [`documentation/PLANO-DESENVOLVIMENTO.md`](documentation/PLANO-DESENVOLVIMENTO.md).
+
+> Este arquivo (`PlanoDePendencias.md`) permanece como histórico da entrega jul/2026 (Sonar/deploy). **Não usar** como backlog de produto do piloto.
 
 ---
 

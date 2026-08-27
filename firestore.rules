@@ -125,8 +125,8 @@ service cloud.firestore {
     match /collections/{collectionId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
-      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
-      allow update, delete: if false;
+      // FIN-01: escritas apenas via Admin SDK / BFF (igual sales/boxes)
+      allow create, update, delete: if false;
     }
 
     match /transfers/{transferId} {
@@ -262,8 +262,8 @@ service cloud.firestore {
 
     match /security_logs/{logId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
-      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
-      allow update, delete: if false;
+      // FIN-01: create apenas via Admin SDK / BFF (imutável no client)
+      allow create, update, delete: if false;
     }
   }
 }

@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ArrowLeft, Camera, Loader2, AlertCircle, X, ImageIcon } from 'lucide-react';
-import { doc, onSnapshot, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
 import { db } from '../lib/firebase';
@@ -115,7 +115,9 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         <div className="bg-yellow-50 border border-yellow-300 rounded p-4 flex flex-col items-center text-center space-y-3">
           <AlertCircle className="w-10 h-10 text-yellow-500" />
           <span className="font-bold text-yellow-800 text-sm">Nenhuma caixa aberta</span>
-          <span className="text-yellow-700 text-xs">Abra uma caixa antes de registrar um pagamento.</span>
+          <span className="text-yellow-700 text-xs">
+            Abra uma caixa antes de registrar um pagamento ou visita sem pagamento.
+          </span>
           <button
             onClick={() => onNavigate && onNavigate('open-box')}
             className="bg-[#6B21A8] text-white font-bold text-xs py-2 px-6 rounded shadow cursor-pointer"
@@ -207,11 +209,16 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
       let finalComment = '';
       let methodStr = paymentMethod;
 
+      if (!activeBox || !tenantId) {
+        setSaveError(
+          initialMode === 'no-payment'
+            ? 'Abra uma caixa antes de registrar a visita sem pagamento.'
+            : 'Selecione uma caixa aberta para registrar o pagamento.'
+        );
+        return;
+      }
+
       if (initialMode === 'payment') {
-        if (!activeBox || !tenantId) {
-          setSaveError('Selecione uma caixa aberta para registrar o pagamento.');
-          return;
-        }
         finalAmountCents = computedAmountCents;
         finalComment = punishToggle ? '[Estudo punição ativa] ' : '';
         if (paymentType === 'parcela') {
@@ -220,44 +227,31 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
           finalComment += 'Pagamento avulso em dinheiro';
         }
       } else {
-        // No-Payment Mode
         finalAmountCents = 0;
         finalComment = `[Sem pagamento - Razão: ${selectedReason}] ${notes}`;
         methodStr = 'efectivo';
       }
 
-      if (activeBox) {
-        await executeRegisterPaymentTransaction({
-          tenantId,
-          activeBox,
-          sale,
-          parsedAmountCents: finalAmountCents,
-          paymentMethod: methodStr,
-          comment: finalComment,
-          userName: userName || '',
-        });
-      } else if (initialMode === 'no-payment') {
-        // Contingência total sem caixa aberto para gravações de visitas de não pagamento
-        const { collection: col, doc: d, setDoc: sDoc, serverTimestamp: sTime } = await import('firebase/firestore');
-        const collectionRef = d(col(db, 'collections'));
-        await sDoc(collectionRef, {
-          tenantId: tenantId || sale.tenantId || '',
-          saleId: sale.id,
-          clientId: sale.clientId || '',
-          clientName: sale.clientName || '',
-          boxId: '',
-          amount: 0,
-          amountCents: 0,
-          paymentMethod: 'efectivo',
-          comment: finalComment,
-          userId: userId || '',
-          userName: userName || '',
-          createdAt: sTime(),
-        });
-      }
+      const result = await executeRegisterPaymentTransaction({
+        tenantId,
+        activeBox,
+        sale,
+        parsedAmountCents: finalAmountCents,
+        paymentMethod: methodStr,
+        comment: finalComment,
+        userName: userName || '',
+      });
 
       setShowConfirm(false);
-      toast.success(initialMode === 'payment' ? 'Pagamento registrado!' : 'Visita registrada!');
+      if (result.queued) {
+        toast.success(
+          initialMode === 'payment'
+            ? 'Pagamento enfileirado para sincronização.'
+            : 'Visita enfileirada para sincronização.'
+        );
+      } else {
+        toast.success(initialMode === 'payment' ? 'Pagamento registrado!' : 'Visita registrada!');
+      }
       onNavigate?.('sales');
     } catch (err) {
       setShowConfirm(false);

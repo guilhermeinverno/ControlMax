@@ -5,21 +5,31 @@ export interface ItemSalePayload {
   totalCents: number;
 }
 
+/** Payload alinhado a POST /api/transactions/sale (venda a crédito / parcelas). */
 export interface SalePayload {
   id: string;
   tenantId: string;
   boxId: string;
   customerId: string;
-  items: ItemSalePayload[];
-  totalCents: number;
-  paymentMethod: string;
+  clientName: string;
+  amountCents: number;
+  installmentAmountCents: number;
+  totalInstallments: number;
+  date: string;
+  notes?: string;
+  photoUrl?: string;
+  photoName?: string;
+  frequency?: string;
+  /** @deprecated legado de carrinho; ignorado pelo BFF atual */
+  items?: ItemSalePayload[];
+  paymentMethod?: string;
   createdAt: string;
 }
 
 export interface SaleResponse {
   success: boolean;
   saleId: string;
-  syncedAt: string;
+  syncedAt?: string;
 }
 
 export interface PaymentPayload {
@@ -30,6 +40,7 @@ export interface PaymentPayload {
   amountCents: number;
   paymentMethod: string;
   referenceSaleId?: string;
+  comment?: string;
   createdAt: string;
 }
 

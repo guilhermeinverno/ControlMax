@@ -32,7 +32,8 @@
 1. **Contratos da API (P0):** O tráfego financeiro e máquina de estados de caixa serão rigidamente isolados no Backend, usando validações fortes de permissão e `idempotencyKey`. (Ver *10-api.md*).
 2. **Modelo Financeiro do Piloto (P0):** Fica estipulado que o piloto atuará apenas com Abatimento de Saldo (Venda - Pagamentos), sem envolver motor complexo de juros. Todas as operações continuam na base centesimal (`Cents`). (Ver *08-modelo-de-dados.md*).
 3. **Controle de Edição do Caixa:** Proibido a edição manual arbitrária de saldos (ex: `initialAmount`) de um cobrador por terceiros (Admins/Supervisores). Correções deverão ser executadas através de Egresos/Ingresos auditáveis e justificados. (Ver *07-usuarios-e-permissoes.md*).
-4. **Vínculo Usuário x Hierarquia:** Adotado o modelo `assignedUnits` (lista de rotas) por usuário. O acesso às instâncias organizacionais baseia-se unicamente nessa lista atestada no Backend/Auth Token. (Ver *08-modelo-de-dados.md*).
+4. **Vínculo Usuário x Hierarquia:** Campo canônico no piloto = `usuario_unidades` (aliases `usuarioUnidades` / spec `assignedUnits`). Escopo enforçado no BFF de abertura/confirmação de caixa (CTX-02). (Ver *08-modelo-de-dados.md*).
+5. **Sociedade no piloto (CTX-03, 27/08/2026):** `tenantId` **é** a Sociedade. CRUD multi-sociedade e coleção `societies` ficam **fora do piloto**. Menu “Sociedades” desabilitado até P1; gestão da plataforma continua em `platform-management`.
 
 ## DECISÕES PENDENTES
-*(Nenhuma decisão P0 pendente para o início do desenvolvimento Piloto).*
+*(Nenhuma decisão P0 pendente para o Gate Piloto além de Custom Claims / ADR em AUTH-01).*

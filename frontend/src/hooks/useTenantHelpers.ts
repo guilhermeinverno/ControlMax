@@ -10,9 +10,8 @@ import { User } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import { UserRole } from '../types';
 
-export function resolveDefaultTenantId(emailLower: string, impersonated: string | null): string {
+export function resolveDefaultTenantId(_emailLower: string, impersonated: string | null): string {
   if (impersonated) return impersonated;
-  if (emailLower === 'coletor.teste@controlmax.com') return 'teste@controlmax.dev';
   return '';
 }
 

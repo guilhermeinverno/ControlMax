@@ -9,6 +9,7 @@ import { useDashboardBoxes } from '../hooks/useDashboardBoxes';
 import { filterDashboardBoxes } from '../utils/dashboardBoxFilters';
 import { Screen, Box } from '../types';
 import { UnitSelectors } from './components/UnitSelectors';
+import { useGlobalContext } from '../context/GlobalContext';
 import { fmtCents } from '../utils/fmtCents';
 import { parseUnknownTimestamp } from '../utils/timestampParsing';
 import { collection, getDocs, query, where } from 'firebase/firestore';
@@ -43,9 +44,15 @@ export function Dashboard({ onNavigate }: { onNavigate?: (screen: Screen) => voi
 
   const { boxes, loading: loadingBoxes, error: boxesError } = useDashboardBoxes(tenantId, usuarioUnidades);
 
-  // Filter States
-  const [selectedCnId, setSelectedCnId] = useState('');
-  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const {
+    selectedCnId: globalCnId,
+    selectedUnitId: globalUnitId,
+    setSelectedCnId: setGlobalCnId,
+    setSelectedUnitId: setGlobalUnitId,
+  } = useGlobalContext();
+
+  const selectedCnId = globalCnId || '';
+  const selectedUnitId = globalUnitId || '';
   const [verTodas, setVerTodas] = useState(false);
 
   // Selected Box State
@@ -249,8 +256,9 @@ export function Dashboard({ onNavigate }: { onNavigate?: (screen: Screen) => voi
         <UnitSelectors
           selectedCnId={selectedCnId}
           selectedUnitId={selectedUnitId}
-          onCnChange={(id) => setSelectedCnId(id)}
-          onUnitChange={(id) => setSelectedUnitId(id)}
+          allowedUnitIds={usuarioUnidades}
+          onCnChange={(id) => setGlobalCnId(id || null)}
+          onUnitChange={(id) => setGlobalUnitId(id || null)}
           showVerTodas
           verTodas={verTodas}
           onVerTodasChange={setVerTodas}

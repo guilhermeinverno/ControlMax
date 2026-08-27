@@ -5,6 +5,7 @@ import { ConfirmModal } from './components/ConfirmModal';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
 import { UnitSelectors } from './components/UnitSelectors';
+import { useGlobalContext } from '../context/GlobalContext';
 import { Save, X, AlertCircle } from 'lucide-react';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat, autocompleteCurrencyBRL } from '../utils/currency';
 import { fmtCents } from '../utils/fmtCents';
@@ -17,7 +18,13 @@ interface OpenBoxProps {
 
 export function OpenBox({ onNavigate }: OpenBoxProps) {
   const { activeBox, loading: boxLoading, error: boxError, openBox } = useBox();
-  const { loading: tenantLoading } = useTenant();
+  const { loading: tenantLoading, usuarioUnidades } = useTenant();
+  const {
+    selectedCnId: globalCnId,
+    selectedUnitId: globalUnitId,
+    setSelectedCnId: setGlobalCnId,
+    setSelectedUnitId: setGlobalUnitId,
+  } = useGlobalContext();
 
   const [showConfirm, setShowConfirm] = useState(false);
   const [amount, setAmount] = useState('');
@@ -45,11 +52,19 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
     setOpeningTime(`${hours}:${minutes}`);
   }, []);
 
-  const [selectedCnId, setSelectedCnId] = useState('');
+  const [selectedCnId, setSelectedCnId] = useState(globalCnId || '');
   const [selectedCnName, setSelectedCnName] = useState('');
 
-  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [selectedUnitId, setSelectedUnitId] = useState(globalUnitId || '');
   const [selectedUnitName, setSelectedUnitName] = useState('');
+
+  useEffect(() => {
+    if (globalCnId) setSelectedCnId(globalCnId);
+  }, [globalCnId]);
+
+  useEffect(() => {
+    if (globalUnitId) setSelectedUnitId(globalUnitId);
+  }, [globalUnitId]);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -183,13 +198,16 @@ export function OpenBox({ onNavigate }: OpenBoxProps) {
               <UnitSelectors
                 selectedCnId={selectedCnId}
                 selectedUnitId={selectedUnitId}
+                allowedUnitIds={usuarioUnidades}
                 onCnChange={(id, name) => {
                   setSelectedCnId(id);
                   setSelectedCnName(name);
+                  setGlobalCnId(id || null);
                 }}
                 onUnitChange={(id, name) => {
                   setSelectedUnitId(id);
                   setSelectedUnitName(name);
+                  setGlobalUnitId(id || null);
                 }}
               />
             </div>

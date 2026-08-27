@@ -1,7 +1,8 @@
 import { Router, Response } from "express";
 import { adminDb, AuthenticatedRequest } from "./authMiddleware";
-import { checkIdempotency, registerIdempotencySuccess } from "./idempotency";
+import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
+import { assertUnitAssignedToUser, getUserAssignedUnits, isPrivilegedUnitRole } from "./userUnitAccess";
 
 const router = Router();
 
@@ -24,13 +25,19 @@ function isValidBoxAmount(val: any): boolean {
   return Number.isFinite(n) && !isNaN(n) && n >= 0;
 }
 
+function statusFromErrorMessage(message: string): number {
+  return message.includes("Acesso negado") ? 403 : 400;
+}
+
 // 1. Abertura de Caixa
 router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
   const { unitId, unitName, cnId, cnName, initialAmount, observation, date } = req.body;
-  const { tenantId, uid: userId, name: userName } = req.user;
+  const { tenantId, uid: userId, name: userName, role } = req.user;
 
   if (!unitId || !cnId || !date || initialAmount === undefined) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes." });
@@ -49,6 +56,17 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
           if (cached.status === "completed") return { cached: true, response: cached.response };
           throw new Error("Chave de idempotência em processamento.");
         }
+      }
+
+      // CTX-02: escopo de unidade
+      const userRef = adminDb.collection("users").doc(userId);
+      const userSnap = await transaction.get(userRef);
+      if (!userSnap.exists) {
+        if (!isPrivilegedUnitRole(role)) {
+          throw new Error("Acesso negado: Perfil de usuário não encontrado.");
+        }
+      } else {
+        assertUnitAssignedToUser(userSnap.data() || {}, String(unitId), role);
       }
 
       // Verificar se já existe caixa para esta Unidade nesta data
@@ -104,7 +122,8 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
     return res.status(201).json(result.response);
   } catch (error: any) {
     console.error("Erro ao abrir caixa:", error);
-    return res.status(400).json({ error: error.message || "Erro ao abrir o caixa." });
+    const message = error.message || "Erro ao abrir o caixa.";
+    return res.status(statusFromErrorMessage(message)).json({ error: message });
   }
 });
 
@@ -112,7 +131,9 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
 router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
   const { boxId, realFinalAmount } = req.body;
   const { tenantId, uid: userId } = req.user;
 
@@ -215,7 +236,8 @@ router.post("/close", async (req: AuthenticatedRequest, res: Response) => {
 export async function confirmBoxHandler(req: AuthenticatedRequest, res: Response) {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
-  const idempotencyKey = req.body.idempotencyKey || (req.headers['x-idempotency-key'] as string);
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
   const { boxId } = req.body;
   const { tenantId, uid: userId } = req.user;
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '127.0.0.1';
@@ -302,7 +324,7 @@ export async function confirmBoxHandler(req: AuthenticatedRequest, res: Response
       }
 
       const boxUnitId = boxData.unitId || '';
-      const userUnits = userData.usuario_unidades || userData.usuarioUnidades || [];
+      const userUnits = getUserAssignedUnits(userData);
       if (!boxUnitId || !userUnits.includes(boxUnitId)) {
         const secLogDoc = adminDb.collection("security_logs").doc();
         transaction.set(secLogDoc, {
