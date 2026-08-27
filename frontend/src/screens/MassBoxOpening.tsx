@@ -13,19 +13,14 @@ import {
 import { 
   formatCurrencyBRL, 
   autocompleteCurrencyBRL, 
-  parseCurrencyBRLToCents 
+  parseCurrencyBRLToCents,
+  fmtCents,
 } from '../utils/currency';
 import { filterCollectors, openBoxesBatch, toggleSelectAll } from '../utils/massBoxOpening';
 
 interface MassBoxOpeningProps {
   onNavigate?: (screen: Screen) => void;
 }
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('pt-BR', { 
-    minimumFractionDigits: 2, 
-    maximumFractionDigits: 2 
-  });
 
 export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
   const { tenantId, role, isSuperAdmin, loading: tenantLoading } = useTenant();
@@ -122,7 +117,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
         throw new Error('ID do inquilino não configurado.');
       }
 
-      await openBoxesBatch({
+      const result = await openBoxesBatch({
         tenantId,
         selectedCollectors,
         useIndividualAmounts,
@@ -131,7 +126,13 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
         generalObservation,
       });
 
-      setSuccessMsg(`¡${selectedCollectors.length} cajas abiertas con éxito!`);
+      const created = result?.createdCount ?? selectedCollectors.length;
+      const skipped = Array.isArray(result?.skipped) ? result.skipped.length : 0;
+      setSuccessMsg(
+        skipped > 0
+          ? `¡${created} cajas abiertas! (${skipped} omitidas)`
+          : `¡${created} cajas abiertas con éxito!`
+      );
       setSelectedIds([]);
       setGeneralObservation('');
     } catch (err: unknown) {
@@ -460,7 +461,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
                 {selectedIds.length} cajas serán abiertas
               </div>
               <div className="text-xs text-[#6B21A8] font-bold mt-0.5">
-                Valor total: $ {fmt(totalSumCents)}
+                Valor total: $ {fmtCents(totalSumCents)}
               </div>
             </div>
 
@@ -498,7 +499,7 @@ export function MassBoxOpening({ onNavigate }: MassBoxOpeningProps) {
           handleMassOpen();
         }}
         title="Confirmar apertura en masa"
-        subtitle={`¿Está seguro de que desea abrir ${selectedCollectors.length} cajas con un valor total de $ ${fmt(totalSumCents)}?`}
+        subtitle={`¿Está seguro de que desea abrir ${selectedCollectors.length} cajas con un valor total de $ ${fmtCents(totalSumCents)}?`}
         confirmText="Sí, abrir cajas"
         cancelText="Cancelar"
       />

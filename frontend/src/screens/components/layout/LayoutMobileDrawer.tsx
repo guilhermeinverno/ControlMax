@@ -308,8 +308,8 @@ export function LayoutMobileDrawer({
                   <div className="bg-gray-50/50 flex flex-col py-1 text-xs text-gray-600 pl-4 border-l-2 border-[#6A008A] max-h-[350px] overflow-y-auto">
                     <button onClick={() => nav('bc-incomes')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Ingresos</button>
                     <button onClick={() => nav('bc-expenses')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Egresos</button>
-                    <button onClick={() => nav('bc-transfers')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 whitespace-nowrap shrink-0">Transferência de dinheiro</button>
-                    <button onClick={() => nav('bc-approvals')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Aprobar transferencias</button>
+                    <button onClick={() => nav('bc-transfers')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 whitespace-nowrap shrink-0">Transferências CN / aprovar</button>
+                    <button onClick={() => nav('bc-approvals')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Aprobar gastos / cajas</button>
                     <button onClick={() => nav('open-box')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 font-semibold text-[#6A008A]">Abrir Caixa</button>
                     <button onClick={() => nav('close-box')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50 font-semibold text-[#6A008A]">Fechar Caixa (Fechamento)</button>
                     <button onClick={() => nav('box-summary')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Resumen</button>
@@ -317,7 +317,7 @@ export function LayoutMobileDrawer({
                     <button onClick={() => nav('sales')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Facturación</button>
                     <button onClick={() => nav('credit-requests')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Aprobaciones</button>
                     <button onClick={() => nav('period-summary')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Resumen por periodo</button>
-                    <button onClick={() => nav('mass-box-opening')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Cierre masivo de cajas</button>
+                    <button onClick={() => nav('mass-box-closing')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Cierre masivo de cajas</button>
                     <button onClick={() => nav('transfer-sales')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Traslado de unidades</button>
                     <button onClick={() => nav('insurance')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Seguros</button>
                     <button onClick={() => nav('finance')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] border-b border-gray-100/50">Finança</button>
@@ -341,11 +341,14 @@ export function LayoutMobileDrawer({
                   <div className="bg-gray-50/50 flex flex-col py-1 text-xs text-gray-600 pl-4 border-l-2 border-[#6A008A]">
                     <button onClick={() => nav('platform-management')} className="text-left px-8 py-2.5 font-bold text-[#6A008A] hover:bg-purple-50">⚙ Gestión de la Plataforma</button>
                     <button onClick={() => nav('user-list')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Usuarios</button>
+                    <button onClick={() => nav('role-management')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Perfis / Roles (RBAC)</button>
+                    <button onClick={() => nav('profiles')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Permisos legados</button>
                     {(role === 'admin' || role === 'supervisor') && (
                       <button onClick={() => nav('collector-map')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Mapa de Cobradores</button>
                     )}
                     <button onClick={() => nav('device-list')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Dispositivos</button>
                     <button onClick={() => nav('company-list')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Clientes / Clientes</button>
+                    <button onClick={() => nav('customer-blacklist')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Lista negra</button>
                     {(role === 'admin' || role === 'supervisor') && (
                       <>
                         <button onClick={() => nav('forms')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A] flex items-center gap-2">
@@ -375,7 +378,12 @@ export function LayoutMobileDrawer({
                 </button>
                 {expandedMenus['reportes'] && (
                   <div className="bg-gray-50/50 flex flex-col py-1 text-xs text-gray-600 pl-4 border-l-2 border-[#6A008A]">
-                    <button onClick={() => nav('performance')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Desempeño</button>
+                    <button onClick={() => nav('reports-hub')} className="text-left px-8 py-2.5 font-bold text-[#6A008A] hover:bg-purple-50">Catálogo de Reportes</button>
+                    <button onClick={() => nav('audit-logs')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Log de Acciones</button>
+                    <button onClick={() => nav('period-summary')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Resumen por periodo</button>
+                    <button onClick={() => nav('finance')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Relatório financeiro</button>
+                    <button onClick={() => nav('box-summary')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Extracto de caja</button>
+                    <button onClick={() => nav('performance')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Performance</button>
                     <button onClick={() => nav('statistics')} className="text-left px-8 py-2.5 hover:bg-purple-50 hover:text-[#6A008A]">Estadísticas</button>
                   </div>
                 )}

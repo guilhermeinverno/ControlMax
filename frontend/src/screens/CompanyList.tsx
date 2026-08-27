@@ -92,6 +92,18 @@ export function CompanyList({ params, onNavigate }: CompanyListProps) {
             activeUnitsList={listData.activeUnitsList}
             onCancel={handleCreateCancel}
           />
+        ) : listData.listError ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3 text-center">
+            <AlertCircle className="w-8 h-8 text-red-500" />
+            <p className="text-sm font-semibold text-red-700">{listData.listError}</p>
+            <button
+              type="button"
+              onClick={listData.retryLoad}
+              className="px-4 py-2 text-xs font-bold text-white bg-[#6A008A] hover:bg-[#52006A] rounded-lg"
+            >
+              Tentar Novamente
+            </button>
+          </div>
         ) : (
           <CompanyListCustomerGrid
             loadingCustomers={listData.loadingCustomers}

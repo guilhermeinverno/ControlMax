@@ -31,6 +31,9 @@ export async function loadSuperAdminData(): Promise<SuperAdminRawData> {
       createdAt: data.createdAt,
       plan: 'Completo' as const,
       monthlyPrice: data.monthlyPrice !== undefined ? data.monthlyPrice : 19900,
+      billingStatus: (data.billingStatus as TenantDoc['billingStatus']) ||
+        (data.active === false ? 'suspended' : 'active'),
+      billingMethod: (data.billingMethod as TenantDoc['billingMethod']) || 'pix',
     };
   });
 

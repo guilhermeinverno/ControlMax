@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../../../lib/firebase';
+import { auth } from '../../../lib/firebase';
 import { Customer } from '../../../types/company';
 import { CustomerModalGpsSection } from './CustomerModalGpsSection';
 import { CustomerDisplayName, CustomerWhatsappContact } from './types';
+import { useHasPermission } from '../../../hooks/useHasPermission';
 
 interface CustomerModalBasicTabProps {
   customer: Customer;
@@ -104,6 +104,8 @@ export function CustomerModalBasicTab({
   onContactChange,
   onSaveSuccess
 }: CustomerModalBasicTabProps) {
+  const { can } = useHasPermission();
+  const canEdit = can('customers', 'edit');
   const [form, setForm] = useState<BasicFormFields>(() => readBasicFields(customer));
   const [gettingLocation, setGettingLocation] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -127,10 +129,21 @@ export function CustomerModalBasicTab({
 
   const handleSaveBasic = async () => {
     if (!customer.id) return;
+    if (!canEdit) {
+      setNotification({
+        type: 'error',
+        message: 'Você não possui permissão para editar este registro.',
+      });
+      return;
+    }
     setSaving(true);
     setNotification(null);
     try {
-      await updateDoc(doc(db, 'customers', customer.id), {
+      if (!auth?.currentUser) {
+        throw new Error('Usuario no autenticado.');
+      }
+      const token = await auth.currentUser.getIdToken();
+      const payload = {
         name: form.firstName,
         apellidos: form.firstApellido,
         secondName: form.secondName,
@@ -151,7 +164,19 @@ export function CustomerModalBasicTab({
         active: form.active,
         latitude: form.latitude,
         longitude: form.longitude,
+      };
+      const res = await fetch(`/api/customers/${encodeURIComponent(customer.id)}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
       });
+      const data = await res.json().catch(() => ({} as { error?: string }));
+      if (!res.ok) {
+        throw new Error(data.error || `Erro ao atualizar (${res.status}).`);
+      }
       setNotification({ type: 'success', message: 'Datos básicos guardados correctamente.' });
       if (onSaveSuccess) {
         setTimeout(() => {
@@ -162,7 +187,11 @@ export function CustomerModalBasicTab({
       }
     } catch (err) {
       console.error(err);
-      setNotification({ type: 'error', message: 'Error al actualizar los datos.' });
+      // Mantém o modal aberto e exibe erro legível (sem dead-end)
+      setNotification({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Error al actualizar los datos.',
+      });
     } finally {
       setSaving(false);
     }
@@ -395,14 +424,23 @@ export function CustomerModalBasicTab({
         >
           Cancelar
         </button>
-        <button
-          type="button"
-          onClick={handleSaveBasic}
-          disabled={saving}
-          className="px-5 py-2 text-xs font-bold text-white bg-[#8CC63F] hover:bg-[#7BB52F] rounded-lg transition-colors shadow-sm cursor-pointer flex items-center gap-1"
+        <span
+          title={
+            canEdit
+              ? undefined
+              : 'Você não possui permissão para editar este registro'
+          }
+          className={!canEdit ? 'inline-flex' : undefined}
         >
-          {saving ? 'Guardando...' : 'Guardar Ficha'}
-        </button>
+          <button
+            type="button"
+            onClick={handleSaveBasic}
+            disabled={saving || !canEdit}
+            className="px-5 py-2 text-xs font-bold text-white bg-[#8CC63F] hover:bg-[#7BB52F] rounded-lg transition-colors shadow-sm cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Guardando...' : 'Guardar Ficha'}
+          </button>
+        </span>
       </div>
     </div>
   );

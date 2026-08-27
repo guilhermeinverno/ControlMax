@@ -15,12 +15,7 @@ import {
   TrendingUp, Briefcase, Percent, TrendingDown,
   Calendar, Award, BarChart3, Search, AlertCircle
 } from 'lucide-react';
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  });
+import { fmtCents } from '../utils/currency';
 
 export function Statistics() {
   const { tenantId, usuarioUnidades } = useTenant();
@@ -272,7 +267,7 @@ export function Statistics() {
               <div className="mt-2.5">
                 <span className="text-[10px] text-gray-400 block font-bold leading-none">Total</span>
                 <span className="text-sm font-extrabold text-[#6A008A] mt-1 block">
-                  $ {fmt(totalRecaudo)}
+                  $ {fmtCents(totalRecaudo)}
                 </span>
               </div>
             </div>
@@ -288,7 +283,7 @@ export function Statistics() {
               <div className="mt-2.5">
                 <span className="text-[10px] text-gray-400 block font-bold leading-none">Gastos</span>
                 <span className="text-sm font-extrabold text-orange-600 mt-1 block">
-                  $ {fmt(totalGastos)}
+                  $ {fmtCents(totalGastos)}
                 </span>
               </div>
             </div>
@@ -354,7 +349,7 @@ export function Statistics() {
                           </span>
                         </div>
                         <div className="font-extrabold text-[#6A008A] text-xs">
-                          $ {fmt(collector.total)}
+                          $ {fmtCents(collector.total)}
                         </div>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-1 overflow-hidden">

@@ -27,11 +27,13 @@ export function PlatformManagement({ onNavigate }: PlatformManagementProps) {
   const {
     settings,
     loadingSettings,
+    loadFailed,
     saving,
     successMsg,
     errorMsg,
     handleInputChange,
     handleSave,
+    reloadSettings,
   } = usePlatformSettings(tenantId);
 
   const handleSaveSubmit = async (e: FormOrButtonEvent) => {
@@ -51,6 +53,33 @@ export function PlatformManagement({ onNavigate }: PlatformManagementProps) {
   const isAuthorized = role === 'admin' || isSuperAdmin;
   if (!isAuthorized) {
     return <PlatformUnauthorizedView onNavigate={onNavigate} />;
+  }
+
+  if (loadFailed) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 px-4 text-center">
+        <p className="text-sm font-semibold text-red-700">
+          {errorMsg || 'No se pudo cargar la configuración de la plataforma.'}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => onNavigate?.('dashboard')}
+            className="px-4 py-2 text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg"
+          >
+            Volver
+          </button>
+          <button
+            type="button"
+            onClick={reloadSettings}
+            className="px-4 py-2 text-xs font-bold text-white bg-[#6A008A] hover:bg-[#52006A] rounded-lg flex items-center gap-2"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Tentar Novamente
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -60,6 +60,7 @@ const Performance = lazyRetry(() => import('../screens/Performance').then(m => (
 const BoxSummary = lazyRetry(() => import('../screens/BoxSummary').then(m => ({ default: m.BoxSummary })));
 const TransferSales = lazyRetry(() => import('../screens/TransferSales').then(m => ({ default: m.TransferSales })));
 const MassBoxOpening = lazyRetry(() => import('../screens/MassBoxOpening').then(m => ({ default: m.MassBoxOpening })));
+const MassBoxClosing = lazyRetry(() => import('../screens/MassBoxClosing').then(m => ({ default: m.MassBoxClosing })));
 const AutoKeys = lazyRetry(() => import('../screens/AutoKeys').then(m => ({ default: m.AutoKeys })));
 const CreditRequests = lazyRetry(() => import('../screens/CreditRequests').then(m => ({ default: m.CreditRequests })));
 const BusinessCenters = lazyRetry(() => import('../screens/BusinessCenters').then(m => ({ default: m.BusinessCenters })));
@@ -70,7 +71,11 @@ const AIAssistant = lazyRetry(() => import('../screens/AIAssistant').then(m => (
 const CollectorMap = lazyRetry(() => import('../screens/CollectorMap').then(m => ({ default: m.CollectorMap })));
 const WorkerProfile = lazyRetry(() => import('../screens/WorkerProfile').then(m => ({ default: m.WorkerProfile })));
 const Profiles = lazyRetry(() => import('../screens/Profiles').then(m => ({ default: m.Profiles })));
+const RoleManagement = lazyRetry(() => import('../screens/RoleManagement').then(m => ({ default: m.RoleManagement })));
 const VendedorMobile = lazyRetry(() => import('../screens/VendedorMobile').then(m => ({ default: m.VendedorMobile })));
+const AuditLogs = lazyRetry(() => import('../screens/AuditLogs').then(m => ({ default: m.AuditLogs })));
+const ReportsHub = lazyRetry(() => import('../screens/ReportsHub').then(m => ({ default: m.ReportsHub })));
+const CustomerBlacklist = lazyRetry(() => import('../screens/CustomerBlacklist').then(m => ({ default: m.CustomerBlacklist })));
 
 const BCIncomes = lazyRetry(() => import('../screens/BCIncomes').then(m => ({ default: m.BCIncomes })));
 const BCExpenses = lazyRetry(() => import('../screens/BCExpenses').then(m => ({ default: m.BCExpenses })));
@@ -357,6 +362,7 @@ export function AppRoutes() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<ScreenWrapper Component={Dashboard} />} />
         <Route path="/statistics" element={<ScreenWrapper Component={Statistics} />} />
+        <Route path="/audit-logs" element={<ScreenWrapper Component={AuditLogs} />} />
         <Route path="/forms" element={<ScreenWrapper Component={Forms} />} />
         <Route path="/sales" element={<ScreenWrapper Component={SalesList} />} />
         <Route path="/holidays" element={<ScreenWrapper Component={Holidays} />} />
@@ -384,10 +390,14 @@ export function AppRoutes() {
           <Route path="/business-centers" element={<ScreenWrapper Component={BusinessCenters} />} />
           <Route path="/platform-management" element={<ScreenWrapper Component={PlatformManagement} />} />
           <Route path="/profiles" element={<ScreenWrapper Component={Profiles} />} />
+          <Route path="/role-management" element={<ScreenWrapper Component={RoleManagement} />} />
         </Route>
 
         <Route path="/transfer-sales" element={<ScreenWrapper Component={TransferSales} />} />
         <Route path="/mass-box-opening" element={<ScreenWrapper Component={MassBoxOpening} />} />
+        <Route path="/mass-box-closing" element={<ScreenWrapper Component={MassBoxClosing} />} />
+        <Route path="/reports-hub" element={<ScreenWrapper Component={ReportsHub} />} />
+        <Route path="/customer-blacklist" element={<ScreenWrapper Component={CustomerBlacklist} />} />
         <Route path="/auto-keys" element={<ScreenWrapper Component={AutoKeys} />} />
         <Route path="/credit-requests" element={<ScreenWrapper Component={CreditRequests} />} />
         <Route path="/collection-cleaning" element={<ScreenWrapper Component={CollectionCleaning} />} />

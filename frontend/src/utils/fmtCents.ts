@@ -1,6 +1,2 @@
-export function fmtCents(cents: number): string {
-  return (cents / 100).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
+/** @deprecated Prefer `fmtCents` from `./currency` (CLEAN-01). Mantido para imports legados. */
+export { fmtCents } from './currency';

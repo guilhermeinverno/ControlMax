@@ -29,7 +29,7 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
   useLocation(); // Rastreamento automático quando caixa aberta
 
 
-  const [collectorStats, setCollectorStats] = useState({ clients: 65, paid: 1, balance: 1007951 });
+  const [collectorStats, setCollectorStats] = useState({ clients: 0, paid: 0, balance: 0 });
 
   useEffect(() => {
     if (role !== 'collector' || !tenantId) return;
@@ -44,16 +44,20 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
     const unsub = onSnapshot(q, (snapshot) => {
       const activeSales = snapshot.docs.map(d => d.data());
-      const clientsCount = activeSales.length || 65;
-      const totalBal = activeSales.reduce((sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)), 0) || 1007951;
+      const clientsCount = activeSales.length;
+      const totalBal = activeSales.reduce(
+        (sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)),
+        0,
+      );
 
       setCollectorStats(prev => ({
         ...prev,
         clients: clientsCount,
-        balance: totalBal
+        balance: totalBal,
       }));
     }, (err) => {
-      console.warn("Error loading collector stats for layout header, using defaults:", err);
+      console.warn("Error loading collector stats for layout header:", err);
+      setCollectorStats(prev => ({ ...prev, clients: 0, balance: 0 }));
     });
 
     return unsub;
@@ -80,10 +84,11 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
       setCollectorStats(prev => ({
         ...prev,
-        paid: todayCollections.length || 1
+        paid: todayCollections.length,
       }));
     }, (err) => {
-      console.warn("Error loading collector collection stats for layout header, using defaults:", err);
+      console.warn("Error loading collector collection stats for layout header:", err);
+      setCollectorStats(prev => ({ ...prev, paid: 0 }));
     });
 
     return unsub;

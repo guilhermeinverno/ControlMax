@@ -2,6 +2,8 @@ import { Router, Response } from "express";
 import { adminDb, AuthenticatedRequest } from "./authMiddleware";
 import { checkIdempotency, registerIdempotencySuccess, requireIdempotencyKey } from "./idempotency";
 import { FieldValue } from "firebase-admin/firestore";
+import { requirePermission } from "./roleRoutes";
+import { logAuditEvent } from "./services/auditService";
 
 const router = Router();
 
@@ -18,7 +20,7 @@ function isValidAmount(val: any): boolean {
 }
 
 // 1. Registro de Venda (Sale)
-router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/sale", requirePermission("sales", "create"), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -49,6 +51,26 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
   const parsedTotalInstallments = Number(totalInstallments);
   if (!Number.isInteger(parsedTotalInstallments) || parsedTotalInstallments <= 0) {
     return res.status(400).json({ error: "Quantidade de parcelas inválida." });
+  }
+
+  // P1-01: bloqueio por lista negra
+  try {
+    const blacklistSnap = await adminDb
+      .collection("customer_blacklist")
+      .where("tenantId", "==", tenantId)
+      .where("clientId", "==", String(clientId))
+      .where("active", "==", true)
+      .limit(1)
+      .get();
+    if (!blacklistSnap.empty) {
+      return res.status(403).json({
+        error: "Cliente está na lista negra. Venda não permitida.",
+        code: "CUSTOMER_BLACKLISTED",
+      });
+    }
+  } catch (blErr) {
+    console.error("Erro ao consultar lista negra:", blErr);
+    return res.status(500).json({ error: "Falha ao validar lista negra." });
   }
 
   try {
@@ -139,7 +161,7 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
 });
 
 // 2. Registro de Recebimento (Collection)
-router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
+router.post("/collection", requirePermission("collections", "create"), async (req: AuthenticatedRequest, res: Response) => {
   if (!req.user) return res.status(401).json({ error: "Não autenticado." });
 
   const idempotencyKey = requireIdempotencyKey(req, res);
@@ -279,7 +301,8 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
   if (!idempotencyKey) return;
 
   const { boxId, type, amountCents, reason } = req.body;
-  const { tenantId, uid: userId, name: userName, role } = req.user;
+  const { tenantId, uid: userId, email: userEmail, role } = req.user;
+  const userName = userEmail || userId;
 
   if (!boxId || !type || amountCents === undefined || !reason) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes (boxId, type, amountCents, reason)." });
@@ -392,18 +415,31 @@ router.post("/adjustment", async (req: AuthenticatedRequest, res: Response) => {
         throw new Error("Tipo de ajuste inválido (apenas 'income' ou 'expense').");
       }
 
-      // Registrar Auditoria
-      const auditRef = adminDb.collection("audit_logs").doc();
-      transaction.set(auditRef, {
+      // Registrar Auditoria (modelo canônico AuditLogEntry)
+      await logAuditEvent({
         tenantId,
-        timestamp: FieldValue.serverTimestamp(),
         userId,
-        userName,
-        action: "BOX_ADJUSTMENT",
-        boxId,
-        type,
-        amountCents: parsedAmount,
+        userEmail: userEmail || "",
+        action: "OVERRIDE",
+        entity: "boxes",
+        entityId: boxId,
+        changes: [
+          {
+            field: type === "income" ? "totalIncomes" : "totalExpenses",
+            oldValue: type === "income" ? boxData.totalIncomes || 0 : boxData.totalExpenses || 0,
+            newValue:
+              type === "income"
+                ? (boxData.totalIncomes || 0) + parsedAmount
+                : (boxData.totalExpenses || 0) + parsedAmount,
+          },
+          {
+            field: "adjustmentAmountCents",
+            oldValue: null,
+            newValue: parsedAmount,
+          },
+        ],
         reason: reason.trim(),
+        transaction,
       });
 
       const responsePayload = { success: true };
@@ -430,7 +466,7 @@ router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
   if (!idempotencyKey) return;
 
   const { originalTransactionId, reason } = req.body;
-  const { tenantId, uid: userId, name: userName, role } = req.user;
+  const { tenantId, uid: userId, email: userEmail, role } = req.user;
 
   if (!originalTransactionId || !reason) {
     return res.status(400).json({ error: "Campos obrigatórios ausentes (originalTransactionId, reason)." });
@@ -524,16 +560,28 @@ router.post("/reversal", async (req: AuthenticatedRequest, res: Response) => {
         status: "active", // Reativa a venda se estava concluída
       });
 
-      // Gravar log de auditoria
-      const auditRef = adminDb.collection("audit_logs").doc();
-      transaction.set(auditRef, {
+      // Gravar log de auditoria (modelo canônico AuditLogEntry)
+      await logAuditEvent({
         tenantId,
-        timestamp: FieldValue.serverTimestamp(),
         userId,
-        userName,
-        action: "TRANSACTION_REVERSAL",
-        originalTransactionId,
+        userEmail: userEmail || "",
+        action: "REVERSAL",
+        entity: "collections",
+        entityId: originalTransactionId,
+        oldData: {
+          status: collectionData.status || "active",
+          amountCents: amountToReverse,
+          saleSaldoPendienteCents: saleData.saldoPendienteCents ?? saleData.balance ?? null,
+          boxTotalCollections: boxData.totalCollections || 0,
+        },
+        newData: {
+          status: "reversed",
+          amountCents: 0,
+          saleSaldoPendienteCents: newSaleBalance,
+          boxTotalCollections: newTotalCollections,
+        },
         reason: reason.trim(),
+        transaction,
       });
 
       const responsePayload = { success: true };
@@ -901,11 +949,13 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
         ? "bc_expenses"
         : resourceType === "bc_income"
           ? "bc_incomes"
-          : null;
+          : resourceType === "bc_transfer"
+            ? "bc_transfers"
+            : null;
 
   if (!collectionName) {
     return res.status(400).json({
-      error: "resourceType inválido (expense | bc_expense | bc_income).",
+      error: "resourceType inválido (expense | bc_expense | bc_income | bc_transfer).",
     });
   }
 
@@ -932,11 +982,26 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
         throw new Error(`Registro já está com status '${data.status}'.`);
       }
 
-      transaction.update(resourceRef, {
-        status,
+      // bc_transfers usa confirmed | rejected (legado UI)
+      const persistedStatus =
+        collectionName === "bc_transfers"
+          ? status === "approved"
+            ? "confirmed"
+            : "rejected"
+          : status;
+
+      const updatePayload: Record<string, unknown> = {
+        status: persistedStatus,
         approvedBy: userName,
         approvedAt: FieldValue.serverTimestamp(),
-      });
+      };
+
+      if (collectionName === "bc_transfers") {
+        updatePayload.confirmedBy = userName;
+        updatePayload.confirmedAt = FieldValue.serverTimestamp();
+      }
+
+      transaction.update(resourceRef, updatePayload);
 
       // Ao aprovar gasto de caixa pendente, aplica efeito no caixa.
       if (collectionName === "expenses" && status === "approved" && data.boxId) {
@@ -955,7 +1020,29 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
         }
       }
 
-      const responsePayload = { success: true, resourceId, status };
+      // Confirmar transferência de cobrador: debita totalTransfers do caixa origem
+      if (
+        collectionName === "bc_transfers" &&
+        persistedStatus === "confirmed" &&
+        data.fromType === "collector" &&
+        data.boxId
+      ) {
+        const boxRef = adminDb.collection("boxes").doc(String(data.boxId));
+        const boxSnap = await transaction.get(boxRef);
+        if (boxSnap.exists) {
+          const boxData = boxSnap.data() || {};
+          if (boxData.tenantId === tenantId && boxData.status === "open") {
+            const amount = Math.round(Number(data.amount || 0));
+            const newTotalTransfers = (boxData.totalTransfers || 0) + amount;
+            transaction.update(boxRef, {
+              totalTransfers: newTotalTransfers,
+              finalAmount: computeBoxFinalAmount(boxData, { totalTransfers: newTotalTransfers }),
+            });
+          }
+        }
+      }
+
+      const responsePayload = { success: true, resourceId, status: persistedStatus };
       if (idempotencyKey) {
         registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
       }
@@ -966,6 +1053,73 @@ router.post("/approval", async (req: AuthenticatedRequest, res: Response) => {
   } catch (error: any) {
     console.error("Erro ao processar aprovação:", error);
     return res.status(400).json({ error: error.message || "Erro ao processar aprovação." });
+  }
+});
+
+/** P1-02 — criar transferência CN (pending) */
+router.post("/bc-transfer", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { fromType, fromName, toCnId, toCnName, amount, description, boxId } = req.body;
+  const { tenantId, uid: userId, name: userName } = req.user;
+
+  if (!fromType || !fromName || !toCnId || amount === undefined) {
+    return res.status(400).json({
+      error: "Campos obrigatórios: fromType, fromName, toCnId, amount.",
+    });
+  }
+
+  if (!["collector", "cn"].includes(String(fromType))) {
+    return res.status(400).json({ error: "fromType inválido (collector | cn)." });
+  }
+
+  if (!isValidAmount(amount)) {
+    return res.status(400).json({ error: "Valor inválido (centavos > 0)." });
+  }
+
+  try {
+    const result = await adminDb.runTransaction(async (transaction) => {
+      if (idempotencyKey) {
+        const cached = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+        if (cached) {
+          if (cached.status === "completed") return { cached: true, response: cached.response };
+          throw new Error("Chave de idempotência em processamento.");
+        }
+      }
+
+      const transferRef = adminDb.collection("bc_transfers").doc();
+      const amountCents = Math.round(Number(amount));
+      const payload = {
+        tenantId,
+        fromType: String(fromType),
+        fromId: userId,
+        fromName: String(fromName).trim(),
+        toCnId: String(toCnId),
+        toCnName: String(toCnName || ""),
+        amount: amountCents,
+        description: String(description || "").trim(),
+        status: "pending",
+        boxId: fromType === "collector" ? String(boxId || "").trim() : "",
+        createdBy: userName,
+        createdAt: FieldValue.serverTimestamp(),
+      };
+
+      transaction.set(transferRef, payload);
+
+      const responsePayload = { success: true, transferId: transferRef.id };
+      if (idempotencyKey) {
+        registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+      }
+      return { cached: false, response: responsePayload };
+    });
+
+    return res.status(201).json(result.response);
+  } catch (error: any) {
+    console.error("Erro ao criar bc_transfer:", error);
+    return res.status(400).json({ error: error.message || "Erro ao criar transferência." });
   }
 });
 

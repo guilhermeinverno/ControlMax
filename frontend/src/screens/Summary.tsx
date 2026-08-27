@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { db } from '../lib/firebase';
 import { collection, query, where, orderBy, onSnapshot, Timestamp } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { loadingErrorEmptyContent } from '../utils/listViewBody';
+import { fmtCents } from '../utils/currency';
 import { AlertCircle, HelpCircle, TrendingUp, TrendingDown, RefreshCw } from 'lucide-react';
-
-const fmt = (cents: number) =>
-  (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export function Summary() {
   const { tenantId, loading: tenantLoading } = useTenant();
@@ -96,7 +94,7 @@ export function Summary() {
   if (tenantLoading) {
     return (
       <div className="flex flex-col bg-[#F3F4F6] min-h-screen">
-        <UnitSelectors />
+        <GlobalContextSelector variant="default" />
         <div className="p-4 flex items-center justify-center">
           <div className="text-[#6B21A8] font-bold animate-pulse text-xs">Carregando dados corporativos...</div>
         </div>
@@ -106,7 +104,7 @@ export function Summary() {
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen pb-8">
-      <UnitSelectors />
+      <GlobalContextSelector variant="default" />
 
       <div className="px-3 py-2 space-y-4 max-w-lg mx-auto w-full">
         <div className="flex items-center justify-between">
@@ -160,7 +158,7 @@ export function Summary() {
                 Caja Final Total
               </div>
               <div className="text-[#7B1FA2] text-xl font-extrabold mb-3">
-                $ {fmt(summaryData.cajaFinalTotal)}
+                $ {fmtCents(summaryData.cajaFinalTotal)}
               </div>
               <div className="flex justify-center">
                 <div className="bg-[#E9D5FF] text-[#6B21A8] px-3.5 py-1 rounded-full text-[10px] font-extrabold tracking-wide uppercase shadow-sm inline-block">
@@ -179,19 +177,19 @@ export function Summary() {
               <div className="flex flex-col space-y-2.5 text-xs">
                 <div className="flex justify-between items-center border-b border-gray-50 pb-2">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Total Caja Inicial</span>
-                  <span className="font-bold text-gray-800">$ {fmt(summaryData.totalCajaInicial)}</span>
+                  <span className="font-bold text-gray-800">$ {fmtCents(summaryData.totalCajaInicial)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-gray-50 pb-2">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Ventas / Vendas</span>
-                  <span className="font-extrabold text-[#16A34A]">+ $ {fmt(summaryData.totalVentas)}</span>
+                  <span className="font-extrabold text-[#16A34A]">+ $ {fmtCents(summaryData.totalVentas)}</span>
                 </div>
                 <div className="flex justify-between items-center border-b border-gray-50 pb-2">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Recaudo / Cobranças</span>
-                  <span className="font-extrabold text-[#16A34A]">+ $ {fmt(summaryData.totalRecaudo)}</span>
+                  <span className="font-extrabold text-[#16A34A]">+ $ {fmtCents(summaryData.totalRecaudo)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Ingresos / Entradas</span>
-                  <span className="font-extrabold text-[#16A34A]">+ $ {fmt(summaryData.totalIngresos)}</span>
+                  <span className="font-extrabold text-[#16A34A]">+ $ {fmtCents(summaryData.totalIngresos)}</span>
                 </div>
               </div>
             </div>
@@ -206,11 +204,11 @@ export function Summary() {
               <div className="flex flex-col space-y-2.5 text-xs">
                 <div className="flex justify-between items-center border-b border-gray-50 pb-2">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Gastos / Despesas</span>
-                  <span className="font-extrabold text-[#DC2626]">- $ {fmt(summaryData.totalGastos)}</span>
+                  <span className="font-extrabold text-[#DC2626]">- $ {fmtCents(summaryData.totalGastos)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[11px] font-bold text-[#555555] uppercase">Transferências / Retiradas</span>
-                  <span className="font-extrabold text-[#DC2626]">- $ {fmt(summaryData.totalTransferencias)}</span>
+                  <span className="font-extrabold text-[#DC2626]">- $ {fmtCents(summaryData.totalTransferencias)}</span>
                 </div>
               </div>
             </div>

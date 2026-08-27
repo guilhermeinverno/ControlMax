@@ -10,6 +10,7 @@ import { useTenant } from '../hooks/useTenant';
 import { db } from '../lib/firebase';
 import { mapSaleFromSnapshot } from '../utils/saleMapper';
 import { executeRegisterPaymentTransaction } from '../utils/registerPaymentTransaction';
+import { fmtCents } from '../utils/currency';
 
 
 interface RegisterPaymentProps {
@@ -27,6 +28,8 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
 
   const [sale, setSale] = useState<Sale | null>(null);
   const [loadingSale, setLoadingSale] = useState(true);
+  const [saleLoadError, setSaleLoadError] = useState<string | null>(null);
+  const [saleReloadToken, setSaleReloadToken] = useState(0);
 
   // General Form States
   const [punishToggle, setPunishToggle] = useState(false);
@@ -53,22 +56,27 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   useEffect(() => {
     if (!tenantId || !saleId) return;
 
+    setLoadingSale(true);
+    setSaleLoadError(null);
     const saleRef = doc(db, 'sales', saleId);
     const unsubscribe = onSnapshot(saleRef, (docSnap) => {
       const mapped = mapSaleFromSnapshot(docSnap);
       if (mapped) {
         setSale(mapped);
+        setSaleLoadError(null);
       } else {
         console.warn("Sale not found with ID:", saleId);
+        setSaleLoadError('Venda não encontrada.');
       }
       setLoadingSale(false);
     }, (error) => {
       console.error("Error loading sale:", error);
+      setSaleLoadError('Falha ao carregar a venda. Verifique sua conexão.');
       setLoadingSale(false);
     });
 
     return () => unsubscribe();
-  }, [tenantId, saleId]);
+  }, [tenantId, saleId, saleReloadToken]);
 
   const allowed = !loadingSale && sale && usuarioUnidades && usuarioUnidades.length > 0 && sale.unitId
     ? usuarioUnidades.includes(sale.unitId)
@@ -138,6 +146,32 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     );
   }
 
+  if (saleLoadError || !sale) {
+    return (
+      <div className="p-4 bg-[#F3F4F6] min-h-screen flex items-center justify-center">
+        <div className="bg-red-50 border border-red-300 rounded p-4 text-center text-red-800 text-sm font-semibold max-w-sm space-y-3">
+          <p>{saleLoadError || 'Não foi possível carregar a venda.'}</p>
+          <div className="flex justify-center gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate?.('sales')}
+              className="bg-gray-200 text-gray-800 font-bold text-xs py-2 px-4 rounded cursor-pointer"
+            >
+              Voltar
+            </button>
+            <button
+              type="button"
+              onClick={() => setSaleReloadToken((n) => n + 1)}
+              className="bg-[#6B21A8] text-white font-bold text-xs py-2 px-4 rounded cursor-pointer shadow"
+            >
+              Tentar Novamente
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!allowed) {
     return (
       <div className="flex flex-col bg-[#F3F4F6] min-h-screen p-4 justify-center items-center">
@@ -178,11 +212,6 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
   if (computedAmountCents > currentTotalPendingCents) {
     computedAmountCents = currentTotalPendingCents;
   }
-
-  // Formatter functions
-  const fmtCents = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-  };
 
   const handleIncrement = () => {
     const instAmt = sale.installmentAmount || 12000;
@@ -254,8 +283,10 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
       }
       onNavigate?.('sales');
     } catch (err) {
-      setShowConfirm(false);
-      setSaveError(getErrorMessage(err) || 'Erro ao registrar operação');
+      // Mantém o ConfirmModal aberto para o usuário corrigir / tentar de novo
+      const message = getErrorMessage(err) || 'Erro ao registrar operação';
+      setSaveError(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -704,6 +735,7 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
                 setSaveError('Insira um valor válido de pagamento.');
                 return;
               }
+              setSaveError(null);
               setShowConfirm(true);
             }}
             disabled={saving}
@@ -729,9 +761,11 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
         isSaving={saving}
         title={initialMode === 'payment' ? '¿Confirmar pago?' : '¿Confirmar visita sin pago?'}
         subtitle={
-          initialMode === 'payment'
-            ? `Se registrará un pago de $${fmtCents(computedAmountCents)} para ${sale.clientName}.`
-            : `Se registrará la visita como "${selectedReason}" para ${sale.clientName}.`
+          saveError
+            ? saveError
+            : initialMode === 'payment'
+              ? `Se registrará un pago de $${fmtCents(computedAmountCents)} para ${sale.clientName}.`
+              : `Se registrará la visita como "${selectedReason}" para ${sale.clientName}.`
         }
         confirmText="Sí, registrar"
       />

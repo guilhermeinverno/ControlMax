@@ -271,7 +271,6 @@ export async function seedDemoData(customTenantId?: string) {
       valor: (s.amt / 100).toFixed(2),
       interes: '20,0%',
       saldoTotal: (s.amt / 100).toFixed(2),
-      saldoPendiente: (s.bal / 100).toFixed(2),
       saldoTotalCents: s.amt,
       saldoPendienteCents: s.bal,
     });

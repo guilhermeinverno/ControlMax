@@ -1,6 +1,7 @@
+import { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Layers, Users, Play } from 'lucide-react';
-import type { TenantMetrics, UserDoc } from '../../../types/superAdmin';
+import { X, Layers, Users, Play, Receipt } from 'lucide-react';
+import type { SaasInvoice, TenantMetrics, UserDoc } from '../../../types/superAdmin';
 import { fmt } from './superAdminFormat';
 
 export interface SuperAdminTenantDrawerProps {
@@ -9,6 +10,19 @@ export interface SuperAdminTenantDrawerProps {
   users: UserDoc[];
   handleImpersonate: (tenantId: string, tenantName: string) => void;
   handleToggleTenantActive: (tenantId: string, active: boolean) => void;
+  tenantInvoices: SaasInvoice[];
+  invoicesLoading: boolean;
+  loadTenantInvoices: (tenantId: string) => void;
+  handleCreateInvoice: (tenantId: string) => void;
+  handleMarkInvoicePaid: (invoiceId: string, tenantId: string) => void;
+  handleSetBillingStatus: (
+    tenantId: string,
+    status: 'active' | 'past_due' | 'suspended'
+  ) => void;
+}
+
+function moneyFromCents(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 }
 
 export function SuperAdminTenantDrawer({
@@ -17,10 +31,22 @@ export function SuperAdminTenantDrawer({
   users,
   handleImpersonate,
   handleToggleTenantActive,
+  tenantInvoices,
+  invoicesLoading,
+  loadTenantInvoices,
+  handleCreateInvoice,
+  handleMarkInvoicePaid,
+  handleSetBillingStatus,
 }: SuperAdminTenantDrawerProps) {
   const tenantUsers = selectedTenantDetail
-    ? users.filter(u => u.tenantId === selectedTenantDetail.tenantId)
+    ? users.filter((u) => u.tenantId === selectedTenantDetail.tenantId)
     : [];
+
+  useEffect(() => {
+    if (selectedTenantDetail?.tenantId) {
+      loadTenantInvoices(selectedTenantDetail.tenantId);
+    }
+  }, [selectedTenantDetail?.tenantId, loadTenantInvoices]);
 
   return (
     <AnimatePresence>
@@ -43,15 +69,26 @@ export function SuperAdminTenantDrawer({
           >
             <div className="p-6 bg-[#0E162C] border-b border-slate-800 text-white flex justify-between items-center shrink-0">
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-extrabold text-base tracking-tight text-white">{selectedTenantDetail.tenantName}</h3>
-                  <span className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
-                    selectedTenantDetail.active ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
-                  }`}>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-extrabold text-base tracking-tight text-white">
+                    {selectedTenantDetail.tenantName}
+                  </h3>
+                  <span
+                    className={`text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider ${
+                      selectedTenantDetail.active
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                    }`}
+                  >
                     {selectedTenantDetail.active ? 'Ativo' : 'Suspenso'}
                   </span>
+                  <span className="text-[9px] px-2 py-0.5 rounded font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+                    {selectedTenantDetail.billingStatus}
+                  </span>
                 </div>
-                <p className="text-slate-400 text-[10px] mt-1 font-mono">Tenant ID: {selectedTenantDetail.tenantId}</p>
+                <p className="text-slate-400 text-[10px] mt-1 font-mono">
+                  Tenant ID: {selectedTenantDetail.tenantId}
+                </p>
               </div>
               <button
                 onClick={() => setSelectedTenantDetail(null)}
@@ -62,18 +99,27 @@ export function SuperAdminTenantDrawer({
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
-
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-[#060913] border border-slate-800 p-4 rounded-xl">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Recaudo Unificado (30d)</span>
-                  <p className="text-lg font-black text-emerald-400 mt-1.5 font-mono">$ {fmt(selectedTenantDetail.totalRecaudo)}</p>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                    Recaudo Unificado (30d)
+                  </span>
+                  <p className="text-lg font-black text-emerald-400 mt-1.5 font-mono">
+                    $ {fmt(selectedTenantDetail.totalRecaudo)}
+                  </p>
                 </div>
 
                 <div className="bg-[#060913] border border-slate-800 p-4 rounded-xl">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">Status Operacional</span>
-                  <p className="text-base font-black text-white mt-1.5">{selectedTenantDetail.totalBoxes} Caixas Totais</p>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+                    Status Operacional
+                  </span>
+                  <p className="text-base font-black text-white mt-1.5">
+                    {selectedTenantDetail.totalBoxes} Caixas Totais
+                  </p>
                   <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1 font-bold">
-                    <span className="text-emerald-400">{selectedTenantDetail.openBoxes} caixas abertas</span>
+                    <span className="text-emerald-400">
+                      {selectedTenantDetail.openBoxes} caixas abertas
+                    </span>
                   </div>
                 </div>
               </div>
@@ -85,64 +131,175 @@ export function SuperAdminTenantDrawer({
 
                 <div className="divide-y divide-slate-850 text-xs">
                   <div className="flex justify-between py-2">
-                    <span className="text-slate-400">Plano Escolhido:</span>
+                    <span className="text-slate-400">Plano:</span>
                     <span className="font-extrabold text-white">{selectedTenantDetail.plan}</span>
                   </div>
                   <div className="flex justify-between py-2">
-                    <span className="text-slate-400">Preço Mensal Acordado:</span>
-                    <span className="font-extrabold text-indigo-400">$ {selectedTenantDetail.monthlyPrice.toFixed(2)}/mês</span>
+                    <span className="text-slate-400">Mensalidade:</span>
+                    <span className="font-extrabold text-indigo-400">
+                      $ {selectedTenantDetail.monthlyPrice.toFixed(2)}/mês
+                    </span>
                   </div>
                   <div className="flex justify-between py-2">
-                    <span className="text-slate-400">Dia de Cadastro:</span>
-                    <span className="font-extrabold text-white">{selectedTenantDetail.createdAt ? selectedTenantDetail.createdAt.toDate().toLocaleDateString('pt-BR') : 'Demo'}</span>
+                    <span className="text-slate-400">Método:</span>
+                    <span className="font-extrabold text-white uppercase">
+                      {selectedTenantDetail.billingMethod}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span className="text-slate-400">Billing:</span>
+                    <span className="font-extrabold text-white">{selectedTenantDetail.billingStatus}</span>
                   </div>
                 </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {(['active', 'past_due', 'suspended'] as const).map((st) => (
+                    <button
+                      key={st}
+                      type="button"
+                      onClick={() =>
+                        handleSetBillingStatus(selectedTenantDetail.tenantId, st)
+                      }
+                      className={`text-[9px] font-black uppercase px-2 py-1 rounded border cursor-pointer ${
+                        selectedTenantDetail.billingStatus === st
+                          ? 'bg-indigo-600 text-white border-indigo-500'
+                          : 'bg-transparent text-slate-400 border-slate-700 hover:border-slate-500'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-[#060913] border border-slate-800 p-5 rounded-xl space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Receipt className="w-4 h-4 text-emerald-400" /> Faturas SaaS
+                  </h4>
+                  <button
+                    type="button"
+                    onClick={() => handleCreateInvoice(selectedTenantDetail.tenantId)}
+                    className="text-[10px] font-black uppercase tracking-wide text-emerald-400 hover:text-emerald-300 cursor-pointer"
+                  >
+                    + Gerar fatura
+                  </button>
+                </div>
+
+                {invoicesLoading ? (
+                  <p className="text-[11px] text-slate-500 font-bold">Carregando faturas…</p>
+                ) : tenantInvoices.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 font-bold">
+                    Nenhuma fatura. Gere a do mês vigente após receber o PIX/boleto.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-slate-850 max-h-48 overflow-y-auto">
+                    {tenantInvoices.map((inv) => (
+                      <li
+                        key={inv.id}
+                        className="py-2.5 flex items-center gap-2 text-[11px]"
+                      >
+                        <span className="font-mono text-slate-500 w-16 shrink-0">{inv.period}</span>
+                        <span className="font-bold text-white flex-1">
+                          $ {moneyFromCents(inv.amountCents)}
+                        </span>
+                        <span
+                          className={`uppercase font-black text-[8px] px-1.5 py-0.5 rounded ${
+                            inv.status === 'paid'
+                              ? 'bg-emerald-500/15 text-emerald-400'
+                              : inv.status === 'open'
+                                ? 'bg-amber-500/15 text-amber-400'
+                                : 'bg-slate-700 text-slate-300'
+                          }`}
+                        >
+                          {inv.status}
+                        </span>
+                        {inv.status === 'open' ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleMarkInvoicePaid(inv.id, selectedTenantDetail.tenantId)
+                            }
+                            className="text-[9px] font-black uppercase text-indigo-300 hover:text-white cursor-pointer"
+                          >
+                            Pago
+                          </button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
 
               <div className="space-y-2.5">
                 <h4 className="text-xs font-extrabold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Users className="w-4 h-4 text-indigo-400" /> Colaboradores Vinculados ({selectedTenantDetail.totalUsers})
+                  <Users className="w-4 h-4 text-indigo-400" /> Colaboradores Vinculados (
+                  {selectedTenantDetail.totalUsers})
                 </h4>
 
                 <div className="border border-slate-800 rounded-xl divide-y divide-slate-850 overflow-hidden bg-[#060913] max-h-52 overflow-y-auto">
-                  {tenantUsers.map(colab => (
-                    <div key={colab.id} className="p-3 flex items-center justify-between hover:bg-slate-800/10 transition-colors">
+                  {tenantUsers.map((colab) => (
+                    <div
+                      key={colab.id}
+                      className="p-3 flex items-center justify-between hover:bg-slate-800/10 transition-colors"
+                    >
                       <div className="min-w-0 flex-1 pr-3">
-                        <p className="font-extrabold text-white text-xs truncate">{colab.name || colab.userName || 'Sem Nome'}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">{colab.email}</p>
+                        <p className="font-extrabold text-white text-xs truncate">
+                          {colab.name || colab.userName || 'Sem Nome'}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                          {colab.email}
+                        </p>
                       </div>
-                      <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ${
-                        colab.role === 'admin' ? 'bg-purple-950 text-purple-300' : 'bg-slate-900 text-slate-400'
-                      }`}>
+                      <span
+                        className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider shrink-0 ${
+                          colab.role === 'admin'
+                            ? 'bg-purple-950 text-purple-300'
+                            : 'bg-slate-900 text-slate-400'
+                        }`}
+                      >
                         {colab.role}
                       </span>
                     </div>
                   ))}
                   {tenantUsers.length === 0 && (
-                    <p className="p-4 text-center text-xs text-slate-500 italic">Nenhum colaborador registrado para esta empresa.</p>
+                    <p className="p-4 text-center text-xs text-slate-500 italic">
+                      Nenhum colaborador registrado para esta empresa.
+                    </p>
                   )}
                 </div>
               </div>
 
               <div className="border-t border-slate-800 pt-5 space-y-3 shrink-0">
                 <button
-                  onClick={() => handleImpersonate(selectedTenantDetail.tenantId, selectedTenantDetail.tenantName)}
+                  onClick={() =>
+                    handleImpersonate(
+                      selectedTenantDetail.tenantId,
+                      selectedTenantDetail.tenantName
+                    )
+                  }
                   className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs uppercase tracking-wider py-3 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/10"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" /> Entrar como Empresa (Impersonar)
                 </button>
                 <button
-                  onClick={() => handleToggleTenantActive(selectedTenantDetail.tenantId, selectedTenantDetail.active)}
+                  onClick={() =>
+                    handleToggleTenantActive(
+                      selectedTenantDetail.tenantId,
+                      selectedTenantDetail.active
+                    )
+                  }
                   className={`w-full py-3 rounded-xl cursor-pointer text-xs font-extrabold transition-all border ${
                     selectedTenantDetail.active
                       ? 'bg-rose-950/20 text-rose-400 border-rose-900/30 hover:bg-rose-900 hover:text-white'
                       : 'bg-emerald-950/20 text-emerald-400 border-emerald-900/30 hover:bg-emerald-900 hover:text-white'
                   }`}
                 >
-                  {selectedTenantDetail.active ? 'Bloquear Licença / Suspender' : 'Desbloquear Licença / Ativar'}
+                  {selectedTenantDetail.active
+                    ? 'Bloquear Licença / Suspender'
+                    : 'Desbloquear Licença / Ativar'}
                 </button>
               </div>
-
             </div>
           </motion.div>
         </div>

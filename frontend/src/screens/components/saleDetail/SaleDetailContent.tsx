@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { Screen } from '../../../types';
 import { formatFirestoreDate } from '../../../utils/firestoreTimestamp';
-import { fmtCents } from '../../../utils/fmtCents';
+import { fmtCents, resolvePendingCents } from '../../../utils/currency';
 import { useBox } from '../../../hooks/useBox';
 import type { SaleDetailRecord, SalePaymentRecord } from '../../../types/saleDetail';
 import type { SaleFinancialDisplay } from '../../../utils/saleDetailDisplay';
@@ -47,14 +47,13 @@ export function SaleDetailContent({
   const installmentsCount = 20;
   const interestRate = sale.interes || "20.00";
 
-  // Calculate percentage of paid amount
-  const totalCents = sale.saldoTotalCents || 120000;
-  const pendingCents = sale.saldoPendienteCents !== undefined ? sale.saldoPendienteCents : 0;
+  const totalCents = sale.saldoTotalCents || 0;
+  const pendingCents = resolvePendingCents(sale);
   const paidCents = Math.max(0, totalCents - pendingCents);
   const progressPercent = totalCents > 0 ? Math.min(100, (paidCents / totalCents) * 100) : 0;
 
-  const valorCuotaCents = Math.round(totalCents / installmentsCount);
-  const valorCuotaStr = `$ ${(valorCuotaCents / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const valorCuotaCents = installmentsCount > 0 ? Math.round(totalCents / installmentsCount) : 0;
+  const valorCuotaStr = `$ ${fmtCents(valorCuotaCents)}`;
 
   return (
     <div className="flex flex-col bg-[#F0F2F5] min-h-screen text-[#333333] -m-4 pb-28 select-none">

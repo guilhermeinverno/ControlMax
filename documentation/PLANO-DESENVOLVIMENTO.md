@@ -153,7 +153,7 @@ Fase 5  Limpeza (cents, formatters, docs)
 | **Arquivos** | `useTenantState.ts`, `adminRoutes.ts`, `boxRoutes.ts`, docs `08-modelo-de-dados.md`, UserList/Profiles |
 | **Trabalho** | Decisão de produto: **manter** `usuario_unidades` como fonte de verdade **ou** migrar para `assignedUnits` no doc `users`. Documentar no modelo de dados. BFF rejeita open box / sale se `unitId` ∉ lista do usuário. UI de gestão de usuários edita a lista. |
 | **DoD** | Teste integração: open box com unidade não atribuída → 403; doc de modelo atualizado. |
-| **Status** | ✅ **feito 27/08/2026** — canônico `usuario_unidades`; BFF open valida escopo; testes `userUnitAccess.test.ts`. UI edição de lista em UserList fica P1 (API admin já persiste). |
+| **Status** | ✅ **feito 27/08/2026** — canônico `usuario_unidades`; BFF open valida escopo; testes `userUnitAccess.test.ts`. UI edição em UserList concluída (criação + modal via `PUT /api/admin/users/:id`). |
 
 ### 2.3 Sociedade (mínimo piloto)
 | | |
@@ -179,6 +179,7 @@ Fase 5  Limpeza (cents, formatters, docs)
 | **Arquivos** | `backend/adminRoutes.ts` (ou script), `authMiddleware.ts`, provisão de usuário |
 | **Trabalho** | **Opção A (recomendada):** ao criar/atualizar usuário, `setCustomUserClaims({ role, tenantId })`; middleware lê claims primeiro, Firestore como fallback. **Opção B:** documentar formalmente “role só no Firestore” e reforçar cache no middleware (mais frágil). |
 | **DoD** | ADR curta em `docs/controlmax/`; claims ou ADR Opção B assinada; teste de escalate role via client falha. |
+| **Status** | ✅ **feito 27/08/2026** — Opção A; ADR-001; `syncUserCustomClaims` + middleware; teste `customClaims.test.ts`. |
 
 ### 3.2 Tela de logs reais
 | | |
@@ -188,6 +189,7 @@ Fase 5  Limpeza (cents, formatters, docs)
 | **Arquivos** | novo screen ou `SuperAdminLogsTab`, queries `security_logs` / `audit_logs`, menu Layout |
 | **Trabalho** | Substituir `createSimulatedTerminalLog` por leitura Firestore filtrada por `tenantId`. Colunas: data, userId, ação, resultado, entidade. Menu “Log de Acciones” aponta para esta tela (não `statistics`). |
 | **DoD** | Após confirm box / adjustment, log aparece na UI em &lt; 5s; sem dados inventados. |
+| **Status** | ✅ **feito 27/08/2026** — tela `AuditLogs` + rota `/audit-logs`; menu Reportes → Log de Acciones; rules `audit_logs` read; índices compostos. |
 
 ### 3.3 Homologação SyncManager em dispositivo real
 | | |
@@ -196,6 +198,7 @@ Fase 5  Limpeza (cents, formatters, docs)
 | **Esforço** | M (QA) |
 | **Trabalho** | Roteiro: modo avião → registrar pagamento/visita → voltar online → badge processa → validar Firestore/BFF. Cobrir conflito de idempotência (duplo enqueue). |
 | **DoD** | Checklist QA assinado; bugs críticos corrigidos. |
+| **Status** | 🟡 **checklist pronto** — `documentation/SYNC-01-CHECKLIST-QA.md` (execução em dispositivo real pendente de assinatura QA). |
 
 **Saída Fase 3 + Fases 0–2 = Gate Piloto.**
 
@@ -213,6 +216,8 @@ Só iniciar em produção piloto após Gate; em paralelo na branch é OK se não
 | `P1-04` | Fechamento massivo | M | Espelhar `MassBoxOpening` para close via BFF/batch | Menu “Cierre masivo” fecha caixas, não abre |
 | `P1-05` | Hub mínimo de relatórios | L | Tela catálogo + reusar exports XLSX existentes; async pode ficar P2 | Menu Reportes não aponta para `sales` genérico |
 
+**Status Fase 4 (27/08/2026):** ✅ código entregue — `P1-01`…`P1-05` (deploy rules/indexes + QA manual pendentes).
+
 ---
 
 ## 7. Fase 5 — Limpeza e documentação
@@ -222,6 +227,8 @@ Só iniciar em produção piloto após Gate; em paralelo na branch é OK se não
 | `CLEAN-01` | Unificar `fmtCents` / `currency.ts` | M | Um import canônico; remoção de `fmt` locais duplicados |
 | `CLEAN-02` | Deprecar `saldoPendiente` string | L | Leitura só cents; migração/leitura defensiva; seed sem dual write |
 | `CLEAN-03` | Atualizar docs oficiais | S | `backlog-piloto.md`, `14-roadmap.md`, este plano e `PENDENCIAS-…` com `[x]` |
+
+**Status Fase 5 (27/08/2026):** ✅ `CLEAN-01`…`CLEAN-03` concluídos.
 
 ---
 
@@ -239,10 +246,10 @@ Liberar piloto **somente** se:
 [x] CTX-01 Seletor global no header — feito 27/08/2026
 [x] CTX-02 Escopo unidade enforçado no BFF — feito 27/08/2026
 [x] CTX-03 Decisão Sociedade documentada — feito 27/08/2026
-[ ] AUTH-01 Claims ou ADR Opção B
-[ ] AUD-01 Logs reais na UI
-[ ] SYNC-01 Homologação offline OK
-[ ] QA regressivo: open/close/confirm, sale, collection, no-payment, multi-tenant
+[x] AUTH-01 Claims ou ADR Opção B — ADR-001 + implementação 27/08/2026
+[x] AUD-01 Logs reais na UI — AuditLogs 27/08/2026
+[ ] SYNC-01 Homologação offline OK — `documentation/SYNC-01-CHECKLIST-QA.md`
+[ ] QA regressivo: `documentation/GATE-PILOTO-QA.md` (após `DEPLOY-FIRESTORE-GATE.md`)
 ```
 
 ---
@@ -308,19 +315,28 @@ Cada PR deste plano deve:
 - [x] `CTX-03` Decisão Sociedade — feito 27/08/2026
 
 **Fase 3**
-- [ ] `AUTH-01` Custom Claims / ADR
-- [ ] `AUD-01` Logs UI reais
-- [ ] `SYNC-01` QA offline
+- [x] `AUTH-01` Custom Claims / ADR — feito 27/08/2026
+- [x] `AUD-01` Logs UI reais — feito 27/08/2026
+- [ ] `SYNC-01` QA offline — checklist em `SYNC-01-CHECKLIST-QA.md`
 
 **Fase 4 / 5**
-- [ ] `P1-01` … `P1-05`
-- [ ] `CLEAN-01` … `CLEAN-03`
+- [x] `P1-01` Lista negra — tela + BFF 403 sale + rules/indexes (27/08/2026)
+- [x] `P1-02` BCTransfers via BFF — create + approval (27/08/2026)
+- [x] `P1-03` Naming menus aprovações / cierre (27/08/2026)
+- [x] `P1-04` Fechamento massivo + open/close-batch BFF (27/08/2026)
+- [x] `P1-05` Hub de reportes `/reports-hub` (27/08/2026)
+- [x] `CLEAN-01` fmtCents canônico em `currency.ts` (27/08/2026)
+- [x] `CLEAN-02` resolvePendingCents + seed só cents (27/08/2026)
+- [x] `CLEAN-03` docs backlog/roadmap/pendências (27/08/2026)
 
 ---
 
 ## 13. Próximo passo imediato
 
-**Concluído (27/08/2026):** Fases 0–2 no código (SEC + FIN + CTX).
+**Concluído (27/08/2026):** Fases 0–5 (código).
 
-**Seguir com:** Fase 3 (`AUTH-01` / `AUD-01` / `SYNC-01`); criar branch **Merged & Dev Fabio** para commit quando solicitado.
-Quando o Gate Piloto estiver `[x]`, atualizar [`backlog-piloto.md`](../docs/comparativo/backlog-piloto.md) e marcar este plano como **v1 concluída**.
+**Seguir com (ops/QA):**  
+1. [`DEPLOY-FIRESTORE-GATE.md`](./DEPLOY-FIRESTORE-GATE.md)  
+2. [`GATE-PILOTO-QA.md`](./GATE-PILOTO-QA.md)  
+3. [`SYNC-01-CHECKLIST-QA.md`](./SYNC-01-CHECKLIST-QA.md)  
+Commit/PR no fim da sessão quando solicitado.

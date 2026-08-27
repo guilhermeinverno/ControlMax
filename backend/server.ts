@@ -39,10 +39,20 @@ const ai = apiKey ? new GoogleGenAI({
 }) : undefined;
 
 import adminRoutes from "./adminRoutes";
+import roleRoutes from "./roleRoutes";
+import customerRoutes from "./customerRoutes";
+import platformRoutes from "./platformRoutes";
+import reportRoutes from "./reportRoutes";
+import saasBillingRoutes from "./saasBillingRoutes";
 
 app.post("/api/gemini/assistant", authMiddleware, createAssistantHandler(ai, apiKey));
 app.use("/api/boxes", authMiddleware, boxRoutes);
 app.use("/api/transactions", authMiddleware, transactionRoutes);
+app.use("/api/customers", authMiddleware, customerRoutes);
+app.use("/api/platform", authMiddleware, platformRoutes);
+app.use("/api/reports", authMiddleware, reportRoutes);
+app.use("/api/admin", authMiddleware, saasBillingRoutes);
+app.use("/api/admin/roles", authMiddleware, roleRoutes);
 app.use("/api/admin", authMiddleware, adminRoutes);
 
 if (process.env.LOCAL_DEV === 'true') {

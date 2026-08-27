@@ -20,7 +20,7 @@ import { useDeviceListData } from '../hooks/useDeviceListData';
 import { filterDevices } from '../utils/deviceListFilters';
 import { hasAdminAccess } from '../types/operational';
 import { listViewBody } from '../utils/listViewBody';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { ConfirmModal } from './components/ConfirmModal';
 import { DeviceTable } from './components/devices/DeviceTable';
 import { DeviceBindModal } from './components/devices/DeviceBindModal';
@@ -299,7 +299,7 @@ export function DeviceList() {
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen">
-      <UnitSelectors />
+      <GlobalContextSelector variant="default" />
 
       <div className="px-3 mt-2 mb-4">
         <div className="bg-[#84CC16] text-white py-2.5 px-3 font-bold uppercase text-sm shadow-sm flex items-center justify-between">

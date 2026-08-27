@@ -5,6 +5,13 @@ import { getAuth } from 'firebase-admin/auth';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { resolveAuthProfile } from './customClaims';
+import {
+  emptyPermissionMatrix,
+  fullPermissionMatrix,
+  mergePermissionMatrix,
+  PermissionMatrix,
+} from './permissionMatrix';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -128,7 +135,65 @@ export interface AuthenticatedRequest extends Request {
     tenantId: string;
     role: string;
     name: string;
+    isSuperAdmin?: boolean;
+    /** ID do documento em tenant_roles (RBAC dinâmico) */
+    roleId?: string;
+    /** Matriz de permissões resolvida (roleId → tenant_roles ou fallback) */
+    permissions?: PermissionMatrix;
   };
+}
+
+async function resolveUserPermissionMatrix(
+  tenantId: string,
+  roleId: string | undefined,
+  legacyRole: string,
+  userDocPermissions: unknown,
+  isSuperAdmin: boolean
+): Promise<PermissionMatrix> {
+  if (isSuperAdmin || String(legacyRole).toLowerCase() === 'admin') {
+    return fullPermissionMatrix();
+  }
+
+  if (roleId) {
+    try {
+      const roleSnap = await adminDb.collection('tenant_roles').doc(roleId).get();
+      if (roleSnap.exists) {
+        const data = roleSnap.data() || {};
+        if (!data.tenantId || data.tenantId === tenantId) {
+          return mergePermissionMatrix(data.permissions);
+        }
+      }
+    } catch (err) {
+      console.error('Falha ao carregar tenant_roles para auth:', err);
+    }
+  }
+
+  // Compat: permissions já no formato PermissionMatrix no user doc
+  if (userDocPermissions && typeof userDocPermissions === 'object' && !Array.isArray(userDocPermissions)) {
+    const keys = Object.keys(userDocPermissions as object);
+    if (keys.some((k) => ['sales', 'collections', 'boxes', 'customers', 'reports', 'platform'].includes(k))) {
+      return mergePermissionMatrix(userDocPermissions);
+    }
+  }
+
+  // Fallback por role legado (migração gradual sem roleId)
+  const roleLower = String(legacyRole || '').toLowerCase();
+  if (['supervisor', 'gerente', 'director', 'coordinador'].includes(roleLower)) {
+    const m = fullPermissionMatrix();
+    m.platform = { manageSettings: false, manageUsers: true, manageRoles: false };
+    return m;
+  }
+  if (roleLower === 'collector' || roleLower === 'cajero') {
+    const m = emptyPermissionMatrix();
+    m.sales = { read: true, create: true, update: false, cancel: false };
+    m.collections = { read: true, create: true, confirm: false };
+    m.boxes = { read: true, open: true, close: true, viewSummary: false };
+    m.customers = { read: true, create: true, edit: false, delete: false };
+    m.reports = { viewDashboard: true, exportExcel: false };
+    return m;
+  }
+
+  return emptyPermissionMatrix();
 }
 
 export async function authMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction) {
@@ -152,17 +217,27 @@ export async function authMiddleware(req: AuthenticatedRequest, res: Response, n
     }
 
     const userData = userDoc.data() || {};
-    const tenantId = userData.tenantId || '';
-    const role = userData.role || 'collector';
-    const name = userData.name || userData.userName || userData.displayName || email;
+    const profile = resolveAuthProfile(decodedToken as Record<string, unknown>, userData);
+    const name =
+      userData.name || userData.userName || userData.displayName || email;
+    const roleId = userData.roleId ? String(userData.roleId) : undefined;
+    const permissions = await resolveUserPermissionMatrix(
+      profile.tenantId,
+      roleId,
+      profile.role,
+      userData.permissions,
+      profile.isSuperAdmin === true
+    );
 
-    // Attach verified user data to request object
     req.user = {
       uid,
       email,
-      tenantId,
-      role,
-      name
+      tenantId: profile.tenantId,
+      role: profile.role,
+      name,
+      isSuperAdmin: profile.isSuperAdmin,
+      roleId,
+      permissions,
     };
 
     next();

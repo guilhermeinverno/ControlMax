@@ -1,6 +1,8 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type Screen = 'dashboard' | 'statistics' | 'forms' | 'sales' | 'summary' | 'holidays' | 'edit-route' | 'route-list' | 'user-list' | 'device-list' | 'edit-device' | 'company-list' | 'sale-detail' | 'register-payment' | 'payment-history' | 'open-box' | 'close-box' | 'new-income' | 'new-expense' | 'performance' | 'box-summary' | 'transfer-sales' | 'mass-box-opening' | 'auto-keys' | 'credit-requests' | 'business-centers' | 'collection-cleaning' | 'period-summary' | 'superadmin' | 'bc-incomes' | 'bc-expenses' | 'bc-transfers' | 'bc-approvals' | 'bc-map' | 'insurance' | 'finance' | 'platform-management' | 'ai-assistant' | 'collector-map' | 'worker-profile' | 'profiles' | 'vendedor-mobile';
+export type Screen = 'dashboard' | 'statistics' | 'forms' | 'sales' | 'summary' | 'holidays' | 'edit-route' | 'route-list' | 'user-list' | 'device-list' | 'edit-device' | 'company-list' | 'sale-detail' | 'register-payment' | 'payment-history' | 'open-box' | 'close-box' | 'new-income' | 'new-expense' | 'performance' | 'box-summary' | 'transfer-sales' | 'mass-box-opening' | 'mass-box-closing' | 'auto-keys' | 'credit-requests' | 'business-centers' | 'collection-cleaning' | 'period-summary' | 'superadmin' | 'bc-incomes' | 'bc-expenses' | 'bc-transfers' | 'bc-approvals' | 'bc-map' | 'insurance' | 'finance' | 'platform-management' | 'ai-assistant' | 'collector-map' | 'worker-profile' | 'profiles' | 'role-management' | 'vendedor-mobile' | 'audit-logs' | 'reports-hub' | 'customer-blacklist';
+
+export type { AuditLogEntry, AuditAction, AuditEntity, AuditChange } from './types/audit';
 
 export type UserRole = 'admin' | 'supervisor' | 'collector';
 
@@ -41,6 +43,7 @@ export interface Sale {
   tenantId: string;
   unitId?: string;
   idPreVenta?: string;
+  /** @deprecated CLEAN-02 — usar apenas `saldoPendienteCents` (centavos). */
   saldoPendiente?: string;
   saldoPendienteCents?: number;
   installments?: number;
@@ -73,6 +76,10 @@ export interface AppUser {
   firstName?: string;
   lastName1?: string;
   role: string;
+  /** RBAC dinâmico — doc em tenant_roles */
+  roleId?: string;
+  /** Matriz estruturada (quando resolvida) ou mapa legado flat */
+  permissions?: import('./types/rbac').PermissionMatrix | Record<string, boolean>;
 }
 
 export interface Tenant {

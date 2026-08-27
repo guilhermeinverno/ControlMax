@@ -315,6 +315,42 @@ describe("Suíte Completa de Testes da Fase 2 — BFF, Idempotência, Transaçõ
       const data = await res.json();
       expect(data.error).toContain("Valor monetário inválido");
     });
+
+    test("12d. bc-transfer rejeita amount inválido (400)", async () => {
+      currentMockUser = { uid: "u1", tenantId: "t1", role: "collector", name: "Coletor" };
+      const res = await fetch(`${baseUrl}/api/transactions/bc-transfer`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromType: "collector",
+          fromName: "Coletor",
+          toCnId: "cn1",
+          toCnName: "CN 1",
+          amount: -1,
+          idempotencyKey: "test-bct-neg",
+        }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("Valor inválido");
+    });
+
+    test("12e. approval rejeita resourceType inválido sem bc_transfer typo (400)", async () => {
+      currentMockUser = { uid: "u1", tenantId: "t1", role: "admin", name: "Admin" };
+      const res = await fetch(`${baseUrl}/api/transactions/approval`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resourceType: "unknown_type",
+          resourceId: "x1",
+          status: "approved",
+          idempotencyKey: "test-appr-type",
+        }),
+      });
+      expect(res.status).toBe(400);
+      const data = await res.json();
+      expect(data.error).toContain("resourceType inválido");
+    });
   });
 
   // -------------------------------------------------------------

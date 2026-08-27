@@ -9,6 +9,7 @@ import { fmt } from '../superAdminFormat';
 export interface SuperAdminOverviewTabProps {
   mrrEstimated: number;
   activeTenantsCount: number;
+  pastDueCount: number;
   tenantsCount: number;
   totalGlobalUsers: number;
   totalGlobalRecaudoVolume: number;
@@ -27,6 +28,7 @@ export interface SuperAdminOverviewTabProps {
 export function SuperAdminOverviewTab({
   mrrEstimated,
   activeTenantsCount,
+  pastDueCount,
   tenantsCount,
   totalGlobalUsers,
   totalGlobalRecaudoVolume,
@@ -51,13 +53,16 @@ export function SuperAdminOverviewTab({
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-[#0C1224] border border-slate-800/80 rounded-2xl p-6 relative group hover:border-indigo-500/40 transition-all shadow-sm">
-          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">SaaS MRR Estimado</span>
+          <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest block">SaaS MRR Contratado</span>
           <div className="mt-3 flex items-baseline gap-1">
             <span className="text-2xl lg:text-3xl font-black text-white tracking-tight">$ {mrrEstimated.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             <span className="text-xs text-slate-400 font-bold">/mês</span>
           </div>
           <p className="text-[10px] text-slate-400 font-bold mt-1.5 flex items-center gap-1">
-            <Check className="w-3 h-3 text-emerald-400" /> Licenças comerciais pagas
+            <Check className="w-3 h-3 text-emerald-400" /> Soma das mensalidades adimplentes
+            {pastDueCount > 0 ? (
+              <span className="text-amber-400 ml-1">· {pastDueCount} past_due</span>
+            ) : null}
           </p>
         </div>
 

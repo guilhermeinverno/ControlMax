@@ -86,6 +86,7 @@ Estes módulos possuem lógica de negócio sensível. **Não simplificar nem rem
 | **Vendas/Recebimentos** | `SalesList`, `RegisterPayment`, `TransferSales` | Saldos e centavos |
 | **Centros de negócio** | `BusinessCenters.tsx`, `useBusinessCentersData.ts` | Unidades e rotas |
 | **Layout/Navegação** | `Layout.tsx`, `LayoutDesktopNav.tsx`, `LayoutMobileDrawer.tsx` | Rotas “invisíveis” para o usuário |
+| **RBAC dinâmico** | `types/rbac.ts`, `RoleManagement.tsx`, `useHasPermission`, `useTenantRoles`, `backend/roleRoutes.ts`, `authMiddleware` | Isolamento de permissões / privilege escalation |
 | **Firebase** | `lib/firebase.ts` | App não conecta em produção |
 | **Assistente IA** | `assistantApi.ts`, `backend/server.ts` | Feature de voz/texto offline |
 
@@ -95,6 +96,55 @@ Se a rota existe em `AppRoutes.tsx` e `NavigationContext.tsx`, deve haver **cami
 
 - `/forms` — admin/supervisor → menu Administración
 - `/holidays` — admin/supervisor → menu Administración
+- `/role-management` — admin → Administración → Perfis / Roles (RBAC)
+
+### 3.2 RBAC dinâmico (PermissionMatrix)
+
+```
+users.roleId ──▶ tenant_roles/{id}.permissions (PermissionMatrix)
+       │
+       └─▶ role legado (admin|supervisor|collector) mantido para compatibilidade
+```
+
+- **Coleção:** `tenant_roles` (sempre `where('tenantId','==',tenantId)`).
+- **BFF:** `GET/POST/PUT/DELETE /api/admin/roles` + `requirePermission(module, action)`.
+- **Frontend:** `useHasPermission().can('sales','create')`; tela `RoleManagement`.
+- **Sistema:** `isSystemRole: true` não pode ser excluído (apenas clonado/editado).
+- Escrita client em `tenant_roles` é **negada** nas rules (só Admin SDK).
+
+### 3.3 Auditoria canônica (`AuditLogEntry`)
+
+Coleção `audit_logs` — modelo em `frontend/src/types/audit.ts` / `backend/auditLog.ts`:
+
+- `action`: `UPDATE` | `DELETE` | `REVERSAL` | `OVERRIDE`
+- `entity`: `sales` | `customers` | `boxes` | `collections` | `platform_settings` | `users` | `roles`
+- `changes[]`: `{ field, oldValue, newValue }`
+- `reason` obrigatório em mutações sensíveis (estorno, override)
+
+**Serviço BFF:** `backend/services/auditService.ts` → `logAuditEvent` (diff automático + Admin SDK).
+
+| Rota | Ação auditada |
+|------|----------------|
+| `PUT /api/customers/:id` | UPDATE `customers` |
+| `POST /api/transactions/reversal` | REVERSAL financeiro |
+| `PUT /api/admin/roles/:id` | UPDATE `roles` |
+| `PUT /api/admin/users/:id` | UPDATE `users` |
+| `PUT /api/platform/settings` | UPDATE `platform_settings` |
+
+Helpers auxiliares: `setAuditLogInTransaction` / `writeAuditLog`. UI: `AuditLogs.tsx`. Escrita client em `audit_logs` é **negada** nas rules.
+
+### 3.4 Faturamento SaaS (cobrança direta)
+
+Sem gateway (Stripe/Asaas). SuperAdmin:
+
+| Recurso | Detalhe |
+|---------|---------|
+| Tenant | `monthlyPrice` (centavos), `billingStatus`, `billingMethod` |
+| Faturas | coleção `saas_invoices` (`open` / `paid` / `canceled`) |
+| BFF | `PUT /api/admin/tenants/:id/billing`, `POST/GET /api/admin/saas-invoices`, `…/mark-paid`, `GET …/saas-billing/summary` |
+| MRR | soma das mensalidades com licença ativa + `billingStatus=active` |
+
+Escrita client em `saas_invoices` é **negada** (só Admin SDK).
 
 ---
 
@@ -244,6 +294,7 @@ sequenceDiagram
 | Feriados | `useHolidaysData` |
 | Plataforma | `usePlatformSettings` |
 | Usuários | `useUserListData` |
+| RBAC / Roles | `useTenantRoles`, `useHasPermission` |
 | Crédito | `useCreditRequestsData` |
 | Centros | `useBusinessCentersData` |
 | Receitas/Despesas | `useNewIncomeData`, `useNewExpenseData` |
@@ -259,4 +310,4 @@ Atualize `ARQUITETURA.md` quando:
 - Backend ganhar novos endpoints consumidos pelo frontend
 - Componente crítico for extraído ou renomeado
 
-Última revisão: **10/07/2026** — recuperação pós-varredura SonarQube e correções Vercel.
+Última revisão: **27/08/2026** — RBAC dinâmico (`tenant_roles` + PermissionMatrix) e Fases 0–5 do plano piloto.

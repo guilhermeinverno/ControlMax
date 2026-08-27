@@ -12,7 +12,7 @@ import { hasAdminAccess } from '../types/operational';
 import { listViewBody } from '../utils/listViewBody';
 import { useNavigation } from '../context/NavigationContext';
 import { ConfirmModal } from './components/ConfirmModal';
-import { UnitSelectors } from './components/UnitSelectors';
+import { GlobalContextSelector } from './components/GlobalContextSelector';
 import { 
   Plus, 
   Search, 
@@ -270,7 +270,7 @@ export function RouteList() {
 
   return (
     <div className="flex flex-col bg-[#F3F4F6] min-h-screen">
-      <UnitSelectors />
+      <GlobalContextSelector variant="default" />
 
       <div className="px-3 mt-2 mb-4">
         {/* Cabeçalho */}

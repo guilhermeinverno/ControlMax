@@ -8,6 +8,7 @@ export interface SaleDetailRecord {
   valor: string;
   interes?: string;
   saldoTotal: string;
+  /** @deprecated CLEAN-02 — preferir `saldoPendienteCents`. */
   saldoPendiente: string;
   saldoTotalCents?: number;
   saldoPendienteCents?: number;

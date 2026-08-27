@@ -1,7 +1,7 @@
 import { auth } from '../lib/firebase';
 import { financialFetchHeaders } from './financialFetchHeaders';
 
-export type ApprovalResourceType = 'expense' | 'bc_expense' | 'bc_income';
+export type ApprovalResourceType = 'expense' | 'bc_expense' | 'bc_income' | 'bc_transfer';
 export type ApprovalStatus = 'approved' | 'rejected';
 
 /**

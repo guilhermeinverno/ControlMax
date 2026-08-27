@@ -18,6 +18,7 @@
 - [09. Arquitetura Proposta](09-arquitetura.md)
 - [10. APIs e Serviços Backend](10-api.md)
 - [11. Segurança e Prevenção de Riscos](11-seguranca.md)
+- [ADR-001. Custom Claims (AUTH-01)](ADR-001-custom-claims.md)
 
 ## UX e Qualidade
 - [12. UX e Experiência de Navegação](12-ux-e-navegacao.md)
@@ -35,5 +36,7 @@
 4. **Vínculo Usuário x Hierarquia:** Campo canônico no piloto = `usuario_unidades` (aliases `usuarioUnidades` / spec `assignedUnits`). Escopo enforçado no BFF de abertura/confirmação de caixa (CTX-02). (Ver *08-modelo-de-dados.md*).
 5. **Sociedade no piloto (CTX-03, 27/08/2026):** `tenantId` **é** a Sociedade. CRUD multi-sociedade e coleção `societies` ficam **fora do piloto**. Menu “Sociedades” desabilitado até P1; gestão da plataforma continua em `platform-management`.
 
+6. **Custom Claims (AUTH-01, 27/08/2026):** Opção A — `setCustomUserClaims({ role, tenantId, isSuperAdmin })` na provisão admin; middleware BFF prioriza claims (Firestore fallback legado). Ver [ADR-001](ADR-001-custom-claims.md).
+
 ## DECISÕES PENDENTES
-*(Nenhuma decisão P0 pendente para o Gate Piloto além de Custom Claims / ADR em AUTH-01).*
+*(Nenhuma decisão P0 pendente para o Gate Piloto além da assinatura do checklist SYNC-01 em dispositivo real).*

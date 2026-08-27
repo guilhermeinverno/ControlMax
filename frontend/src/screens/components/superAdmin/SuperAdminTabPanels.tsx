@@ -56,8 +56,10 @@ export function SuperAdminTabPanels({
   setSelectedTenantDetail,
   activeTenantsCount,
   mrrEstimated,
+  pastDueCount,
   totalGlobalUsers,
   totalGlobalRecaudoVolume,
+  billingSummary,
   handleAddTenant,
   handleAddUser,
   handleToggleTenantActive,
@@ -71,6 +73,7 @@ export function SuperAdminTabPanels({
         <SuperAdminOverviewTab
           mrrEstimated={mrrEstimated}
           activeTenantsCount={activeTenantsCount}
+          pastDueCount={pastDueCount}
           tenantsCount={tenants.length}
           totalGlobalUsers={totalGlobalUsers}
           totalGlobalRecaudoVolume={totalGlobalRecaudoVolume}
@@ -135,6 +138,10 @@ export function SuperAdminTabPanels({
           setClientCountSim={setClientCountSim}
           avgTicketSim={avgTicketSim}
           setAvgTicketSim={setAvgTicketSim}
+          billingSummary={billingSummary}
+          mrrEstimated={mrrEstimated}
+          activeTenantsCount={activeTenantsCount}
+          pastDueCount={pastDueCount}
         />
       )}
 

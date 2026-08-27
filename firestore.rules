@@ -53,6 +53,13 @@ service cloud.firestore {
       }
     }
 
+    // RBAC dinâmico — leitura no client; escrita apenas Admin SDK / BFF
+    match /tenant_roles/{roleId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
+      allow create, update, delete: if false;
+    }
+
     match /users/{userId} {
       allow get: if isAuthenticated() && (
         isSuperAdmin() || 
@@ -168,6 +175,13 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       allow write: if false;
     }
+
+    // P1-01 — lista negra: leitura no client; escrita só Admin SDK / BFF
+    match /customer_blacklist/{entryId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
+      allow create, update, delete: if false;
+    }
     // -------------------------------------------------------------
 
     match /business_centers/{centerId} {
@@ -263,6 +277,21 @@ service cloud.firestore {
     match /security_logs/{logId} {
       allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
       // FIN-01: create apenas via Admin SDK / BFF (imutável no client)
+      allow create, update, delete: if false;
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
+    match /report_jobs/{jobId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow create, update, delete: if false;
+    }
+
+    match /saas_invoices/{invoiceId} {
+      allow read: if isAuthenticated() && isSuperAdmin();
       allow create, update, delete: if false;
     }
   }

@@ -38,6 +38,7 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   'box-summary': '/box-summary',
   'transfer-sales': '/transfer-sales',
   'mass-box-opening': '/mass-box-opening',
+  'mass-box-closing': '/mass-box-closing',
   'auto-keys': '/auto-keys',
   'credit-requests': '/credit-requests',
   'business-centers': '/business-centers',
@@ -56,7 +57,11 @@ export const SCREEN_ROUTES: Record<Screen, string> = {
   'collector-map': '/collector-map',
   'worker-profile': '/worker-profile',
   profiles: '/profiles',
-  'vendedor-mobile': '/vendedor-mobile'
+  'role-management': '/role-management',
+  'vendedor-mobile': '/vendedor-mobile',
+  'audit-logs': '/audit-logs',
+  'reports-hub': '/reports-hub',
+  'customer-blacklist': '/customer-blacklist',
 };
 
 export const ROUTE_SCREENS: Record<string, Screen> = Object.entries(SCREEN_ROUTES).reduce(

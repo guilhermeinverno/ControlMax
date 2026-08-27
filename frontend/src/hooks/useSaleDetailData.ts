@@ -2,9 +2,17 @@ import { useEffect, useState } from 'react';
 import { collection, doc, onSnapshot, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { SaleDetailRecord, SalePaymentRecord } from '../types/saleDetail';
+import { fmtCents, resolvePendingCents } from '../utils/currency';
 
 function mapSaleDoc(docSnap: { id: string; data: () => Record<string, unknown> }): SaleDetailRecord {
   const data = docSnap.data();
+  const pendingCents = resolvePendingCents({
+    saldoPendienteCents:
+      data.saldoPendienteCents !== undefined ? Number(data.saldoPendienteCents) : undefined,
+    balance: data.balance !== undefined ? Number(data.balance) : undefined,
+    saldoPendiente: data.saldoPendiente ? String(data.saldoPendiente) : undefined,
+  });
+  const totalCents = Number(data.saldoTotalCents ?? data.amount ?? 0);
   return {
     id: docSnap.id,
     clientName: String(data.clientName || ''),
@@ -12,13 +20,13 @@ function mapSaleDoc(docSnap: { id: string; data: () => Record<string, unknown> }
     unidade: String(data.unidade || ''),
     unitId: String(data.unitId || ''),
     createdAt: data.createdAt || '',
-    valor: String(data.valor || '0,00'),
+    valor: String(data.valor || fmtCents(totalCents)),
     interes: String(data.interes || '0,0%'),
-    saldoTotal: String(data.saldoTotal || '0,00'),
-    saldoPendiente: String(data.saldoPendiente || '0,00'),
-    saldoTotalCents: Number(data.saldoTotalCents || 0),
-    saldoPendienteCents:
-      data.saldoPendienteCents !== undefined ? Number(data.saldoPendienteCents) : 0,
+    saldoTotal: String(data.saldoTotal || fmtCents(totalCents)),
+    /** @deprecated CLEAN-02 — preferir saldoPendienteCents */
+    saldoPendiente: fmtCents(pendingCents),
+    saldoTotalCents: totalCents,
+    saldoPendienteCents: pendingCents,
     status: String(data.status || 'active'),
     idPreVenta: String(data.idPreVenta || ''),
   };

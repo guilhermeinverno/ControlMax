@@ -1,5 +1,5 @@
 /**
- * Helper utilities for formatting and parsing Brazilian Real currency inputs.
+ * Helper utilities for Brazilian Real: input masks, parse, and display (centavos).
  */
 
 export function formatCurrencyBRL(value: string): string {
@@ -64,4 +64,37 @@ export function parseCurrencyBRLToFloat(formattedValue: string): number {
 
 export function parseCurrencyBRLToCents(formattedValue: string): number {
   return Math.round(parseCurrencyBRLToFloat(formattedValue) * 100);
+}
+
+/** CLEAN-01 — display canônico de valores em centavos (pt-BR, 2 casas). */
+export function fmtCents(cents: number): string {
+  const n = Number(cents);
+  const safe = Number.isFinite(n) ? n : 0;
+  return (safe / 100).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+/**
+ * CLEAN-02 — saldo pendente em centavos com fallback legado (string `saldoPendiente`).
+ * Ordem: saldoPendienteCents → balance → parse de saldoPendiente → 0.
+ */
+export function resolvePendingCents(sale: {
+  saldoPendienteCents?: number | null;
+  balance?: number | null;
+  saldoPendiente?: string | null;
+}): number {
+  if (sale.saldoPendienteCents !== undefined && sale.saldoPendienteCents !== null) {
+    const n = Number(sale.saldoPendienteCents);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  if (sale.balance !== undefined && sale.balance !== null) {
+    const n = Number(sale.balance);
+    if (Number.isFinite(n)) return Math.round(n);
+  }
+  if (sale.saldoPendiente) {
+    return parseCurrencyBRLToCents(String(sale.saldoPendiente));
+  }
+  return 0;
 }

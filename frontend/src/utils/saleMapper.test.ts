@@ -29,6 +29,7 @@ describe('mapSaleFromSnapshot', () => {
     expect(mapSaleFromSnapshot(snap)).toEqual({
       id: 'sale-42',
       tenantId: 'tenant-a',
+      unitId: undefined,
       clientId: 'client-9',
       clientName: 'Maria',
       clientDoc: '123',
@@ -38,10 +39,17 @@ describe('mapSaleFromSnapshot', () => {
       idPreVenta: undefined,
       saldoPendiente: undefined,
       saldoPendienteCents: 1200,
+      installments: undefined,
+      installmentAmount: undefined,
+      paidInstallments: undefined,
+      unitName: undefined,
+      lateDays: undefined,
+      lastPaymentAt: undefined,
+      userId: undefined,
     });
   });
 
-  it('prioriza balance explícito sobre saldoPendienteCents', () => {
+  it('prioriza saldoPendienteCents sobre balance (CLEAN-02)', () => {
     const snap = {
       id: 'sale-7',
       exists: () => true,
@@ -51,6 +59,19 @@ describe('mapSaleFromSnapshot', () => {
       }),
     };
 
-    expect(mapSaleFromSnapshot(snap)?.balance).toBe(800);
+    expect(mapSaleFromSnapshot(snap)?.balance).toBe(1200);
+    expect(mapSaleFromSnapshot(snap)?.saldoPendienteCents).toBe(1200);
+  });
+
+  it('faz fallback da string legado saldoPendiente', () => {
+    const snap = {
+      id: 'sale-legacy',
+      exists: () => true,
+      data: () => ({
+        saldoPendiente: '12,50',
+      }),
+    };
+
+    expect(mapSaleFromSnapshot(snap)?.saldoPendienteCents).toBe(1250);
   });
 });

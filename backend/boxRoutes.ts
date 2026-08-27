@@ -380,4 +380,263 @@ export async function confirmBoxHandler(req: AuthenticatedRequest, res: Response
 
 router.post("/confirm", confirmBoxHandler);
 
+function isManagerRole(role: string): boolean {
+  const roleLower = String(role).toLowerCase();
+  return ["gerente", "supervisor", "admin", "superadmin", "director", "coordinador"].includes(roleLower);
+}
+
+/** P1-04 — abertura massiva (gestor) via Admin SDK */
+router.post("/open-batch", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { tenantId, uid: userId, role } = req.user;
+  if (!isManagerRole(role)) {
+    return res.status(403).json({ error: "Acesso negado: apenas gestores podem abrir caixas em massa." });
+  }
+
+  const { date, items, observation } = req.body as {
+    date?: string;
+    observation?: string;
+    items?: Array<{
+      userId: string;
+      userName?: string;
+      unitId: string;
+      unitName?: string;
+      cnId: string;
+      cnName?: string;
+      initialAmount: number;
+    }>;
+  };
+
+  if (!date || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Campos obrigatórios: date e items[]." });
+  }
+  if (items.length > 200) {
+    return res.status(400).json({ error: "Máximo de 200 caixas por lote." });
+  }
+
+  try {
+    const cached = await adminDb.runTransaction(async (transaction) => {
+      const hit = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+      if (hit?.status === "completed") return hit.response;
+      if (hit) throw new Error("Chave de idempotência em processamento.");
+      return null;
+    });
+    if (cached) return res.status(201).json(cached);
+
+    const createdIds: string[] = [];
+    const skipped: Array<{ userId: string; reason: string }> = [];
+    const batch = adminDb.batch();
+    let ops = 0;
+
+    for (const item of items) {
+      if (!item?.userId || !item?.unitId || !item?.cnId || item.initialAmount === undefined) {
+        skipped.push({ userId: String(item?.userId || ""), reason: "Campos incompletos." });
+        continue;
+      }
+      if (!isValidBoxAmount(item.initialAmount)) {
+        skipped.push({ userId: item.userId, reason: "Valor inicial inválido." });
+        continue;
+      }
+
+      const existing = await adminDb
+        .collection("boxes")
+        .where("tenantId", "==", tenantId)
+        .where("unitId", "==", item.unitId)
+        .where("date", "==", date)
+        .where("status", "in", ["open", "closed", "confirmed"])
+        .limit(1)
+        .get();
+
+      if (!existing.empty) {
+        skipped.push({ userId: item.userId, reason: "Já existe caixa nesta unidade/data." });
+        continue;
+      }
+
+      const amountInCents = Math.round(Number(item.initialAmount));
+      const boxRef = adminDb.collection("boxes").doc();
+      batch.set(boxRef, {
+        tenantId,
+        unitId: item.unitId,
+        unitName: item.unitName || "",
+        cnId: item.cnId,
+        cnName: item.cnName || "",
+        userId: item.userId,
+        userName: item.userName || "",
+        status: "open",
+        openedAt: FieldValue.serverTimestamp(),
+        date,
+        initialAmount: amountInCents,
+        observation: observation || "",
+        totalIncomes: 0,
+        totalExpenses: 0,
+        totalSales: 0,
+        totalCollections: 0,
+        totalTransfers: 0,
+        finalAmount: amountInCents,
+        expectedFinalAmount: amountInCents,
+        difference: 0,
+        openedByManagerId: userId,
+      });
+      createdIds.push(boxRef.id);
+      ops += 1;
+    }
+
+    if (ops > 0) {
+      await batch.commit();
+    }
+
+    const responsePayload = {
+      success: true,
+      createdCount: createdIds.length,
+      createdIds,
+      skipped,
+    };
+
+    await adminDb.runTransaction(async (transaction) => {
+      registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+    });
+
+    return res.status(201).json(responsePayload);
+  } catch (error: any) {
+    console.error("Erro open-batch:", error);
+    return res.status(400).json({ error: error.message || "Erro na abertura massiva." });
+  }
+});
+
+/** P1-04 — fechamento massivo (gestor) */
+router.post("/close-batch", async (req: AuthenticatedRequest, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Não autenticado." });
+
+  const idempotencyKey = requireIdempotencyKey(req, res);
+  if (!idempotencyKey) return;
+
+  const { tenantId, uid: userId, role } = req.user;
+  if (!isManagerRole(role)) {
+    return res.status(403).json({ error: "Acesso negado: apenas gestores podem fechar caixas em massa." });
+  }
+
+  const { items } = req.body as {
+    items?: Array<{ boxId: string; realFinalAmount?: number }>;
+  };
+
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: "Informe items[] com boxId." });
+  }
+  if (items.length > 100) {
+    return res.status(400).json({ error: "Máximo de 100 caixas por lote." });
+  }
+
+  try {
+    const cached = await adminDb.runTransaction(async (transaction) => {
+      const hit = await checkIdempotency(transaction, idempotencyKey, userId, tenantId);
+      if (hit?.status === "completed") return hit.response;
+      if (hit) throw new Error("Chave de idempotência em processamento.");
+      return null;
+    });
+    if (cached) return res.json(cached);
+
+    const closed: string[] = [];
+    const failed: Array<{ boxId: string; error: string }> = [];
+
+    for (const item of items) {
+      const boxId = String(item?.boxId || "");
+      if (!boxId) {
+        failed.push({ boxId: "", error: "boxId ausente." });
+        continue;
+      }
+
+      try {
+        await adminDb.runTransaction(async (transaction) => {
+          const boxRef = adminDb.collection("boxes").doc(boxId);
+          const boxSnap = await transaction.get(boxRef);
+          if (!boxSnap.exists) throw new Error("Caixa não encontrada.");
+
+          const boxData = boxSnap.data() || {};
+          if (boxData.tenantId !== tenantId) throw new Error("Acesso negado: Inconsistência de Tenant.");
+          if (boxData.status !== "open") throw new Error("Caixa não está aberta.");
+
+          const incomesQuery = adminDb.collection("incomes").where("boxId", "==", boxId).where("tenantId", "==", tenantId);
+          const expensesQuery = adminDb
+            .collection("expenses")
+            .where("boxId", "==", boxId)
+            .where("tenantId", "==", tenantId)
+            .where("status", "in", ["approved", "pending"]);
+          const salesQuery = adminDb.collection("sales").where("boxId", "==", boxId).where("tenantId", "==", tenantId);
+          const collectionsQuery = adminDb
+            .collection("collections")
+            .where("boxId", "==", boxId)
+            .where("tenantId", "==", tenantId);
+          const transfersQuery = adminDb
+            .collection("transfers")
+            .where("boxId", "==", boxId)
+            .where("tenantId", "==", tenantId);
+
+          const [incomesSnap, expensesSnap, salesSnap, collectionsSnap, transfersSnap] = await Promise.all([
+            transaction.get(incomesQuery),
+            transaction.get(expensesQuery),
+            transaction.get(salesQuery),
+            transaction.get(collectionsQuery),
+            transaction.get(transfersQuery),
+          ]);
+
+          const totalIncomes = incomesSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+          const totalExpenses = expensesSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+          const totalSales = salesSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+          const totalCollections = collectionsSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+          const totalTransfers = transfersSnap.docs.reduce((s, d) => s + (d.data().amount || 0), 0);
+
+          const expectedFinalAmount =
+            boxData.initialAmount + totalCollections + totalIncomes - totalExpenses - totalSales - totalTransfers;
+
+          const realFinal =
+            item.realFinalAmount !== undefined && item.realFinalAmount !== null
+              ? Number(item.realFinalAmount)
+              : expectedFinalAmount;
+
+          if (!isValidBoxAmount(realFinal)) {
+            throw new Error("Valor final real inválido.");
+          }
+
+          transaction.update(boxRef, {
+            status: "closed",
+            closedAt: FieldValue.serverTimestamp(),
+            closedByManagerId: userId,
+            totalIncomes,
+            totalExpenses,
+            totalSales,
+            totalCollections,
+            totalTransfers,
+            finalAmount: realFinal,
+            expectedFinalAmount,
+            difference: realFinal - expectedFinalAmount,
+          });
+        });
+        closed.push(boxId);
+      } catch (err: any) {
+        failed.push({ boxId, error: err?.message || "Falha ao fechar." });
+      }
+    }
+
+    const responsePayload = {
+      success: failed.length === 0,
+      closedCount: closed.length,
+      closed,
+      failed,
+    };
+
+    await adminDb.runTransaction(async (transaction) => {
+      registerIdempotencySuccess(transaction, idempotencyKey, responsePayload, userId, tenantId);
+    });
+
+    return res.json(responsePayload);
+  } catch (error: any) {
+    console.error("Erro close-batch:", error);
+    return res.status(400).json({ error: error.message || "Erro no fechamento massivo." });
+  }
+});
+
 export default router;

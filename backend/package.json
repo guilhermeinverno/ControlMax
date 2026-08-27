@@ -13,6 +13,7 @@
     "start": "cross-env LOCAL_DEV=true node dist/server.js",
     "seed:qa-user": "tsx scripts/seedQaUser.ts",
     "seed:client": "tsx scripts/seedInitialClient.ts",
+    "backfill:claims": "tsx scripts/backfillCustomClaims.ts",
     "test:bff": "vitest run tests/bff.test.ts",
     "test": "vitest run tests/"
   },
