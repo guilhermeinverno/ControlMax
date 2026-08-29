@@ -133,9 +133,9 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
-      items: [{ description: 'Item 1', quantity: 1, unitPriceCents: 2000 }],
+      items: [{ productId: 'prod-1', quantity: 1, unitPriceCents: 2000, totalCents: 2000 }],
       totalCents: 2000,
+      paymentMethod: 'cash',
       createdAt: '2026-08-15T12:30:00Z',
     };
 
@@ -165,8 +165,8 @@ describe('6. Teste de Autenticação e Idempotência no SyncHttpClient e Executo
       tenantId: 'tenant-1',
       boxId: 'box-101',
       customerId: 'customer-1',
-      collectorId: 'collector-1',
       amountCents: 1000,
+      paymentMethod: 'cash',
       createdAt: '2026-08-15T14:00:00Z',
     };
 
