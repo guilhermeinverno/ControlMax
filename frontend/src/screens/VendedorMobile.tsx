@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, onSnapshot, addDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, getDocs, doc, setDoc } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { useSalesListData } from '../hooks/useSalesListData';
@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Screen } from '../types';
 import { formatCurrencyBRL, parseCurrencyBRLToFloat } from '../utils/currency';
+import { generateNumericCustomerId } from '../utils/customerCreate';
 
 interface VendedorMobileProps {
   onNavigate?: (screen: Screen, params?: Record<string, unknown>) => void;
@@ -253,8 +254,9 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
 
     try {
       // Add Customer Doc in Firebase (customers collection) with 10s timeout
-      const docRef = await promiseWithTimeout(
-        addDoc(collection(db, 'customers'), {
+      const newCustomerId = await generateNumericCustomerId();
+      await promiseWithTimeout(
+        setDoc(doc(db, 'customers', newCustomerId), {
           tenantId: tenantId || 'tenant_oficinabrasil',
           unitId: activeBox?.unitId || 'unit-demo',
           unitName: activeBox?.unitName || 'Unidad Demo',
@@ -287,11 +289,11 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           references: []
         }),
         10000,
-        'Tiempo de espera agotado al registrar el cliente. Por favor verifique su conexão a Internet.'
+        'Tiempo de espera agotado al registrar el cliente. Por favor verifique su conexâo a Internet.'
       );
 
       const newClientName = `${firstName} ${lastName1}`.trim();
-      const newClientObj = { id: docRef.id, name: newClientName };
+      const newClientObj = { id: newCustomerId, name: newClientName };
       setCustomers(prev => [newClientObj, ...prev]);
       setSaleClient(newClientObj);
 

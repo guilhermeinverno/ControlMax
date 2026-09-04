@@ -1,4 +1,4 @@
-import { addDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import {
   BusinessCenter,
@@ -97,8 +97,23 @@ export function buildCustomerPayload(
   };
 }
 
+export async function generateNumericCustomerId(): Promise<string> {
+  let isUnique = false;
+  let newId = '';
+  while (!isUnique) {
+    newId = (Math.floor(Math.random() * 90000000) + 10000000).toString();
+    const docRef = doc(db, 'customers', newId);
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      isUnique = true;
+    }
+  }
+  return newId;
+}
+
 export async function persistCustomer(customer: Customer): Promise<void> {
-  await addDoc(collection(db, 'customers'), customer);
+  const newId = await generateNumericCustomerId();
+  await setDoc(doc(db, 'customers', newId), customer);
 }
 
 export const INITIAL_CUSTOMER_FORM: CustomerFormValues = {
