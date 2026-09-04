@@ -1,6 +1,7 @@
 import { FileText, Search } from 'lucide-react';
 import { Customer } from '../../../types/company';
 import { listViewBody } from '../../../utils/listViewBody';
+import { formatDisplayId } from '../../../utils/formatId';
 
 interface CompanyListCustomerGridProps {
   loadingCustomers: boolean;
@@ -77,7 +78,7 @@ export function CompanyListCustomerGrid({
                 <div>
                   <div className="text-[10px] font-bold text-gray-400">ID - Cliente:</div>
                   <div className="text-xs font-mono font-bold text-gray-800 truncate" title={customer.id}>
-                    {customer.id}
+                    {formatDisplayId(customer.id || '')}
                   </div>
                 </div>
 

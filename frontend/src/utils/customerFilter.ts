@@ -1,4 +1,5 @@
 import { Customer } from '../types/company';
+import { formatDisplayId } from './formatId';
 
 export function filterCustomers(
   customers: Customer[],
@@ -15,12 +16,15 @@ export function filterCustomers(
 
     if (!query) return true;
 
+    const displayId = formatDisplayId(customer.id || '');
+
     return (
       customer.name.toLowerCase().includes(query) ||
       customer.apellidos.toLowerCase().includes(query) ||
       customer.apodo?.toLowerCase().includes(query) ||
       customer.documentNumber.includes(query) ||
-      customer.id?.toLowerCase().includes(query)
+      customer.id?.toLowerCase().includes(query) ||
+      displayId.includes(query)
     );
   });
 }

@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { Screen, Sale } from '../types';
 import { ConfirmModal } from './components/ConfirmModal';
 import { ArrowLeft, Camera, Loader2, AlertCircle, X, ImageIcon } from 'lucide-react';
+import { formatDisplayId } from '../utils/formatId';
 import { doc, onSnapshot, runTransaction, collection, serverTimestamp } from 'firebase/firestore';
 import { useBox } from '../hooks/useBox';
 import { useTenant } from '../hooks/useTenant';
@@ -285,8 +286,8 @@ export function RegisterPayment({ onNavigate, params }: RegisterPaymentProps) {
     setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
-  // Short client ID display (first 8 chars)
-  const shortClientId = (sale.clientId || sale.id || '').slice(0, 8).toUpperCase();
+  // Short client ID display (formatted to 10 digits)
+  const shortClientId = formatDisplayId(sale.clientId || sale.id || '');
 
   // Extra details
   const lateDays = sale.lateDays !== undefined

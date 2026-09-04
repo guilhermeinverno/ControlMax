@@ -101,7 +101,8 @@ export async function generateNumericCustomerId(): Promise<string> {
   let isUnique = false;
   let newId = '';
   while (!isUnique) {
-    newId = (Math.floor(Math.random() * 90000000) + 10000000).toString();
+    // Generate a 10-digit numeric ID
+    newId = (Math.floor(Math.random() * 9000000000) + 1000000000).toString();
     const docRef = doc(db, 'customers', newId);
     const snap = await getDoc(docRef);
     if (!snap.exists()) {

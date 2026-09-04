@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { fmtCents } from '../../../utils/fmtCents';
-import { Coins, Edit3, History, User, Camera, Check, X, Mail, MoreVertical, FileText, Info, Image, Clock, MessageSquare, MapPin } from 'lucide-react';
+import { Coins, Edit3, History, User, Camera, Check, MapPin, Phone, MessageCircle, FileText, Clock, CheckCircle2, Copy, Image, MoreVertical, X, Info, MessageSquare } from 'lucide-react';
 import { Screen } from '../../../types';
 import { formatSalesListCents } from '../../../utils/salesListFormat';
 import { SalesListSale, SalesListCollection } from '../../../utils/salesListMapper';
+import { formatDisplayId } from '../../../utils/formatId';
 import { useTenant } from '../../../hooks/useTenant';
 
 interface SalesListSaleCardProps {
@@ -292,7 +293,7 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
             {/* Client names */}
             <div className="flex flex-col leading-none min-w-0 flex-1">
               <span className="font-extrabold text-[#333333] text-[13px] lg:text-[14px] truncate leading-tight">
-                {String(Math.abs((sale.clientId || sale.id).split('').reduce((a, b) => (((a << 5) - a) + b.charCodeAt(0)) | 0, 0))).padStart(6, '0').slice(0, 6)} {sale.clientName}
+                {formatDisplayId(sale.clientId || sale.id)} {sale.clientName}
               </span>
               <span className="text-[10px] font-bold text-gray-500 truncate lowercase mt-0">
                 {sale.clientName.toLowerCase()}
