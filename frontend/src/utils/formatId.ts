@@ -1,1 +1,12 @@
-export function formatDisplayId(originalId: string): string {\n  if (!originalId) return '0000000000';\n  if (/^\\d{10}$/.test(originalId)) return originalId;\n  if (/^\\d+$/.test(originalId)) return originalId.padStart(10, '0');\n  \n  let hash = 0;\n  for (let i = 0; i < originalId.length; i++) {\n    hash = ((hash << 5) - hash) + originalId.charCodeAt(i);\n    hash = hash & hash;\n  }\n  return Math.abs(hash).toString().padStart(10, '0').slice(0, 10);\n}\n
+﻿export function formatDisplayId(originalId: string): string {
+  if (!originalId) return '0000000000';
+  if (/^\d{10}$/.test(originalId)) return originalId;
+  if (/^\d+$/.test(originalId)) return originalId.padStart(10, '0');
+  
+  let hash = 0;
+  for (let i = 0; i < originalId.length; i++) {
+    hash = ((hash << 5) - hash) + originalId.charCodeAt(i);
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString().padStart(10, '0').slice(0, 10);
+}
