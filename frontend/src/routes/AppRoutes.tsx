@@ -184,7 +184,10 @@ function ProtectedRoute({ permission, redirectTo = '/dashboard' }: ProtectedRout
  * PrivateLayout handles user authorization verification, displays a loader while
  * states are synchronizing, protects private routes, and mounts the persistent navigation Layout.
  */
+import { useLocation as useGPSLocation } from '../hooks/useLocation';
+
 function PrivateLayout() {
+  useGPSLocation();
   const [fbUser, setFbUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 

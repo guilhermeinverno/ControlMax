@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, User, Key, Check, Loader2, AlertCircle, LogOut, Download } from 'lucide-react';
 import { useNavigation } from '../context/NavigationContext';
 import { auth } from '../lib/firebase';
@@ -22,6 +22,13 @@ export function WorkerProfile() {
   const [apelido, setApelido] = useState(firstName.toLowerCase());
   const [telefone, setTelefone] = useState('61998132100');
   const [email, setEmail] = useState(user?.email || 'maildojg@gmail.com');
+
+  useEffect(() => {
+    setNomes(firstName);
+    setSobrenomes(lastName);
+    setApelido(firstName.toLowerCase());
+    setEmail(user?.email || 'maildojg@gmail.com');
+  }, [user?.uid, firstName, lastName, user?.email]);
 
   // Change password states
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);

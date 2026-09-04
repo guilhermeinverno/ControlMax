@@ -73,7 +73,7 @@ export function CustomerModalReferencesTab({ customer }: CustomerModalReferences
         <h3 className="text-xs font-extrabold text-gray-600 uppercase tracking-wider">Añadir Referencia Familiar o Comercial</h3>
 
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-black text-gray-400">Nombre Completo *</label>
+          <label className="text-[10px] uppercase font-black text-gray-400">Nombre Completo</label>
           <input
             type="text"
             placeholder="Nombre de la referencia"
@@ -120,7 +120,7 @@ export function CustomerModalReferencesTab({ customer }: CustomerModalReferences
         </div>
 
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-black text-gray-400">Dirección Completa *</label>
+          <label className="text-[10px] uppercase font-black text-gray-400">Dirección Completa</label>
           <input
             type="text"
             placeholder="Calle, número, depto"
@@ -142,7 +142,7 @@ export function CustomerModalReferencesTab({ customer }: CustomerModalReferences
             />
           </div>
           <div className="flex flex-col space-y-1">
-            <label className="text-[10px] uppercase font-black text-gray-400">Celular *</label>
+            <label className="text-[10px] uppercase font-black text-gray-400">Celular</label>
             <input
               type="tel"
               placeholder="Celular con código"
@@ -154,7 +154,7 @@ export function CustomerModalReferencesTab({ customer }: CustomerModalReferences
         </div>
 
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-black text-gray-400">Comentarios / Relación *</label>
+          <label className="text-[10px] uppercase font-black text-gray-400">Comentarios / Relación</label>
           <input
             type="text"
             placeholder="Ej: Madre, Hermano, Socio comercial..."

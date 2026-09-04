@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
@@ -56,6 +56,7 @@ function MapFlyController({
 export function BCMap() {
   const { tenantId, loading: tenantLoading } = useTenant();
   const [centers, setCenters] = useState<BusinessCenter[]>([]);
+  const [collectorLocations, setCollectorLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialLoading, setInitialLoading] = useState(true);
   const [selectedCenter, setSelectedCenter] = useState<BusinessCenter | null>(null);
@@ -103,10 +104,32 @@ export function BCMap() {
   };
 
   useEffect(() => {
-    if (tenantId) {
-      fetchCenters();
-    }
-  }, [tenantId]);
+    if (!tenantLoading) fetchCenters();
+  }, [tenantId, tenantLoading]);
+
+  // Real-time Firestore subscription for collectors
+  useEffect(() => {
+    if (tenantLoading || !tenantId) return;
+
+    const locationsRef = collection(db, 'locations');
+    const q = query(locationsRef, where('tenantId', '==', tenantId));
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const locList: any[] = [];
+        snapshot.forEach((doc) => {
+          locList.push(doc.data());
+        });
+        setCollectorLocations(locList);
+      },
+      (error) => {
+        console.error("Error fetching collector locations:", error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [tenantId, tenantLoading]);
 
   // Track user's own current browser location
   useEffect(() => {
@@ -223,6 +246,31 @@ export function BCMap() {
       className: '',
       iconSize: [32, 32],
       iconAnchor: [16, 16],
+    });
+  };
+
+  const createCollectorIcon = (loc: any) => {
+    const initial = loc.userName ? loc.userName.charAt(0).toUpperCase() : '?';
+    const pinColor = loc.status === 'active' ? '#6B21A8' : '#9CA3AF'; // Purple for collectors
+    return L.divIcon({
+      html: `
+        <div style="
+          position: relative;
+          width: 28px; height: 28px;
+          background: ${pinColor};
+          border: 2px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+          display: flex; align-items: center; justify-content: center;
+          color: white; font-weight: bold; font-size: 11px;
+        ">
+          ${initial}
+        </div>
+      `,
+      className: '',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+      popupAnchor: [0, -14],
     });
   };
 
@@ -348,6 +396,35 @@ export function BCMap() {
                 );
               })}
 
+              {/* Render Collectors */}
+              {collectorLocations
+                .filter((loc) => loc.latitude && loc.longitude)
+                .map((loc) => (
+                  <Marker
+                    key={loc.userId}
+                    position={[loc.latitude, loc.longitude]}
+                    icon={createCollectorIcon(loc)}
+                  >
+                    <Popup>
+                      <div className="p-1" style={{ minWidth: 160 }}>
+                        <div className="font-black text-sm text-[#6B21A8]">{loc.userName}</div>
+                        <div className="text-[11px] text-gray-600 font-bold mt-1">
+                          {loc.unitName} | {loc.cnName}
+                        </div>
+                        {loc.status === 'active' ? (
+                          <span className="inline-block mt-1.5 px-2 py-0.5 bg-green-100 text-green-800 text-[9px] font-black rounded uppercase tracking-wide">
+                            Ativo
+                          </span>
+                        ) : (
+                          <span className="inline-block mt-1.5 px-2 py-0.5 bg-gray-100 text-gray-600 text-[9px] font-black rounded uppercase tracking-wide">
+                            Inativo
+                          </span>
+                        )}
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+
             </MapContainer>
 
             {/* Floating action button to center on user location */}
@@ -371,6 +448,14 @@ export function BCMap() {
               <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-purple-700"></span>
                 <span>Centro Operativo Activo</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#6B21A8]"></span>
+                <span>Cobrador Activo</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+                <span>Cobrador Inactivo</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-gray-500"></span>

@@ -152,7 +152,7 @@ export function UserList() {
 
     // Standardize role to system internal codes
     const roleNormalized = 
-      formRole.toLowerCase().includes('cajero') || formRole.toLowerCase().includes('cobrador') || formRole.toLowerCase().includes('collector')
+      formRole.toLowerCase().includes('cajero') || formRole.toLowerCase().includes('cobrador') || formRole.toLowerCase().includes('collector') || formRole.toLowerCase().includes('vendedor')
         ? 'collector'
         : formRole.toLowerCase().includes('admin')
         ? 'admin'
@@ -542,6 +542,7 @@ export function UserList() {
                     <option value="Administrador">Administrador</option>
                     <option value="Revisador">Revisador</option>
                     <option value="Cajero">Cajero / Operador de Caja</option>
+                    <option value="Vendedor">Vendedor / Cobrador</option>
                     <option value="Supervisor">Supervisor de Ruta</option>
                     <option value="Secretaria">Secretaria</option>
                   </select>

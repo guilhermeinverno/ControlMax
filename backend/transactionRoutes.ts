@@ -148,8 +148,8 @@ router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
   }
 
   const parsedAmount = Math.round(Number(amountCents));
-  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior que zero." });
+  if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
+    return res.status(400).json({ error: "Valor monetário inválido. Deve ser um número finito maior ou igual a zero." });
   }
 
   try {

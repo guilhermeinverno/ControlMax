@@ -1,5 +1,4 @@
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "./firebase";
+import { adminDb } from "./authMiddleware";
 
 function toDate(value: { toDate?: () => Date; seconds?: number } | null | undefined): Date | null {
   if (!value) return null;
@@ -20,58 +19,63 @@ export async function buildOperationalContext(tenantId: string): Promise<string>
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const qUsers = query(
-    collection(db, "users"),
-    where("tenantId", "==", tenantId),
-    where("role", "==", "collector"),
-    where("active", "==", true)
-  );
-  const usersSnap = await getDocs(qUsers);
+  // Usa Admin SDK — sem restrições de security rules, inicializa via ADC no Cloud Functions
+  const usersSnap = await adminDb.collection("users")
+    .where("tenantId", "==", tenantId)
+    .where("role", "==", "collector")
+    .where("active", "==", true)
+    .get();
+
   const collectors = usersSnap.docs.map((docSnap) => ({
     id: docSnap.id,
     name: docSnap.data().name || docSnap.data().username || "Coletor",
     ...docSnap.data(),
   }));
 
-  const qBoxes = query(
-    collection(db, "boxes"),
-    where("tenantId", "==", tenantId),
-    where("status", "==", "open")
-  );
-  const boxesSnap = await getDocs(qBoxes);
+  const boxesSnap = await adminDb.collection("boxes")
+    .where("tenantId", "==", tenantId)
+    .where("status", "==", "open")
+    .get();
+
   const openBoxes = boxesSnap.docs
     .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((box) => isToday(box.openedAt));
+    .filter((box) => isToday(box.openedAt as any));
 
-  const qRoutes = query(collection(db, "routes"), where("tenantId", "==", tenantId));
-  const routesSnap = await getDocs(qRoutes);
+  const routesSnap = await adminDb.collection("routes")
+    .where("tenantId", "==", tenantId)
+    .get();
+
   const routes = routesSnap.docs
     .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((r) => r.active !== false);
+    .filter((r) => (r as any).active !== false);
 
-  const qCollections = query(collection(db, "collections"), where("tenantId", "==", tenantId));
-  const collectionsSnap = await getDocs(qCollections);
+  const collectionsSnap = await adminDb.collection("collections")
+    .where("tenantId", "==", tenantId)
+    .get();
+
   const collectionsToday = collectionsSnap.docs
     .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((col) => isToday(col.createdAt));
+    .filter((col) => isToday((col as any).createdAt));
 
   const totalCollectedTodayCents = collectionsToday.reduce(
-    (sum, col) => sum + (col.amount || 0),
+    (sum, col) => sum + ((col as any).amount || 0),
     0
   );
 
-  const qSales = query(collection(db, "sales"), where("tenantId", "==", tenantId));
-  const salesSnap = await getDocs(qSales);
+  const salesSnap = await adminDb.collection("sales")
+    .where("tenantId", "==", tenantId)
+    .get();
+
   const salesToday = salesSnap.docs
     .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-    .filter((sale) => isToday(sale.createdAt));
+    .filter((sale) => isToday((sale as any).createdAt));
 
   const totalSalesTodayCents = salesToday.reduce(
-    (sum, s) => sum + (s.totalAmount || s.amount || 0),
+    (sum, s) => sum + ((s as any).totalAmount || (s as any).amount || 0),
     0
   );
 
-  const collectorIdsWithOpenBox = new Set(openBoxes.map((b) => b.userId));
+  const collectorIdsWithOpenBox = new Set(openBoxes.map((b) => (b as any).userId));
   const notOnRouteCollectors = collectors.filter((c) => !collectorIdsWithOpenBox.has(c.id));
   const onRouteCollectors = collectors.filter((c) => collectorIdsWithOpenBox.has(c.id));
 
@@ -88,7 +92,7 @@ Data/Hora Atual do Servidor: ${new Date().toLocaleString("pt-BR")}
 Cobradores Ativos Cadastrados (Total ${collectors.length}): ${formatNames(collectors)}
 Cobradores em Rota Hoje (Caixa Aberto Hoje) (Total ${onRouteCollectors.length}): ${formatNames(onRouteCollectors)}
 Cobradores que ainda NÃO saíram para a rota hoje (Sem caixa aberto hoje) (Total ${notOnRouteCollectors.length}): ${formatNames(notOnRouteCollectors)}
-Rotas Ativas Cadastradas: ${formatRoutes(routes)}
+Rotas Ativas Cadastradas: ${formatRoutes(routes as any[])}
 Faturamento Hoje (Vendas): R$ ${(totalSalesTodayCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
 Total Cobrado Hoje (Recebimentos): R$ ${(totalCollectedTodayCents / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
 ----------------------------------------

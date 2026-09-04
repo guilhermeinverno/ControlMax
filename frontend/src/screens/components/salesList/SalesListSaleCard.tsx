@@ -56,7 +56,7 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
         return;
       }
       const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-      const msg = encodeURIComponent(`Olá ${sale.clientName}, tudo bem? Entro em contato referente ao ControlMax.`);
+      const msg = encodeURIComponent(`Olá ${sale.clientName}, tudo bem? Entro em contato referente ao pagamento do empréstimo.`);
       window.open(`https://wa.me/${formattedPhone}?text=${msg}`, '_blank');
     } catch (err) {
       alert(`Não foi possível abrir o WhatsApp do cliente ${sale.clientName}.`);
@@ -292,7 +292,7 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
             {/* Client names */}
             <div className="flex flex-col leading-none min-w-0 flex-1">
               <span className="font-extrabold text-[#333333] text-[13px] lg:text-[14px] truncate leading-tight">
-                {(sale.clientId || '1000').slice(0, 7)} {sale.clientName}
+                {String(Math.abs((sale.clientId || sale.id).split('').reduce((a, b) => (((a << 5) - a) + b.charCodeAt(0)) | 0, 0))).padStart(6, '0').slice(0, 6)} {sale.clientName}
               </span>
               <span className="text-[10px] font-bold text-gray-500 truncate lowercase mt-0">
                 {sale.clientName.toLowerCase()}
@@ -326,8 +326,8 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
           <div className="flex items-center space-x-2">
             <div>
               <span className="block text-[10px] text-gray-400 font-bold uppercase tracking-wide leading-none mb-0.5">Pagamento</span>
-              <span className={`font-extrabold text-xs ${hasPaidToday ? 'text-green-600' : 'text-gray-400'}`}>
-                {hasPaidToday ? '✓ Pago' : '--'}
+              <span className={`font-extrabold text-xs ${hasPaidToday ? 'text-green-600' : hasNoPaymentToday ? 'text-[#DC2626]' : 'text-gray-400'}`}>
+                {hasPaidToday ? '✓ Pago' : hasNoPaymentToday ? '✕ Não Pago' : '--'}
               </span>
             </div>
             {/* Button 1: Registrar Pagamento */}
@@ -402,16 +402,16 @@ export function SalesListSaleCard({ sale, collections, onNavigate }: SalesListSa
                 <button
                   onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'no-payment' })}
                   className={`flex items-center justify-center rounded-lg transition-all active:scale-95 duration-150 p-0.5 cursor-pointer select-none shrink-0 ${
-                    hasNoPaymentToday ? 'bg-red-100 ring-2 ring-red-500' : 'hover:bg-purple-50'
+                    hasNoPaymentToday ? 'bg-red-500 ring-2 ring-red-600 shadow-md' : 'hover:bg-purple-50'
                   }`}
                   title="Registrar não pagamento"
                 >
                   <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "#FEE2E2" : "#FAF5FF"} stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5"/>
-                    <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2"/>
-                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "#DC2626" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
-                    <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "#DC2626" : "#6A008A"}/>
-                    <path d="M33 31L39 37M39 31L33 37" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "transparent" : "#FAF5FF"} stroke={hasNoPaymentToday ? "white" : "#6A008A"} strokeWidth="2.5"/>
+                    <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "white" : "#6A008A"} strokeWidth="2"/>
+                    <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "white" : "#6A008A"} strokeWidth="2.5" strokeLinecap="round"/>
+                    <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "white" : "#6A008A"}/>
+                    <path d="M33 31L39 37M39 31L33 37" stroke={hasNoPaymentToday ? "#EF4444" : "white"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
               </div>

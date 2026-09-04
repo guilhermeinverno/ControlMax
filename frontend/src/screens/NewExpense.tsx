@@ -10,7 +10,8 @@ import { expenseSuccessMessage, persistExpense, validateExpenseForm } from '../u
 import { persistIncomeAndUpdateBox, validateIncomeForm } from '../utils/incomeSave';
 import { formatCurrencyBRL, autocompleteCurrencyBRL } from '../utils/currency';
 import { formatFirestoreDate } from '../utils/firestoreTimestamp';
-import { auth } from '../lib/firebase';
+import { auth, storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   ArrowLeft,
   Share2, 
@@ -61,6 +62,7 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [fileUrl, setFileUrl] = useState('');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   const { activeBox } = useBox();
   const currentUser = auth?.currentUser;
@@ -80,6 +82,7 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
     if (!file) return;
 
     setFileName(file.name);
+    setUploadFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
@@ -96,6 +99,22 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
     setShowConfirm(false);
 
     try {
+      let finalFileUrl = fileUrl;
+
+      if (uploadFile) {
+        try {
+          const fileExt = uploadFile.name.split('.').pop() || 'jpg';
+          const storageRef = ref(storage, `attachments/${tenantId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`);
+          const snapshot = await uploadBytes(storageRef, uploadFile);
+          finalFileUrl = await getDownloadURL(snapshot.ref);
+        } catch (uploadErr) {
+          console.error('Error uploading file:', uploadErr);
+          setSaveError('Error al subir el anexo. Intente nuevamente.');
+          setSaving(false);
+          return;
+        }
+      }
+
       if (movementType === 'gasto') {
         const payload = {
           tenantId,
@@ -109,7 +128,7 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
           comment: comment || selectedDescription,
           description: description || selectedDescription,
           fileName,
-          fileUrl,
+          fileUrl: finalFileUrl,
           userName,
           role,
           isSuperAdmin,
@@ -136,7 +155,7 @@ export function NewExpense({ onNavigate }: NewExpenseProps) {
           comment: comment || selectedDescription,
           description: description || selectedDescription,
           fileName,
-          fileUrl,
+          fileUrl: finalFileUrl,
           userName,
         };
 

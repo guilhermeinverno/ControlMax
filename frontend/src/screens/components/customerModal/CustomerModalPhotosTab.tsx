@@ -12,10 +12,21 @@ interface CustomerModalPhotosTabProps {
 
 export function CustomerModalPhotosTab({ customer }: CustomerModalPhotosTabProps) {
   const [photos, setPhotos] = useState<string[]>(customer.photos || []);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     setPhotos(customer.photos || []);
   }, [customer]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedPhoto) {
+        setSelectedPhoto(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedPhoto]);
 
   const photosToDisplay = photos.length > 0 ? photos : DEMO_PHOTOS;
 
@@ -63,16 +74,19 @@ export function CustomerModalPhotosTab({ customer }: CustomerModalPhotosTabProps
         <h4 className="text-xs font-extrabold text-gray-400 uppercase tracking-wide">Fotos principales</h4>
         <div className="grid grid-cols-3 gap-3">
           {photosToDisplay.map((photo) => (
-            <div key={photo} className="relative aspect-square border border-gray-100 rounded-2xl overflow-hidden bg-gray-50 shadow-xs group">
+            <div key={photo} className="relative aspect-square border border-gray-100 rounded-2xl overflow-hidden bg-gray-50 shadow-xs group cursor-zoom-in" onClick={() => setSelectedPhoto(photo)}>
               <img
                 src={photo}
                 alt="Foto do cliente"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover transition-transform group-hover:scale-105"
                 referrerPolicy="no-referrer"
               />
               <button
                 type="button"
-                onClick={() => handleDeletePhoto(photo)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePhoto(photo);
+                }}
                 className="absolute top-1.5 right-1.5 bg-white text-gray-600 hover:text-red-500 rounded-full p-1 shadow-sm transition-transform scale-90 group-hover:scale-100 cursor-pointer"
                 title="Eliminar foto"
               >
@@ -90,11 +104,11 @@ export function CustomerModalPhotosTab({ customer }: CustomerModalPhotosTabProps
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {photosToDisplay.map((photo) => (
-              <div key={photo} className="aspect-video border border-gray-100 rounded-2xl overflow-hidden bg-gray-50 shadow-xs">
+              <div key={photo} className="aspect-video border border-gray-100 rounded-2xl overflow-hidden bg-gray-50 shadow-xs cursor-zoom-in group" onClick={() => setSelectedPhoto(photo)}>
                 <img
                   src={photo}
                   alt="Foto do expediente"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform group-hover:scale-105"
                   referrerPolicy="no-referrer"
                 />
               </div>
@@ -102,6 +116,37 @@ export function CustomerModalPhotosTab({ customer }: CustomerModalPhotosTabProps
           </div>
         )}
       </div>
+
+      {/* Image Lightbox Modal */}
+      {selectedPhoto && (
+        <div 
+          className="fixed inset-0 z-[9999] bg-black/90 flex flex-col items-center justify-center p-4 md:p-8 animate-fadeIn cursor-pointer"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div className="absolute top-4 right-4 z-50">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedPhoto(null);
+              }}
+              className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors cursor-pointer"
+              title="Cerrar (ESC)"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          
+          <div className="relative w-full max-w-5xl h-full flex items-center justify-center pointer-events-none">
+            <img
+              src={selectedPhoto}
+              alt="Foto ampliada"
+              className="max-w-full max-h-full object-contain shadow-2xl rounded pointer-events-auto"
+              referrerPolicy="no-referrer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

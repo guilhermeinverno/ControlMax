@@ -5,7 +5,7 @@
   "type": "module",
   "main": "dist/server.js",
   "engines": {
-    "node": "20"
+    "node": "22"
   },
   "scripts": {
     "dev": "cross-env LOCAL_DEV=true tsx server.ts",

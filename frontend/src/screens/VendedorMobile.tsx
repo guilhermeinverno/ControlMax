@@ -744,7 +744,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                 <div className="w-8 h-8 rounded-full bg-[#6B119C] flex items-center justify-center text-white mr-3 shrink-0">
                   <ArrowLeftRight className="w-4 h-4 text-white" />
                 </div>
-                <span className="text-xs font-black text-slate-700 tracking-wide whitespace-nowrap">Transferências</span>
+                <span className="text-xs font-black text-slate-700 tracking-wide">Transferências</span>
               </button>
 
               <button onClick={() => { nav('new-expense'); setIsDrawerOpen(false); }} className="flex items-center text-left py-2 px-3 rounded-xl hover:bg-purple-50 transition-colors w-full cursor-pointer group">
@@ -883,7 +883,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                         </div>
                         <div className="flex flex-col leading-none min-w-0 flex-1">
                           <span className="font-extrabold text-[#333333] text-[13px] truncate">
-                            {sale.id.slice(0, 7)} {sale.clientName}
+                            {String(Math.abs(sale.id.split('').reduce((a, b) => (((a << 5) - a) + b.charCodeAt(0)) | 0, 0))).padStart(6, '0').slice(0, 6)} {sale.clientName}
                           </span>
                           <span className="text-[10px] font-bold text-gray-500 truncate lowercase mt-0.5">
                             {sale.clientName.toLowerCase()}
@@ -1005,16 +1005,16 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                       <button
                         onClick={() => onNavigate?.('register-payment', { saleId: sale.id, mode: 'no-payment' })}
                         className={`flex items-center justify-center rounded-lg p-1 cursor-pointer shrink-0 transition-all active:scale-95 border-none outline-none ${
-                          hasNoPaymentToday ? 'bg-red-100 ring-2 ring-red-500' : 'hover:bg-purple-50'
+                          hasNoPaymentToday ? 'bg-red-500 ring-2 ring-red-600 shadow-md' : 'hover:bg-purple-50'
                         }`}
                         title="Registrar não pagamento (ex: Loja fechada / Cliente sem dinheiro)"
                       >
                         <svg width="42" height="42" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "#FEE2E2" : "#FAF5FF"} stroke={hasNoPaymentToday ? "#DC2626" : "#6B119C"} strokeWidth="2.5"/>
-                          <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "#DC2626" : "#6B119C"} strokeWidth="2"/>
-                          <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "#DC2626" : "#6B119C"} strokeWidth="2.5" strokeLinecap="round"/>
-                          <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "#DC2626" : "#D1D5DB"}/>
-                          <path d="M33 31L39 37M39 31L33 37" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                          <rect x="6" y="14" width="28" height="18" rx="2" transform="rotate(-10 6 14)" fill={hasNoPaymentToday ? "transparent" : "#FAF5FF"} stroke={hasNoPaymentToday ? "white" : "#6B119C"} strokeWidth="2.5"/>
+                          <circle cx="20" cy="22" r="4" stroke={hasNoPaymentToday ? "white" : "#6B119C"} strokeWidth="2"/>
+                          <path d="M28 28C32 28 36 24 36 20C36 16 32 12 28 12" stroke={hasNoPaymentToday ? "white" : "#6B119C"} strokeWidth="2.5" strokeLinecap="round"/>
+                          <circle cx="36" cy="34" r="8" fill={hasNoPaymentToday ? "white" : "#D1D5DB"}/>
+                          <path d="M33 31L39 37M39 31L33 37" stroke={hasNoPaymentToday ? "#EF4444" : "white"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                       </button>
                     </div>
@@ -1827,7 +1827,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                         return;
                       }
                       const formattedPhone = cleanPhone.length <= 11 ? `55${cleanPhone}` : cleanPhone;
-                      const msg = encodeURIComponent(`Olá ${ctxSale.clientName}, tudo bem? Entro em contato referente ao ControlMax.`);
+                      const msg = encodeURIComponent(`Olá ${ctxSale.clientName}, tudo bem? Entro em contato referente ao pagamento do empréstimo.`);
                       window.open(`https://wa.me/${formattedPhone}?text=${msg}`, '_blank');
                     } catch (err) {
                       alert(`Não foi possível abrir o WhatsApp do cliente ${ctxSale.clientName}.`);

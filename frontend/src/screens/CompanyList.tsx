@@ -106,6 +106,7 @@ export function CompanyList({ params, onNavigate }: CompanyListProps) {
 
       {listData.selectedCustomerForModal && (
         <CustomerDetailModal
+          key={listData.selectedCustomerForModal.id}
           customer={
             listData.customers.find((customer) => customer.id === listData.selectedCustomerForModal?.id) ||
             listData.selectedCustomerForModal

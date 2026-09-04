@@ -17,14 +17,26 @@ dotenv.config();
 const app = express();
 const PORT = 3000; // Porta local de desenvolvimento — não expõe stack em produção sem proxy reverso
 
-// Configuração estrita de CORS baseada na variável FRONTEND_ORIGIN
-const allowedOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:5173";
+// Origens permitidas: env var + domínios padrão do Firebase Hosting
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN || "http://localhost:5173",
+  "https://controlmax-ia.web.app",
+  "https://controlmax-ia.firebaseapp.com",
+].filter(Boolean);
+
 app.use(cors({
-  origin: allowedOrigin,
+  origin: (origin, callback) => {
+    // Permite requisições sem origin (ex.: mobile apps, curl, Cloud Functions internas)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS: Origem não permitida — ${origin}`));
+    }
+  },
   credentials: true,
 }));
 
-console.log(`[CORS] Permitindo acesso exclusivamente à origem: ${allowedOrigin}`);
+console.log(`[CORS] Origens permitidas: ${allowedOrigins.join(", ")}`);
 
 app.use(express.json({ limit: "50mb" }));
 
@@ -45,13 +57,17 @@ app.use("/api/boxes", authMiddleware, boxRoutes);
 app.use("/api/transactions", authMiddleware, transactionRoutes);
 app.use("/api/admin", authMiddleware, adminRoutes);
 
-if (process.env.LOCAL_DEV === 'true') {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server local rodando na porta ${PORT}`);
-  });
-}
+// Removido app.listen para evitar timeout no deploy do Firebase.
+// O Cloud Functions gerencia o servidor.
 
 import { onRequest } from 'firebase-functions/v2/https';
 
 // Exportando a aplicação como uma Firebase Cloud Function (Gen 2 com acesso público)
-export const api = onRequest({ invoker: 'public', region: 'us-central1' }, app);
+// O secret GEMINI_API_KEY é injetado automaticamente pelo Firebase Secrets Manager
+export const api = onRequest({
+  invoker: 'public',
+  region: 'us-central1',
+  secrets: ['GEMINI_API_KEY'],
+  memory: '512MiB',
+  timeoutSeconds: 60,
+}, app);

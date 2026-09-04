@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth, onAuthStateChanged as fbOnAuthStateChanged, User } from 'firebase/auth';
+import { getStorage, FirebaseStorage } from 'firebase/storage';
 import { 
   getFirestore, 
   initializeFirestore, 
@@ -39,6 +40,7 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let authInstance: Auth;
 let firestoreDb: Firestore;
+let storageInstance: FirebaseStorage;
 
 try {
   if (!firebaseConfig.apiKey) {
@@ -55,6 +57,7 @@ try {
   }
   
   authInstance = getAuth(app);
+  storageInstance = getStorage(app);
   
   let localCacheSetting: FirestoreLocalCache | undefined;
   if (typeof window !== 'undefined') {
@@ -133,6 +136,14 @@ if (!firestoreDb) {
   }
 }
 
+if (!storageInstance) {
+  try {
+    storageInstance = getStorage();
+  } catch (e) {
+    storageInstance = {} as unknown as FirebaseStorage;
+  }
+}
+
 // Reverted back to standard Firebase implementation for production release
 
 export const getDemoUser = (): User | null => null;
@@ -149,4 +160,5 @@ export function onAuthStateChanged(
 
 export const auth = authInstance;
 export const db = firestoreDb;
+export const storage = storageInstance;
 

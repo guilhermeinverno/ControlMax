@@ -10,6 +10,8 @@ import { persistIncomeAndUpdateBox, validateIncomeForm } from '../utils/incomeSa
 import { persistExpense, validateExpenseForm, expenseSuccessMessage } from '../utils/expenseSave';
 import { formatCurrencyBRL, autocompleteCurrencyBRL } from '../utils/currency';
 import { formatFirestoreDate } from '../utils/firestoreTimestamp';
+import { auth, storage } from '../lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   ArrowLeft, 
   Share2, 
@@ -59,11 +61,14 @@ export function NewIncome({ onNavigate }: NewIncomeProps) {
   const selectedBoxName = currentSelectedBox?.userName || '';
   const unifiedHistory = incomes;
 
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+
   const handleFileChange = (e: HtmlInputChangeEvent) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
+    setUploadFile(file);
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
@@ -80,6 +85,22 @@ export function NewIncome({ onNavigate }: NewIncomeProps) {
     setShowConfirm(false);
 
     try {
+      let finalFileUrl = fileUrl;
+
+      if (uploadFile) {
+        try {
+          const fileExt = uploadFile.name.split('.').pop() || 'jpg';
+          const storageRef = ref(storage, `attachments/${tenantId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`);
+          const snapshot = await uploadBytes(storageRef, uploadFile);
+          finalFileUrl = await getDownloadURL(snapshot.ref);
+        } catch (uploadErr) {
+          console.error('Error uploading file:', uploadErr);
+          setSaveError('Error al subir el anexo. Intente nuevamente.');
+          setSaving(false);
+          return;
+        }
+      }
+
       if (movementType === 'gasto') {
         const payload = {
           tenantId,
@@ -93,7 +114,7 @@ export function NewIncome({ onNavigate }: NewIncomeProps) {
           comment: comment || selectedDescription,
           description: description || selectedDescription,
           fileName,
-          fileUrl,
+          fileUrl: finalFileUrl,
           userName,
           role,
           isSuperAdmin,
@@ -120,7 +141,7 @@ export function NewIncome({ onNavigate }: NewIncomeProps) {
           comment: comment || selectedDescription,
           description: description || selectedDescription,
           fileName,
-          fileUrl,
+          fileUrl: finalFileUrl,
           userName,
         };
 
