@@ -9,6 +9,7 @@ export interface TenantSetters {
   setTenantId: (v: string) => void;
   setRole: (v: UserRole) => void;
   setUserName: (v: string) => void;
+  setUserPhone: (v: string) => void;
   setIsSuperAdmin: (v: boolean) => void;
   setLoading: (v: boolean) => void;
   setError: (v: string | null) => void;
@@ -40,6 +41,7 @@ export function applyExistingUserDoc(
       ? `Super Admin (${impersonated})`
       : String(data.userName || data.name || user.displayName || user.email?.split('@')[0] || '')
   );
+  setters.setUserPhone(String(data.phone || ''));
   setters.setUserId(user.uid);
   
   // Resolve units

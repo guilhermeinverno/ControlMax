@@ -79,7 +79,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   const [saleAmount, setSaleAmount] = useState('');
   const [saleInterest, setSaleInterest] = useState('20');
   const [saleFrequency, setSaleFrequency] = useState<'diaria' | 'semanal_juros' | 'quinzenal' | 'mensal' | 'semanal_fixa'>('diaria');
-  const [saleInstallments, setSaleInstallments] = useState(20);
+  const [saleInstallments, setSaleInstallments] = useState(10);
   const [saleInstallmentValue, setSaleInstallmentValue] = useState('');
   const [saleNotes, setSaleNotes] = useState('');
   const [salePhotoUrl, setSalePhotoUrl] = useState('');
@@ -205,6 +205,20 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   
   const totalBalanceCents = sales.reduce((sum, s) => sum + (s.saldoPendienteCents || s.balance || 0), 0) || 100800500;
   const totalBalanceString = (totalBalanceCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  const [isTourActive, setIsTourActive] = useState(localStorage.getItem('cm_tour_completed') !== 'true');
+
+  const completeTour = () => {
+    localStorage.setItem('cm_tour_completed', 'true');
+    setIsTourActive(false);
+  };
+
+  useEffect(() => {
+    if (isTourActive && activeView === 'new-sale' && saleClient.id) {
+      // Complete tour once they reach new sale
+      completeTour();
+    }
+  }, [isTourActive, activeView, saleClient.id]);
 
   // Filter Sales list based on search term
   const filteredSales = sales.filter(sale => {
@@ -443,7 +457,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       setSaleNotes('');
       setSalePhotoUrl('');
       setSalePhotoName('');
-      setSaleInstallments(20);
+      setSaleInstallments(10);
 
       // Show success and navigate back after delay
       alert('¡Venta registrada con éxito!');
@@ -1031,7 +1045,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           <div className="fixed bottom-6 right-6 z-40">
             <button
               onClick={() => setIsFloatingMenuOpen(true)}
-              className="w-14 h-14 bg-[#6B119C] text-white rounded-full shadow-[0_4px_15px_rgba(107,17,156,0.4)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 hover:scale-105"
+              className={`w-14 h-14 bg-[#6B119C] text-white rounded-full shadow-[0_4px_15px_rgba(107,17,156,0.4)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 hover:scale-105 ${isTourActive ? 'animate-pulse ring-4 ring-[#6B119C] ring-offset-2' : ''}`}
               title="Menu de Ações"
             >
               <Plus size={28} strokeWidth={2.5} />
@@ -1055,9 +1069,9 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                     setIsFloatingMenuOpen(false);
                     setActiveView('new-customer');
                   }}
-                  className="w-full bg-[#6B119C] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-md flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none font-bold"
+                  className={`w-full bg-[#6B119C] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-md flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none font-bold ${isTourActive ? 'animate-pulse ring-4 ring-[#6B119C] ring-offset-2' : ''}`}
                 >
-                  <span>Cliente Novo</span>
+                  <span>Cliente Novo {isTourActive && ' (Comece Aqui)'}</span>
                   <UserPlus size={24} strokeWidth={2} />
                 </button>
 

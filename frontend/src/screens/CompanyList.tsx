@@ -15,7 +15,7 @@ interface CompanyListProps {
 }
 
 export function CompanyList({ params, onNavigate }: CompanyListProps) {
-  const { tenantId } = useTenant();
+  const { tenantId, role, usuarioUnidades } = useTenant();
   const [activeTab, setActiveTab] = useState<'list' | 'create'>(() => 
     params?.initialTab === 'create' ? 'create' : 'list'
   );
@@ -31,6 +31,8 @@ export function CompanyList({ params, onNavigate }: CompanyListProps) {
   const listData = useCompanyListData({
     tenantId,
     clientId: params?.clientId,
+    role,
+    usuarioUnidades
   });
 
   const handleCreated = useCallback(() => {

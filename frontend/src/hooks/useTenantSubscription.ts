@@ -10,6 +10,7 @@ function clearTenantSession(setters: TenantSetters) {
   setters.setTenantId('');
   setters.setRole('collector');
   setters.setUserName('');
+  setters.setUserPhone('');
   setters.setIsSuperAdmin(false);
   setters.setUserId('');
   setters.setUsuarioUnidades([]);

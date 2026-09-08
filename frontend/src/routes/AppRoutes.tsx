@@ -199,8 +199,9 @@ function PrivateLayout() {
     return unsub;
   }, []);
 
-  const { role, isSuperAdmin, loading: tenantLoading, error: tenantError, retry } = useTenant();
+  const { role, isSuperAdmin, loading: tenantLoading, error: tenantError, retry, userName, userPhone } = useTenant();
   const { navState, navigate } = useNavigation();
+  const location = useLocation();
 
   if (authLoading || (fbUser && tenantLoading)) {
     return <AppLoadingSpinner label="Cargando aplicación..." />;
@@ -212,6 +213,10 @@ function PrivateLayout() {
 
   if (!fbUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (role === 'collector' && (!userName || !userPhone) && location.pathname !== '/worker-profile') {
+    return <Navigate to="/worker-profile" replace />;
   }
 
   // Restrição Corporativa: Vendedores/Cobradores (role: collector) devem acessar exclusivamente pelo App Móvel/PWA

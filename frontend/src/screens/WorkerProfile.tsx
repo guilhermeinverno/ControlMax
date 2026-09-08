@@ -8,35 +8,62 @@ import { useLayoutUi } from '../hooks/useLayoutUi';
 export function WorkerProfile() {
   const { navigate } = useNavigation();
   const user = auth.currentUser;
-
-  // Split name for mock display if firebase names aren't set
-  const fullName = user?.displayName || 'Jose Alvares';
-  const nameParts = fullName.split(' ');
-  const firstName = nameParts[0] || 'jose';
-  const lastName = nameParts.slice(1).join(' ') || 'alvares';
-
-  // Local editable form state
-  const [nomes, setNomes] = useState(firstName);
-  const [sobrenomes, setSobrenomes] = useState(lastName);
-  const [documento, setDocumento] = useState('00793275164');
-  const [apelido, setApelido] = useState(firstName.toLowerCase());
-  const [telefone, setTelefone] = useState('61998132100');
-  const [email, setEmail] = useState(user?.email || 'maildojg@gmail.com');
-
+  
+  const [nomes, setNomes] = useState('');
+  const [telefone, setTelefone] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // Real Profile fetch
   useEffect(() => {
-    setNomes(firstName);
-    setSobrenomes(lastName);
-    setApelido(firstName.toLowerCase());
-    setEmail(user?.email || 'maildojg@gmail.com');
-  }, [user?.uid, firstName, lastName, user?.email]);
+    if (!user) return;
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      import('../lib/firebase').then(({ db }) => {
+        getDoc(doc(db, 'users', user.uid)).then(snap => {
+          if (snap.exists()) {
+            const data = snap.data();
+            setNomes(data.name || '');
+            setTelefone(data.phone || '');
+          }
+          setLoadingProfile(false);
+        }).catch(() => setLoadingProfile(false));
+      });
+    });
+  }, [user]);
 
-  // Change password states
+  const [documento, setDocumento] = useState('');
+  const [apelido, setApelido] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
+
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
-  const [passwordError, setPasswordError] = useState<string | null>(null);
-  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
   const [updatingPassword, setUpdatingPassword] = useState(false);
-  const [showSaveToast, setShowSaveToast] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const { handleInstallClick } = useLayoutUi();
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+    setSavingProfile(true);
+    try {
+      const { doc, setDoc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      await setDoc(doc(db, 'users', user.uid), {
+        name: nomes,
+        phone: telefone,
+      }, { merge: true });
+      import('react-hot-toast').then(({ toast }) => toast.success('Perfil salvo com sucesso!'));
+      
+      // If they just completed first access
+      const { role } = await import('../hooks/useTenantHelpers').then(m => m.mapRoleFromFirestore('collector', user.email || ''));
+      navigate('dashboard');
+    } catch (err) {
+      console.error(err);
+      import('react-hot-toast').then(({ toast }) => toast.error('Erro ao salvar perfil.'));
+    }
+    setSavingProfile(false);
+  };
 
   // Generate a mock PIN based on user metadata or static reference
   const pinCode = user?.uid ? `CM${user.uid.substring(0, 10).toUpperCase()}` : 'CM65BKKQ2073';
@@ -49,46 +76,30 @@ export function WorkerProfile() {
     }
 
     setUpdatingPassword(true);
-    setPasswordError(null);
-    setPasswordSuccess(null);
+    setPasswordError('');
+    setPasswordSuccess('');
 
     try {
       if (user) {
         await updatePassword(user, newPassword);
-        setPasswordSuccess('Senha atualizada com sucesso!');
+        setPasswordSuccess('Senha alterada com sucesso! Você pode fechar esta tela.');
         setNewPassword('');
-        setTimeout(() => {
-          setIsPasswordModalOpen(false);
-          setPasswordSuccess(null);
-        }, 1800);
       } else {
-        throw new Error('Usuário não autenticado');
+        setPasswordError('Nenhum usuário logado.');
       }
     } catch (err: any) {
-      console.error('Error updating password:', err);
-      setPasswordError(err?.message || 'Erro ao atualizar a senha. Tente fazer login novamente.');
+      setPasswordError(
+        err.code === 'auth/requires-recent-login'
+          ? 'Você precisa fazer login novamente para alterar a senha.'
+          : 'Erro ao alterar a senha. Tente novamente.'
+      );
     } finally {
       setUpdatingPassword(false);
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowSaveToast(true);
-    setTimeout(() => {
-      setShowSaveToast(false);
-    }, 2500);
-  };
-
   return (
     <div className="flex flex-col bg-[#F5F5F7] min-h-screen text-[#333333] -m-4 pb-16 relative">
-      {/* Dynamic Saving Toast Notification */}
-      {showSaveToast && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 bg-[#6A008A] text-white px-4 py-2.5 rounded-full shadow-lg text-xs font-bold flex items-center space-x-2 animate-bounce">
-          <Check className="w-4 h-4 text-[#8CC63F]" strokeWidth={3} />
-          <span>Perfil salvo com sucesso!</span>
-        </div>
-      )}
 
       {/* Header Banner - Matches screenshot purple style */}
       <div className="bg-[#6A008A] text-white pt-4 pb-6 px-4 shadow-sm relative flex flex-col items-center">
@@ -140,73 +151,16 @@ export function WorkerProfile() {
               />
             </div>
 
-            {/* Sobrenomes */}
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] text-gray-500 font-semibold tracking-wide">
-                Sobrenomes
-              </label>
-              <input
-                type="text"
-                value={sobrenomes}
-                onChange={(e) => setSobrenomes(e.target.value)}
-                placeholder="Ex: Alvares"
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium"
-                required
-              />
-            </div>
-
-            {/* Documento */}
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] text-gray-500 font-semibold tracking-wide">
-                Documento
-              </label>
-              <input
-                type="text"
-                value={documento}
-                onChange={(e) => setDocumento(e.target.value)}
-                placeholder="Ex: 00793275164"
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium"
-              />
-            </div>
-
-            {/* Apelido */}
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] text-gray-500 font-semibold tracking-wide">
-                Apelido
-              </label>
-              <input
-                type="text"
-                value={apelido}
-                onChange={(e) => setApelido(e.target.value)}
-                placeholder="Ex: jose"
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium"
-              />
-            </div>
-
             {/* Telefone */}
             <div className="relative">
               <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] text-gray-500 font-semibold tracking-wide">
-                Teléfono Telefone
+                Telefone
               </label>
               <input
                 type="text"
                 value={telefone}
                 onChange={(e) => setTelefone(e.target.value)}
                 placeholder="Ex: 61998132100"
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium"
-              />
-            </div>
-
-            {/* E-mail */}
-            <div className="relative">
-              <label className="absolute -top-2 left-3 bg-white px-1 text-[10px] text-gray-500 font-semibold tracking-wide">
-                E-mail
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ex: maildojg@gmail.com"
                 className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6A008A] focus:ring-1 focus:ring-[#6A008A] font-medium"
                 required
               />

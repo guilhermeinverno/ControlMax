@@ -6,6 +6,7 @@ export function useTenant() {
   const [tenantId, setTenantId] = useState<string>('');
   const [role, setRole] = useState<UserRole>('collector');
   const [userName, setUserName] = useState<string>('');
+  const [userPhone, setUserPhone] = useState<string>('');
   const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(false);
   const [userId, setUserId] = useState<string>('');
   const [usuarioUnidades, setUsuarioUnidades] = useState<string[]>([]);
@@ -25,6 +26,7 @@ export function useTenant() {
       setTenantId,
       setRole,
       setUserName,
+      setUserPhone,
       setIsSuperAdmin,
       setLoading,
       setError,
@@ -38,6 +40,7 @@ export function useTenant() {
     tenantId,
     role,
     userName,
+    userPhone,
     isSuperAdmin,
     userId,
     usuarioUnidades,

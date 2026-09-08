@@ -12,9 +12,11 @@ import { useOpenCustomerFromParams } from './useOpenCustomerFromParams';
 interface UseCompanyListDataOptions {
   tenantId?: string;
   clientId?: unknown;
+  role?: string;
+  usuarioUnidades?: string[];
 }
 
-export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOptions) {
+export function useCompanyListData({ tenantId, clientId, role, usuarioUnidades }: UseCompanyListDataOptions) {
   const [centers, setCenters] = useState<BusinessCenter[]>([]);
   const [selectedCnId, setSelectedCnId] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');
@@ -30,9 +32,14 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     const loadCenters = async () => {
       try {
         const list = await fetchActiveBusinessCenters(tenantId);
-        setCenters(list);
+        // Filter business centers if collector
+        const filteredList = (role === 'collector' || role === 'supervisor') && usuarioUnidades?.length 
+          ? list.filter(bc => bc.linkedUnits.some(u => usuarioUnidades.includes(u.id)))
+          : list;
+        
+        setCenters(filteredList);
 
-        const defaults = pickDefaultCnSelection(list);
+        const defaults = pickDefaultCnSelection(filteredList);
         setSelectedCnId(defaults.cnId);
         setSelectedUnitId(defaults.unitId);
       } catch (err) {
@@ -44,7 +51,14 @@ export function useCompanyListData({ tenantId, clientId }: UseCompanyListDataOpt
     void loadCenters();
   }, [tenantId]);
 
-  useCompanyListCustomers(tenantId, selectedCnId, setCustomers, setLoadingCustomers);
+  useCompanyListCustomers({
+    tenantId,
+    selectedCnId,
+    setCustomers,
+    setLoadingCustomers,
+    role,
+    usuarioUnidades
+  });
   useOpenCustomerFromParams(clientId, customers, setSelectedCustomerForModal);
 
   const handleCnChange = useCallback((cnId: string) => {

@@ -18,6 +18,18 @@ export function GlobalProvider({ children }: { children: ReactNode }) {
   const [selectedCnId, setSelectedCnId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    import('../lib/firebase').then(({ auth, onAuthStateChanged }) => {
+      const unsub = onAuthStateChanged(auth, (user) => {
+        if (!user) {
+          setSelectedCnId(null);
+          setSelectedUnitId(null);
+        }
+      });
+      return unsub;
+    });
+  }, []);
+
   return (
     <GlobalContext.Provider
       value={{
