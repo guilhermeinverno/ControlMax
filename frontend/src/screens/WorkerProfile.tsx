@@ -81,7 +81,7 @@ export function WorkerProfile() {
       // Navigate to proper screen: collectors go to vendedor-mobile
       setTimeout(() => {
         if (userRole === 'collector') {
-          navigate('vendedor-mobile');
+          navigate('vendedor-mobile', { activeView: 'dashboard' });
         } else {
           navigate('dashboard');
         }

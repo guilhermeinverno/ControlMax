@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, onSnapshot, addDoc, getDocs, doc, setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, getDocs, doc, setDoc, getDoc } from 'firebase/firestore';
 import { useTenant } from '../hooks/useTenant';
 import { useBox } from '../hooks/useBox';
 import { useSalesListData } from '../hooks/useSalesListData';
@@ -36,6 +36,12 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
 
   // Screen routing states
   const [activeView, setActiveView] = useState<'dashboard' | 'new-customer' | 'new-sale'>((params?.activeView as any) || 'dashboard');
+
+  useEffect(() => {
+    if (params?.activeView) {
+      setActiveView(params.activeView as any);
+    }
+  }, [params?.activeView]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'Vendas' | 'Coleção'>('Vendas');
   const [search, setSearch] = useState('');
@@ -206,20 +212,6 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   const totalBalanceCents = sales.reduce((sum, s) => sum + (s.saldoPendienteCents ?? s.balance ?? 0), 0);
   const totalBalanceString = (totalBalanceCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
-  const [isTourActive, setIsTourActive] = useState(localStorage.getItem('cm_tour_completed') !== 'true');
-
-  const completeTour = () => {
-    localStorage.setItem('cm_tour_completed', 'true');
-    setIsTourActive(false);
-  };
-
-  useEffect(() => {
-    if (isTourActive && activeView === 'new-sale' && saleClient.id) {
-      // Complete tour once they reach new sale
-      completeTour();
-    }
-  }, [isTourActive, activeView, saleClient.id]);
-
   // Filter Sales list based on search term
   const filteredSales = sales.filter(sale => {
     const queryStr = search.toLowerCase();
@@ -264,6 +256,19 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       return;
     }
 
+    let effectiveTenant = tenantId;
+    if (!effectiveTenant && auth?.currentUser) {
+      try {
+        const uDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (uDoc.exists()) {
+          effectiveTenant = uDoc.data().tenantId || '';
+        }
+      } catch (tErr) {
+        console.warn('Could not fetch user tenant:', tErr);
+      }
+    }
+    if (!effectiveTenant) effectiveTenant = 'gringo_corretora';
+
     setSubmitting(true);
 
     try {
@@ -271,19 +276,19 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       const newCustomerId = await generateNumericCustomerId();
       await promiseWithTimeout(
         setDoc(doc(db, 'customers', newCustomerId), {
-          tenantId: tenantId || 'tenant_oficinabrasil',
+          tenantId: effectiveTenant,
           unitId: activeBox?.unitId || (usuarioUnidades && usuarioUnidades[0]) || 'unit_ceu_azul_gringo',
           unitName: activeBox?.unitName || 'Unidade Principal',
           businessCenterId: activeBox?.cnId || 'bc_ceu_azul_gringo',
           city: city || 'Brasilia',
-          name: firstName,
+          name: firstName.trim(),
           secondName: middleName || '',
-          apellidos: lastName1,
+          apellidos: lastName1 || '',
           secondApellidos: lastName2 || '',
-          apodo: nickname,
+          apodo: nickname || firstName.trim(),
           email: email || '',
-          documentType: docType1 || 'SIN TIPO',
-          documentNumber: docNum1 || 'SIN NÚMERO',
+          documentType: docType1 || 'OUTROS',
+          documentNumber: docNum1 || 'S/N',
           document2: docNum2 || '',
           birthDate: birthDate || '',
           address: address || '',
@@ -292,7 +297,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           celular: phone || '',
           celularPrefix: '55',
           comentario: notes || '',
-          actividadEconomica: economicActivity || 'Otros',
+          actividadEconomica: economicActivity || 'Geral',
           active: true,
           createdAt: new Date().toISOString(),
           latitude: latitudeVal,
@@ -303,7 +308,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           references: []
         }),
         10000,
-        'Tiempo de espera agotado al registrar el cliente. Por favor verifique su conexâo a Internet.'
+        'Tempo de espera esgotado ao registrar o cliente. Verifique sua conexão.'
       );
 
       const newClientName = `${firstName} ${lastName1}`.trim();
@@ -330,12 +335,11 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       setLongitudeVal(null);
 
       // Navigate immediately to new-sale with client pre-selected
-      alert('¡Cliente registrado con éxito! Redirigiendo a Nueva Venda...');
       setActiveView('new-sale');
 
     } catch (err: any) {
       console.error('Error saving customer:', err);
-      setFormError(err.message || 'No se pudo guardar el cliente en Firestore. Intente nuevamente.');
+      setFormError(err.message || 'Erro ao registrar o cliente na base de dados. Tente novamente.');
     } finally {
       setSubmitting(false);
     }
@@ -1046,7 +1050,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           <div className="fixed bottom-6 right-6 z-40">
             <button
               onClick={() => setIsFloatingMenuOpen(true)}
-              className={`w-14 h-14 bg-[#6B119C] text-white rounded-full shadow-[0_4px_15px_rgba(107,17,156,0.4)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 hover:scale-105 ${isTourActive ? 'animate-pulse ring-4 ring-[#6B119C] ring-offset-2' : ''}`}
+              className="w-14 h-14 bg-[#6B119C] text-white rounded-full shadow-[0_4px_15px_rgba(107,17,156,0.4)] flex items-center justify-center cursor-pointer transition-transform active:scale-95 hover:scale-105"
               title="Menu de Ações"
             >
               <Plus size={28} strokeWidth={2.5} />
@@ -1070,9 +1074,9 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
                     setIsFloatingMenuOpen(false);
                     setActiveView('new-customer');
                   }}
-                  className={`w-full bg-[#6B119C] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-md flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none font-bold ${isTourActive ? 'animate-pulse ring-4 ring-[#6B119C] ring-offset-2' : ''}`}
+                  className="w-full bg-[#6B119C] hover:bg-[#52006A] text-white rounded-full py-4 px-8 shadow-md flex items-center justify-between cursor-pointer transition-transform duration-150 active:scale-95 border-none outline-none font-bold"
                 >
-                  <span>Cliente Novo {isTourActive && ' (Comece Aqui)'}</span>
+                  <span>Cliente Novo</span>
                   <UserPlus size={24} strokeWidth={2} />
                 </button>
 

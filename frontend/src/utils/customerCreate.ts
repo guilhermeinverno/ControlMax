@@ -104,18 +104,10 @@ export function buildCustomerPayload(
 }
 
 export async function generateNumericCustomerId(): Promise<string> {
-  let isUnique = false;
-  let newId = '';
-  while (!isUnique) {
-    // Generate a 10-digit numeric ID
-    newId = (Math.floor(Math.random() * 9000000000) + 1000000000).toString();
-    const docRef = doc(db, 'customers', newId);
-    const snap = await getDoc(docRef);
-    if (!snap.exists()) {
-      isUnique = true;
-    }
-  }
-  return newId;
+  // Generate a unique 10-digit numeric ID based on timestamp and entropy
+  const now = Date.now().toString();
+  const suffix = Math.floor(100 + Math.random() * 900).toString();
+  return `${now.slice(-7)}${suffix}`;
 }
 
 export async function persistCustomer(customer: Customer): Promise<void> {

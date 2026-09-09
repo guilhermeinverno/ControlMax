@@ -94,13 +94,16 @@ service cloud.firestore {
 
     
     match /clients/{clientId} {
-      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
+      allow get: if isAuthenticated() && (isSuperAdmin() || resource == null || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
       allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
     }
 
     match /customers/{customerId} {
-      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
-      allow write: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow get: if isAuthenticated() && (isSuperAdmin() || resource == null || resource.data.tenantId == userTenantId());
+      allow list: if isAuthenticated() && (isSuperAdmin() || userTenantId() != '');
+      allow create: if isAuthenticated() && (isSuperAdmin() || request.resource.data.tenantId == userTenantId());
+      allow update, delete: if isAuthenticated() && (isSuperAdmin() || resource.data.tenantId == userTenantId());
     }
 
     // --- COLEÇÕES FINANCEIRAS: ESCRITAS PROIBIDAS NO CLIENT-SIDE ---
