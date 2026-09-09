@@ -259,7 +259,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (screen: Screen) => voi
 
       {/* 2. ACTIONS ROW (Select Box Dropdown & Tabs) */}
       <div className="bg-white border border-gray-200 shadow-sm rounded-xl p-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex-1 max-w-md relative">
+        <div className="flex-1 w-full relative">
           <select
             value={selectedBoxId}
             onChange={(e) => {
@@ -280,7 +280,7 @@ export function Dashboard({ onNavigate }: { onNavigate?: (screen: Screen) => voi
 
                 return (
                   <option key={b.id} value={b.id}>
-                    Caixa {b.id.slice(0, 8)} ({b.status === 'open' ? 'Abierta' : 'Cerrada'}) - {dateStr}
+                    {b.userName || 'Vendedor'} - Caixa {b.id.slice(0, 5)} ({b.status === 'open' ? 'Aberto' : 'Fechado'}) - {dateStr}
                   </option>
                 );
               })
