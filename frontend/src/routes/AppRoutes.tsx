@@ -223,6 +223,7 @@ function PrivateLayout() {
   const isMobileAppOrPwa = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: minimal-ui)').matches ||
+    window.innerWidth <= 768 ||
     navigator.userAgent.includes('ControlMaxApp') ||
     navigator.userAgent.includes('Capacitor') ||
     navigator.userAgent.includes('Cordova') ||

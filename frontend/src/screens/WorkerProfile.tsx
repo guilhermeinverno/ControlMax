@@ -3,7 +3,7 @@ import { ArrowLeft, User, Key, Check, Loader2, AlertCircle, LogOut, Download } f
 import { useNavigation } from '../context/NavigationContext';
 import { auth, db, onAuthStateChanged } from '../lib/firebase';
 import { updatePassword, signOut, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import { useLayoutUi } from '../hooks/useLayoutUi';
 import toast from 'react-hot-toast';
 
@@ -72,10 +72,10 @@ export function WorkerProfile() {
     }
     setSavingProfile(true);
     try {
-      await updateDoc(doc(db, 'users', currentUser.uid), {
+      await setDoc(doc(db, 'users', currentUser.uid), {
         name: nomes.trim(),
         phone: telefone.trim(),
-      });
+      }, { merge: true });
       toast.success('Perfil salvo com sucesso!');
       
       // Navigate to proper screen: collectors go to vendedor-mobile

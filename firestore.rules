@@ -67,7 +67,10 @@ service cloud.firestore {
         (request.auth.token != null && 'email' in request.auth.token && (resource.data.email == request.auth.token.email || resource.data.email.lower() == request.auth.token.email.lower()))
       );
       
-      allow create: if false;
+      allow create: if isAuthenticated() && (
+        isSuperAdmin() || 
+        request.auth.uid == userId
+      );
 
       allow update: if isAuthenticated() && (
         isSuperAdmin() ||
@@ -80,9 +83,9 @@ service cloud.firestore {
         ) ||
         (
           request.auth.uid == userId && 
-          resource.data.role == request.resource.data.role && 
-          resource.data.tenantId == request.resource.data.tenantId &&
-          (!('isSuperAdmin' in request.resource.data) || request.resource.data.isSuperAdmin == resource.data.isSuperAdmin)
+          (!('role' in request.resource.data) || !('role' in resource.data) || request.resource.data.role == resource.data.role) && 
+          (!('tenantId' in request.resource.data) || !('tenantId' in resource.data) || request.resource.data.tenantId == resource.data.tenantId) &&
+          (!('isSuperAdmin' in request.resource.data) || request.resource.data.isSuperAdmin != true)
         )
       );
 

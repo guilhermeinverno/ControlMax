@@ -9,3 +9,4 @@ coverage/
 firebase-applet-config.json
 !firebase-applet-config.example.json
 controlmax.old/
+scratch/
