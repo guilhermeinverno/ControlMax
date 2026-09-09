@@ -259,8 +259,8 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
     setFormSuccess(null);
 
     // Form validations
-    if (!nickname || !firstName || !lastName1 || !phone) {
-      setFormError('Por favor complete todos los campos marcados con asterisco (*).');
+    if (!firstName || !phone || !address || !photoUrl) {
+      setFormError('Por favor preencha: Nome, Telefone, Localização e envie a Imagem.');
       return;
     }
 
@@ -1128,364 +1128,80 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
           )}
 
           <div className="space-y-5">
-            {/* SECCION 1: INFORMACAO PESSOAL */}
             <div className="space-y-4">
-              <div className="flex items-center space-x-2.5 text-[#333333] pt-2 pb-1">
-                {/* User icon outline */}
-                <svg className="w-5.5 h-5.5 text-[#6B119C] stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                </svg>
-                <span className="text-lg font-extrabold text-slate-800 tracking-wide">Informação pessoal</span>
-              </div>
-
-              {/* Doc Type 1 */}
-              <div className="relative">
-                <select
-                  value={docType1}
-                  onChange={(e) => setDocType1(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 pr-10 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="SIN TIPO DE DOCUMENTO">SIN TIPO DE DOCUMENTO</option>
-                  <option value="CPF">CPF (Brasil)</option>
-                  <option value="CNPJ">CNPJ (Brasil)</option>
-                  <option value="RG">RG</option>
-                  <option value="PASAPORTE">PASAPORTE</option>
-                </select>
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Tipo de documento 1*
-                </label>
-              </div>
-
-              {/* Doc Num 1 */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={docNum1}
-                  onChange={(e) => setDocNum1(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Número do documento 1*
-                </label>
-              </div>
-
-              {/* Doc Type 2 */}
-              <div className="relative">
-                <select
-                  value={docType2}
-                  onChange={(e) => setDocType2(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 pr-10 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="SIN TIPO DE DOCUMENTO">SIN TIPO DE DOCUMENTO</option>
-                  <option value="CPF">CPF</option>
-                  <option value="CNPJ">CNPJ</option>
-                  <option value="RG">RG</option>
-                  <option value="PASAPORTE">PASAPORTE</option>
-                </select>
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Tipo de documento 2
-                </label>
-              </div>
-
-              {/* Doc Num 2 */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={docNum2}
-                  onChange={(e) => setDocNum2(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Número do documento 2
-                </label>
-              </div>
-
-              {/* Apelido */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Apelido*
-                </label>
-              </div>
-
-              {/* Primeiro nome */}
-              <div className="relative">
+              <div className="flex flex-col">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1">Nome Completo *</label>
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6B119C]"
+                  required
                 />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Primeiro nome*
-                </label>
               </div>
 
-              {/* Nome do meio */}
-              <div className="relative">
+              <div className="flex flex-col">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1">Telefone / WhatsApp *</label>
                 <input
-                  type="text"
-                  value={middleName}
-                  onChange={(e) => setMiddleName(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6B119C]"
+                  required
                 />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Nome do meio
-                </label>
               </div>
 
-              {/* Primeiro sobrenome */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={lastName1}
-                  onChange={(e) => setLastName1(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Primeiro sobrenome*
-                </label>
-              </div>
-
-              {/* Segundo sobrenome */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={lastName2}
-                  onChange={(e) => setLastName2(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Segundo sobrenome
-                </label>
-              </div>
-
-              {/* Data de nascimento */}
-              <div className="relative">
-                <input
-                  type="date"
-                  value={birthDate}
-                  onChange={(e) => setBirthDate(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400">
-                  Data de nascimento
-                </label>
-              </div>
-            </div>
-
-            {/* SECCION 2: LOCALIZACAO */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center space-x-2.5 text-[#333333] pb-1">
-                {/* Location pin outline icon */}
-                <svg className="w-5.5 h-5.5 text-[#6B119C] stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" />
-                </svg>
-                <span className="text-lg font-extrabold text-slate-800 tracking-wide">Localização</span>
-              </div>
-
-              {/* Cidade */}
-              <div className="relative">
-                <select
-                  value={city}
-                  onChange={(e) => setCity(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 pr-10 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="Brasilia">Brasilia</option>
-                  <option value="São Paulo">São Paulo</option>
-                  <option value="Rio de Janeiro">Rio de Janeiro</option>
-                  <option value="Belo Horizonte">Belo Horizonte</option>
-                </select>
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400">
-                  Cidade
-                </label>
-              </div>
-
-              {/* Endereço */}
-              <div className="relative">
+              <div className="flex flex-col">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1">Localização (Endereço) *</label>
                 <input
                   type="text"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg pl-4 pr-12 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white outline-none focus:border-[#6B119C]"
+                  required
                 />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Endereço*
-                </label>
-                <button
-                  type="button"
-                  onClick={handleGPSAutofill}
-                  className="absolute right-3.5 top-3.5 text-black hover:text-[#52006A] transition-colors cursor-pointer"
-                  title="Capturar coordenadas por GPS"
-                >
-                  <MapPin size={20} strokeWidth={2.5} />
-                </button>
               </div>
 
-              {/* Bairro */}
-              <div className="relative">
+              <div className="flex flex-col">
+                <label className="text-xs font-bold text-gray-500 uppercase mb-1">Foto do Cliente / Documento *</label>
                 <input
-                  type="text"
-                  value={neighborhood}
-                  onChange={(e) => setNeighborhood(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      const file = e.target.files[0];
+                      try {
+                        const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+                        const storage = getStorage();
+                        const storageRef = ref(storage, `customers/${Date.now()}_${file.name}`);
+                        await uploadBytes(storageRef, file);
+                        const url = await getDownloadURL(storageRef);
+                        setPhotoUrl(url);
+                        setPhotoName(file.name);
+                      } catch (err) {
+                        setFormError('Erro ao enviar imagem. Tente novamente.');
+                      }
+                    }
+                  }}
+                  className="w-full border border-gray-300 rounded-lg p-3 text-sm text-gray-700 bg-white"
+                  required
                 />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Bairro
-                </label>
+                {photoName && <span className="text-xs text-green-600 mt-1 font-semibold">✓ Arquivo: {photoName}</span>}
               </div>
             </div>
 
-            {/* SECCION 3: DADOS DE CONTATO E ANEXOS */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center space-x-2.5 text-[#333333] pb-1">
-                {/* Phone outline icon */}
-                <svg className="w-5.5 h-5.5 text-[#6B119C] stroke-[2.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.802-5.14-4.117-6.942-6.942l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                </svg>
-                <span className="text-lg font-extrabold text-slate-800 tracking-wide">Dados de contato</span>
-              </div>
-
-              {/* Celular */}
-              <div className="relative">
-                <input
-                  type="text"
-                  value={phone}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  Celular*
-                </label>
-              </div>
-
-              {/* E-mail */}
-              <div className="relative">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                  placeholder=" "
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400 peer-focus:text-[#6B119C]">
-                  E-mail
-                </label>
-              </div>
-
-              {/* Atividade Economica */}
-              <div className="relative">
-                <select
-                  value={economicActivity}
-                  onChange={(e) => setEconomicActivity(e.target.value)}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3.5 pr-10 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors appearance-none cursor-pointer"
-                >
-                  <option value="">Seleccione atividade econômica</option>
-                  <option value="Comercio">Comercio Minorista</option>
-                  <option value="Servicios">Prestación de Servicios</option>
-                  <option value="Salón">Salón de Belleza / Peluquería</option>
-                  <option value="Otros">Varios / Otros</option>
-                </select>
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400">
-                  Atividade econômica
-                </label>
-              </div>
-
-              {/* Notas */}
-              <div className="relative">
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="peer w-full bg-white border border-slate-300 rounded-lg px-4 py-3 text-sm font-semibold text-slate-800 outline-none focus:border-[#6B119C] transition-colors"
-                />
-                <label className="absolute left-3 -top-2.5 z-10 px-1 bg-white text-[11px] font-bold text-slate-400">
-                  Notas
-                </label>
-              </div>
-
-              {/* Anexar foto */}
-              <div className="space-y-1.5">
-                <span className="block text-[10px] font-black text-slate-400 uppercase tracking-wider pl-0.5">Anexar foto</span>
-                
-                {photoName ? (
-                  <div className="border border-green-200 rounded-xl bg-green-50/50 p-2.5 flex items-center justify-between">
-                    <div className="flex items-center space-x-2.5 text-xs text-slate-800 truncate">
-                      <img 
-                        src={photoUrl} 
-                        alt="Preview" 
-                        className="w-10 h-10 object-cover rounded-lg border border-slate-200 shrink-0" 
-                      />
-                      <div className="truncate">
-                        <p className="font-extrabold text-slate-800 truncate max-w-[150px]">{photoName}</p>
-                        <p className="text-[9px] text-[#4CAF50] font-black">Foto capturada</p>
-                      </div>
-                    </div>
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setPhotoUrl('');
-                        setPhotoName('');
-                      }}
-                      className="p-1.5 hover:bg-red-50 text-red-500 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2Icon />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <input 
-                      type="file" 
-                      id="client-photo-input" 
-                      accept="image/*" 
-                      capture="environment" 
-                      onChange={handlePhotoUpload} 
-                      className="hidden" 
-                    />
-                    <button
-                      type="button"
-                      onClick={handleCapturePhoto}
-                      className="w-16 h-16 border-2 border-dashed border-slate-300 bg-white rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-50 transition-colors border-none outline-none"
-                    >
-                      <Camera className="w-6 h-6 text-slate-400" />
-                    </button>
-                  </>
-                )}
-              </div>
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full bg-[#6B119C] hover:bg-[#52006A] text-white rounded-xl py-4 font-bold text-sm shadow-md active:scale-95 transition-transform"
+              >
+                {submitting ? 'Salvando...' : 'Salvar cliente e Ir para Venda'}
+              </button>
             </div>
-          </div>
-
-          {/* Sticky Bottom footer container */}
-          <div className="fixed bottom-0 left-0 right-0 bg-[#F3F4F6] border-t border-gray-200 p-4 max-w-md mx-auto w-full z-40 shrink-0">
-            <button
-              type="submit"
-              disabled={submitting}
-              className="w-full bg-[#6B119C] hover:bg-[#52006A] text-white font-black py-4 text-sm rounded-xl shadow-md active:scale-98 transition-all flex justify-center items-center cursor-pointer uppercase tracking-wider border-none outline-none"
-            >
-              {submitting && (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              )}
-              Salvar cliente
-            </button>
           </div>
         </form>
-      )}
+        )}
 
       {activeView === 'new-sale' && (
         <form 
