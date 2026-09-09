@@ -38,16 +38,13 @@ export interface CustomerFormValues {
 }
 
 export function validateCustomerForm(values: CustomerFormValues): string | null {
-  if (
-    !values.formUnitId ||
-    !values.formCity ||
-    !values.formName ||
-    !values.formApellidos ||
-    !values.formDocNumber ||
-    !values.formAddress ||
-    !values.formCelular
-  ) {
-    return 'Por favor complete todos los campos obligatorios (*)';
+  const hasName = Boolean(values.formName?.trim());
+  const hasPhone = Boolean(values.formCelular?.trim() || values.formPhone?.trim());
+  const hasLocation = Boolean(values.formAddress?.trim() || values.formCity?.trim());
+  const hasPhoto = Boolean(values.formPhotos && values.formPhotos.length > 0);
+
+  if (!hasName || !hasPhone || !hasLocation || !hasPhoto) {
+    return 'Por favor preencha os 4 campos obrigatórios: Nome, Telefone, Localização e envie uma Imagem.';
   }
 
   return null;
@@ -59,38 +56,47 @@ export function buildCustomerPayload(
   selectedCnId: string,
   centers: BusinessCenter[],
 ): Customer {
-  const currentCenter = centers.find((center) => center.id === selectedCnId);
-  const currentUnit = currentCenter?.linkedUnits.find((unit) => unit.id === values.formUnitId);
-  const unitName = currentUnit ? currentUnit.name : 'Ruta/Unidad Desconocida';
+  const currentCenter = centers.find((center) => center.id === selectedCnId) || centers[0];
+  const defaultUnit = currentCenter?.linkedUnits?.[0];
+  const effectiveUnitId = values.formUnitId || defaultUnit?.id || 'unit_ceu_azul_gringo';
+  const effectiveUnitName = currentCenter?.linkedUnits?.find((u) => u.id === effectiveUnitId)?.name || defaultUnit?.name || 'Unidade Padrão';
 
   return {
     tenantId,
-    unitId: values.formUnitId,
-    unitName,
-    businessCenterId: selectedCnId,
-    city: values.formCity,
-    name: values.formName,
+    unitId: effectiveUnitId,
+    unitName: effectiveUnitName,
+    businessCenterId: selectedCnId || currentCenter?.id || '',
+    city: values.formCity || 'Brasilia',
+    name: values.formName.trim(),
     secondName: values.formSecondName || '',
-    apellidos: values.formApellidos,
+    apellidos: values.formApellidos || '',
     secondApellidos: values.formSecondApellidos || '',
-    apodo: values.formApodo || '',
+    apodo: values.formApodo || values.formName.trim(),
     email: values.formEmail || '',
-    documentType: values.formDocType,
-    documentNumber: values.formDocNumber,
+    documentType: values.formDocType || 'OUTROS',
+    documentNumber: values.formDocNumber || 'S/N',
     document2: values.formDoc2 || '',
     birthDate: values.formBirthDate || '',
-    address: values.formAddress,
+    address: values.formAddress || values.formCity || 'Localização Padrão',
     barrio: values.formBarrio || '',
-    phone: values.formPhone || '',
+    phone: values.formPhone || values.formCelular || '',
     celularPrefix: values.formCelularPrefix || '55',
-    celular: values.formCelular,
+    celular: values.formCelular || values.formPhone || '',
     comentario: values.formComentario || '',
-    actividadEconomica: values.formActividad,
-    active: values.formActive,
-    addresses: values.formAddresses,
-    phones: values.formPhones,
-    references: values.formReferencesList,
-    photos: values.formPhotos,
+    actividadEconomica: values.formActividad || 'Geral',
+    active: values.formActive ?? true,
+    addresses: values.formAddresses?.length ? values.formAddresses : [{
+      id: 'addr-1',
+      address: values.formAddress || 'Localização Padrão',
+      barrio: values.formBarrio || '',
+      city: values.formCity || 'Brasilia'
+    }],
+    phones: values.formPhones?.length ? values.formPhones : [{
+      id: 'phone-1',
+      number: values.formCelular || values.formPhone || ''
+    }],
+    references: values.formReferencesList || [],
+    photos: values.formPhotos || [],
     latitude: values.formLatitude,
     longitude: values.formLongitude,
     createdAt: new Date().toISOString(),

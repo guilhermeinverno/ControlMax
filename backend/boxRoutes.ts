@@ -51,17 +51,17 @@ router.post("/open", async (req: AuthenticatedRequest, res: Response) => {
         }
       }
 
-      // Verificar se já existe caixa para esta Unidade nesta data
+      // Verificar se este cobrador já possui caixa aberto nesta data
       const boxesRef = adminDb.collection("boxes");
       const activeCheckQuery = boxesRef
         .where("tenantId", "==", tenantId)
-        .where("unitId", "==", unitId)
+        .where("userId", "==", userId)
         .where("date", "==", date)
-        .where("status", "in", ["open", "closed", "confirmed"]);
+        .where("status", "==", "open");
 
       const checkSnap = await transaction.get(activeCheckQuery);
       if (!checkSnap.empty) {
-        throw new Error("Já existe um caixa aberto, fechado ou confirmado para esta Unidade nesta data.");
+        throw new Error("Você já possui um caixa aberto para esta data.");
       }
 
       const boxRef = boxesRef.doc();

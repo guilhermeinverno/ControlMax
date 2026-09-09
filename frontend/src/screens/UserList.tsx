@@ -29,8 +29,6 @@ export function UserList() {
 
   // Mode: 'list' or 'create'
   const [viewMode, setViewMode] = useState<'list' | 'create'>('list');
-  const [createStep, setCreateStep] = useState<1 | 2>(1);
-
   // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [showActive, setShowActive] = useState(true);
@@ -121,17 +119,6 @@ export function UserList() {
     } catch (err) {
       logFirestoreError(err, 'update', `users/${user.id}`, { throwError: true, extraAuth: { userId: 'system_user' } });
     }
-  };
-
-  // Step 1 Validation & Proceed
-  const handleProceedToStep2 = (e: HtmlFormSubmitEvent) => {
-    e.preventDefault();
-    if (!formUsername || !formDocNumber || !formEmail || !formFirstName || !formLastName1) {
-      setNotification({ type: 'error', message: 'Por favor complete todos los campos obligatorios (*) de información de usuario.' });
-      return;
-    }
-    setNotification(null);
-    setCreateStep(2);
   };
 
   // Submit and Create User in Firestore with robust fallback
@@ -237,7 +224,6 @@ export function UserList() {
       // Finish and return to list
       setTimeout(() => {
         setViewMode('list');
-        setCreateStep(1);
         setNotification(null);
       }, 1500);
     } catch (err) {
@@ -455,7 +441,7 @@ export function UserList() {
           {/* Purple creation header */}
           <div className="bg-[#6B21A8] text-white p-4 flex items-center gap-3">
             <button 
-              onClick={() => { setViewMode('list'); setCreateStep(1); }} 
+              onClick={() => { setViewMode('list'); }} 
               className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -463,30 +449,11 @@ export function UserList() {
             <h3 className="font-bold text-xs uppercase tracking-wider">Creación de usuario</h3>
           </div>
 
-          {/* Stepper indicators header */}
-          <div className="flex border-b border-gray-200 bg-gray-50">
-            <div className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-all ${
-              createStep === 1 
-                ? 'border-b-[#6B21A8] text-[#6B21A8]' 
-                : 'border-b-transparent text-gray-400'
-            }`}>
-              1. Información de usuario
-            </div>
-            <div className={`flex-1 py-3 text-center text-xs font-bold border-b-2 transition-all ${
-              createStep === 2 
-                ? 'border-b-[#6B21A8] text-[#6B21A8]' 
-                : 'border-b-transparent text-gray-400'
-            }`}>
-              2. Configuración
-            </div>
-          </div>
-
-          {/* Step 1 Form */}
-          {createStep === 1 && (
-            <form onSubmit={handleProceedToStep2} className="p-4 space-y-4 max-w-4xl mx-auto">
+          {/* Create User Form */}
+          <form onSubmit={handleCreateUser} className="p-4 space-y-4 max-w-4xl mx-auto">
               
               <div className="bg-[#F9FAFB] p-3 rounded border border-gray-200 text-[11px] text-gray-500 font-semibold mb-2">
-                Ingresa la información del usuario en cada campo.
+                Ingresa la información del usuario.
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -519,7 +486,7 @@ export function UserList() {
 
                 {/* Email */}
                 <div className="flex flex-col">
-                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">Correo electrónico *</label>
+                  <label className="text-[10px] uppercase font-bold text-gray-500 mb-1">E-mail Oficial (Login) *</label>
                   <input
                     type="email"
                     required
@@ -600,33 +567,11 @@ export function UserList() {
 
               </div>
 
-              {/* Action bar Step 1 */}
-              <div className="flex justify-end pt-4 border-t border-gray-100">
-                <button
-                  type="submit"
-                  className="bg-[#6B21A8] hover:bg-[#52006A] text-white font-extrabold text-xs px-6 py-2.5 rounded shadow-sm transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <span>Guardar y continuar</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-
-            </form>
-          )}
-
-          {/* Step 2 Form */}
-          {createStep === 2 && (
-            <form onSubmit={handleCreateUser} className="p-4 space-y-4 max-w-4xl mx-auto">
-              
-              <div className="bg-[#F9FAFB] p-3 rounded border border-gray-200 text-[11px] text-gray-500 font-semibold mb-2">
-                Configure la seguridad y los permisos de acceso para el nuevo usuario.
-              </div>
-
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 
                 {/* Google Access Key (Opcional) */}
                 <div className="flex flex-col">
-                  <label className="text-[10px] uppercase font-bold text-[#6B21A8] mb-1">Chave Google / Google Key (Opcional)</label>
+                  <label className="text-[10px] uppercase font-bold text-[#6B21A8] mb-1">E-mail Pessoal / Referência (Opcional)</label>
                   <input
                     type="text"
                     placeholder="Chave/E-mail do Google (gerada automaticamente se em branco)"
@@ -635,7 +580,7 @@ export function UserList() {
                     className="w-full border border-gray-300 rounded p-2 text-xs outline-none focus:border-[#6B21A8] font-semibold"
                   />
                   <span className="text-[10px] text-gray-400 mt-1">
-                    Chave vinculada para autenticação Google do colaborador (opcional).
+                    E-mail pessoal para referência e contato.
                   </span>
                 </div>
 
@@ -671,16 +616,9 @@ export function UserList() {
 
               </div>
 
-              {/* Action bar Step 2 */}
+              {/* Action bar */}
               <div className="flex justify-between pt-4 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setCreateStep(1)}
-                  className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-5 py-2.5 rounded text-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Atrás</span>
-                </button>
+                
                 
                 <button
                   type="submit"
@@ -692,10 +630,8 @@ export function UserList() {
               </div>
 
             </form>
-          )}
-
-        </div>
-      )}
+          </div>
+        )}
 
     </div>
   );

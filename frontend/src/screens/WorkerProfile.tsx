@@ -1,38 +1,60 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, User, Key, Check, Loader2, AlertCircle, LogOut, Download } from 'lucide-react';
 import { useNavigation } from '../context/NavigationContext';
-import { auth } from '../lib/firebase';
-import { updatePassword, signOut } from 'firebase/auth';
+import { auth, db, onAuthStateChanged } from '../lib/firebase';
+import { updatePassword, signOut, User as FirebaseUser } from 'firebase/auth';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useLayoutUi } from '../hooks/useLayoutUi';
+import toast from 'react-hot-toast';
 
 export function WorkerProfile() {
   const { navigate } = useNavigation();
-  const user = auth.currentUser;
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(auth.currentUser);
   
   const [nomes, setNomes] = useState('');
   const [telefone, setTelefone] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [userRole, setUserRole] = useState<'admin' | 'supervisor' | 'collector'>('collector');
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsub();
+  }, []);
   
   // Real Profile fetch
   useEffect(() => {
-    if (!user) return;
-    import('firebase/firestore').then(({ doc, getDoc }) => {
-      import('../lib/firebase').then(({ db }) => {
-        getDoc(doc(db, 'users', user.uid)).then(snap => {
-          if (snap.exists()) {
-            const data = snap.data();
-            setNomes(data.name || '');
-            setTelefone(data.phone || '');
-          }
-          setLoadingProfile(false);
-        }).catch(() => setLoadingProfile(false));
+    if (!currentUser) {
+      setLoadingProfile(false);
+      return;
+    }
+    setLoadingProfile(true);
+    getDoc(doc(db, 'users', currentUser.uid))
+      .then((snap) => {
+        if (snap.exists()) {
+          const data = snap.data();
+          setNomes(data.name || '');
+          setTelefone(data.phone || '');
+          if (data.role) setUserRole(data.role as any);
+        }
+        setLoadingProfile(false);
+      })
+      .catch((err) => {
+        console.error('Error fetching profile:', err);
+        setLoadingProfile(false);
       });
-    });
-  }, [user]);
+  }, [currentUser]);
 
   const [documento, setDocumento] = useState('');
   const [apelido, setApelido] = useState('');
-  const [email, setEmail] = useState(user?.email || '');
+  const [email, setEmail] = useState(currentUser?.email || '');
+
+  useEffect(() => {
+    if (currentUser?.email) {
+      setEmail(currentUser.email);
+    }
+  }, [currentUser]);
 
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [newPassword, setNewPassword] = useState('');
@@ -44,29 +66,36 @@ export function WorkerProfile() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!currentUser) {
+      toast.error('Usuário não autenticado.');
+      return;
+    }
     setSavingProfile(true);
     try {
-      const { doc, setDoc } = await import('firebase/firestore');
-      const { db } = await import('../lib/firebase');
-      await setDoc(doc(db, 'users', user.uid), {
-        name: nomes,
-        phone: telefone,
-      }, { merge: true });
-      import('react-hot-toast').then(({ toast }) => toast.success('Perfil salvo com sucesso!'));
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        name: nomes.trim(),
+        phone: telefone.trim(),
+      });
+      toast.success('Perfil salvo com sucesso!');
       
-      // If they just completed first access
-      const { role } = await import('../hooks/useTenantHelpers').then(m => m.mapRoleFromFirestore('collector', user.email || ''));
-      navigate('dashboard');
-    } catch (err) {
-      console.error(err);
-      import('react-hot-toast').then(({ toast }) => toast.error('Erro ao salvar perfil.'));
+      // Navigate to proper screen: collectors go to vendedor-mobile
+      setTimeout(() => {
+        if (userRole === 'collector') {
+          navigate('vendedor-mobile');
+        } else {
+          navigate('dashboard');
+        }
+      }, 500);
+    } catch (err: any) {
+      console.error('Erro ao atualizar perfil:', err);
+      toast.error(err.message || 'Erro ao salvar perfil.');
+    } finally {
+      setSavingProfile(false);
     }
-    setSavingProfile(false);
   };
 
   // Generate a mock PIN based on user metadata or static reference
-  const pinCode = user?.uid ? `CM${user.uid.substring(0, 10).toUpperCase()}` : 'CM65BKKQ2073';
+  const pinCode = currentUser?.uid ? `CM${currentUser.uid.substring(0, 10).toUpperCase()}` : 'CM65BKKQ2073';
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,8 +109,8 @@ export function WorkerProfile() {
     setPasswordSuccess('');
 
     try {
-      if (user) {
-        await updatePassword(user, newPassword);
+      if (currentUser) {
+        await updatePassword(currentUser, newPassword);
         setPasswordSuccess('Senha alterada com sucesso! Você pode fechar esta tela.');
         setNewPassword('');
       } else {

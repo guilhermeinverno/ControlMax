@@ -94,7 +94,7 @@ export function SalesList({
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const clientsCount = sales.filter(s => s.status === 'active').length || 65;
+  const clientsCount = sales.filter(s => s.status === 'active').length;
   const paidCount = collections.filter(c => {
     if (!c.createdAt) return false;
     let dt: Date | null = null;
@@ -106,18 +106,18 @@ export function SalesList({
       dt = new Date(c.createdAt as any);
     }
     return dt ? dt.getTime() >= startOfToday.getTime() : false;
-  }).length || 3;
-  const totalBalance = sales.reduce((sum, s) => sum + (s.saldoPendienteCents || s.balance || 0), 0) || 1007967;
+  }).length;
+  const totalBalance = sales.reduce((sum, s) => sum + (s.saldoPendienteCents ?? s.balance ?? 0), 0);
 
   // Filter dialog statistics
-  const countPendentes = sales.filter(s => s.saldoPendienteCents > 0 || s.balance > 0).length || 73;
-  const countPagamentos = sales.filter(s => s.paidInstallments > 0).length || 1;
-  const countSemPagamentos = sales.filter(s => s.paidInstallments === 0).length || 1;
+  const countPendentes = sales.filter(s => (s.saldoPendienteCents ?? s.balance ?? 0) > 0).length;
+  const countPagamentos = sales.filter(s => (s.paidInstallments ?? 0) > 0).length;
+  const countSemPagamentos = sales.filter(s => (s.paidInstallments ?? 0) === 0).length;
 
-  const countDiario = sales.filter(s => getSaleFrequency(s.id) === 'diario').length || 66;
-  const countSemanal = sales.filter(s => getSaleFrequency(s.id) === 'semanal').length || 9;
-  const countQuinzenal = sales.filter(s => getSaleFrequency(s.id) === 'quinzenal').length || 0;
-  const countMensal = sales.filter(s => getSaleFrequency(s.id) === 'mensal').length || 0;
+  const countDiario = sales.filter(s => getSaleFrequency(s.id) === 'diario').length;
+  const countSemanal = sales.filter(s => getSaleFrequency(s.id) === 'semanal').length;
+  const countQuinzenal = sales.filter(s => getSaleFrequency(s.id) === 'quinzenal').length;
+  const countMensal = sales.filter(s => getSaleFrequency(s.id) === 'mensal').length;
 
   return (
     <div className={`flex flex-col bg-[#F0F2F5] min-h-screen text-gray-800 relative select-none pb-24`}>

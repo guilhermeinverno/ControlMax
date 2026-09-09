@@ -21,14 +21,13 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
     <div className="space-y-4 animate-fadeIn">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Unidad *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Unidad</label>
           <select
-            required
             value={fields.formUnitId}
             onChange={(e) => fields.setFormUnitId(e.target.value)}
             className="border border-gray-200 rounded-lg p-2.5 text-xs outline-none bg-white focus:border-[#8CC63F]"
           >
-            <option value="">Seleccione Unidad</option>
+            <option value="">Seleccione Unidad (Opcional)</option>
             {activeUnitsList.map((unit: { id: string; name: string }) => (
               <option key={unit.id} value={unit.id}>
                 {unit.name}
@@ -37,11 +36,10 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
           </select>
         </div>
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Ciudad *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Ciudad</label>
           <input
             type="text"
-            required
-            placeholder="Ej. Bogotá / Medellín"
+            placeholder="Ej. Brasília"
             value={fields.formCity}
             onChange={(e) => fields.setFormCity(e.target.value)}
             className="border border-gray-200 rounded-lg p-2.5 text-xs outline-none bg-[#F9FAFB] focus:border-[#8CC63F]"
@@ -51,11 +49,11 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
 
       <div className="grid grid-cols-2 gap-3.5">
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Primer nombre *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Nome Completo *</label>
           <input
             type="text"
             required
-            placeholder="Primer nombre"
+            placeholder="Nome do cliente"
             value={fields.formName}
             onChange={(e) => fields.setFormName(e.target.value)}
             className="border border-gray-200 rounded-lg p-2.5 text-xs outline-none bg-[#F9FAFB] focus:border-[#8CC63F]"
@@ -75,11 +73,10 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
 
       <div className="grid grid-cols-2 gap-3.5">
         <div className="flex flex-col space-y-1">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Primer apellido *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Sobrenome</label>
           <input
             type="text"
-            required
-            placeholder="Primer apellido"
+            placeholder="Sobrenome"
             value={fields.formApellidos}
             onChange={(e) => fields.setFormApellidos(e.target.value)}
             className="border border-gray-200 rounded-lg p-2.5 text-xs outline-none bg-[#F9FAFB] focus:border-[#8CC63F]"
@@ -98,7 +95,7 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
       </div>
 
       <div className="flex flex-col space-y-1">
-        <label className="text-[10px] uppercase font-extrabold text-gray-500">Apodo / Alias *</label>
+        <label className="text-[10px] uppercase font-extrabold text-gray-500">Apodo / Alias</label>
         <input
           type="text"
           placeholder="Ej. Doña Clara / Cocos"
@@ -121,7 +118,7 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
 
       <div className="grid grid-cols-3 gap-2">
         <div className="flex flex-col space-y-1 col-span-1">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Tipo Doc *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Tipo Doc</label>
           <select
             value={fields.formDocType}
             onChange={(e) => fields.setFormDocType(e.target.value)}
@@ -134,11 +131,10 @@ export function CompanyListCreateBasicTab({ fields, activeUnitsList }: CompanyLi
           </select>
         </div>
         <div className="flex flex-col space-y-1 col-span-2">
-          <label className="text-[10px] uppercase font-extrabold text-gray-500">Documento 1 *</label>
+          <label className="text-[10px] uppercase font-extrabold text-gray-500">Documento 1</label>
           <input
             type="text"
-            required
-            placeholder="Escriba el número"
+            placeholder="Escriba el número (Opcional)"
             value={fields.formDocNumber}
             onChange={(e) => fields.setFormDocNumber(e.target.value)}
             className="border border-gray-200 rounded-lg p-2.5 text-xs outline-none bg-[#F9FAFB] focus:border-[#8CC63F]"

@@ -186,7 +186,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
   });
 
   // Calculate top bar metrics (trycontroller style: clients / paid / balance)
-  const clientsCount = sales.filter(s => s.status === 'active').length || 65;
+  const clientsCount = sales.filter(s => s.status === 'active').length;
   const paidCount = collections.filter(c => {
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
@@ -201,9 +201,9 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       }
     }
     return dt ? dt.getTime() >= startOfToday.getTime() : false;
-  }).length || 3;
+  }).length;
   
-  const totalBalanceCents = sales.reduce((sum, s) => sum + (s.saldoPendienteCents || s.balance || 0), 0) || 100800500;
+  const totalBalanceCents = sales.reduce((sum, s) => sum + (s.saldoPendienteCents ?? s.balance ?? 0), 0);
   const totalBalanceString = (totalBalanceCents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 
   const [isTourActive, setIsTourActive] = useState(localStorage.getItem('cm_tour_completed') !== 'true');
@@ -272,9 +272,9 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
       await promiseWithTimeout(
         setDoc(doc(db, 'customers', newCustomerId), {
           tenantId: tenantId || 'tenant_oficinabrasil',
-          unitId: activeBox?.unitId || 'unit-demo',
-          unitName: activeBox?.unitName || 'Unidad Demo',
-          businessCenterId: activeBox?.cnId || 'bc-demo',
+          unitId: activeBox?.unitId || (usuarioUnidades && usuarioUnidades[0]) || 'unit_ceu_azul_gringo',
+          unitName: activeBox?.unitName || 'Unidade Principal',
+          businessCenterId: activeBox?.cnId || 'bc_ceu_azul_gringo',
           city: city || 'Brasilia',
           name: firstName,
           secondName: middleName || '',
@@ -375,6 +375,7 @@ export function VendedorMobile({ onNavigate, params }: VendedorMobileProps) {
             clientId: saleClient.id,
             clientName: saleClient.name,
             amountCents: totalAmountCents,
+            disbursedAmountCents: amtCents,
             installmentAmountCents,
             totalInstallments: Number(saleInstallments),
             date: new Date().toISOString().split('T')[0],

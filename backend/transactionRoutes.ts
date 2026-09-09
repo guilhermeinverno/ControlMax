@@ -25,6 +25,7 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
     clientId, 
     clientName, 
     amountCents, 
+    disbursedAmountCents,
     installmentAmountCents, 
     totalInstallments, 
     date, 
@@ -76,6 +77,9 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
 
       const saleRef = adminDb.collection("sales").doc();
       const parsedAmount = Math.round(Number(amountCents));
+      const parsedDisbursed = disbursedAmountCents !== undefined && Number(disbursedAmountCents) > 0
+        ? Math.round(Number(disbursedAmountCents))
+        : parsedAmount;
       const parsedInstallmentAmount = Math.round(Number(installmentAmountCents));
 
       const salePayload = {
@@ -85,6 +89,7 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
         clientId,
         clientName,
         amount: parsedAmount,
+        principalAmount: parsedDisbursed,
         balance: parsedAmount,
         saldoPendienteCents: parsedAmount,
         installmentAmount: parsedInstallmentAmount,
@@ -105,8 +110,8 @@ router.post("/sale", async (req: AuthenticatedRequest, res: Response) => {
 
       transaction.set(saleRef, salePayload);
 
-      // Atualizar totais de venda do caixa
-      const newTotalSales = (boxData.totalSales || 0) + parsedAmount;
+      // Atualizar totais de venda do caixa deduzindo o capital desembolsado da gaveta
+      const newTotalSales = (boxData.totalSales || 0) + parsedDisbursed;
       const newFinalAmount =
         (boxData.initialAmount || 0) +
         (boxData.totalCollections || 0) +
@@ -227,12 +232,13 @@ router.post("/collection", async (req: AuthenticatedRequest, res: Response) => {
       const instAmt = Number(saleData.installmentAmountCents || saleData.installmentAmount || 12000);
       let additionalPaid = 0;
       if (parsedAmount > 0 && instAmt > 0) {
-        additionalPaid = Math.max(1, Math.round(parsedAmount / instAmt));
+        additionalPaid = Math.floor(parsedAmount / instAmt);
       }
       const newPaidInstallments = (saleData.paidInstallments || 0) + additionalPaid;
 
       transaction.update(saleRef, {
         saldoPendienteCents: computedNewBalance,
+        balance: computedNewBalance,
         paidInstallments: newPaidInstallments,
         lastPaymentAt: FieldValue.serverTimestamp(),
         status: computedNewBalance <= 0 ? "completed" : (saleData.status || "active"),

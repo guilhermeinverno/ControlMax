@@ -46,8 +46,8 @@ export function Layout({ children, currentScreen, onNavigate, isSuperAdmin }: La
 
     const unsub = onSnapshot(q, (snapshot) => {
       const activeSales = snapshot.docs.map(d => d.data());
-      const clientsCount = activeSales.length || 65;
-      const totalBal = activeSales.reduce((sum, s) => sum + (Number(s.saldoPendienteCents || s.balance || 0)), 0) || 1007951;
+      const clientsCount = activeSales.length;
+      const totalBal = activeSales.reduce((sum, s) => sum + (Number(s.saldoPendienteCents ?? s.balance ?? 0)), 0);
 
       setCollectorStats(prev => ({
         ...prev,

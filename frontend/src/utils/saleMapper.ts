@@ -13,7 +13,7 @@ export function mapSaleFromSnapshot(
     clientName: String(data.clientName || ''),
     clientDoc: String(data.clientDoc || ''),
     amount: Number(data.amount || 0),
-    balance: Number(data.balance ?? data.saldoPendienteCents ?? 0),
+    balance: Number(data.saldoPendienteCents ?? data.balance ?? 0),
     status: String(data.status || 'active'),
     idPreVenta: data.idPreVenta ? String(data.idPreVenta) : undefined,
     saldoPendiente: data.saldoPendiente ? String(data.saldoPendiente) : undefined,
